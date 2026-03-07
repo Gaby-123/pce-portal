@@ -3,242 +3,493 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PCE Portal — Login</title>
+  <title>PCE Portal — Sign In</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      min-height: 100vh;
-      background: linear-gradient(135deg, #1e3a5f 0%, #0d6efd 100%);
+      font-family: 'DM Sans', sans-serif;
+      overflow: hidden;
+    }
+
+    .pce-login-wrap {
+      width: 100vw;
+      height: 100vh;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Segoe UI', sans-serif;
+      flex-direction: row;
+      background: #fff;
+      overflow: hidden;
     }
-    .login-card {
-      background: white;
-      border-radius: 16px;
-      padding: 40px;
-      width: 100%;
-      max-width: 420px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+
+    /* ── LEFT SLIDESHOW ── */
+    .pce-slide-panel {
+      width: 58%;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
     }
-    .logo-wrap {
-      text-align: center;
-      margin-bottom: 24px;
+    .pce-slides-track {
+      display: flex;
+      height: 100%;
+      transition: transform 0.85s cubic-bezier(0.77, 0, 0.175, 1);
+      will-change: transform;
     }
-    .logo-wrap img {
-      width: 80px;
-      height: 80px;
-      object-fit: contain;
+    .pce-slide {
+      min-width: 100%;
+      height: 100vh;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      flex-shrink: 0;
     }
-    .college-name {
-      font-size: 13px;
-      font-weight: 700;
-      color: #1e3a5f;
-      text-align: center;
-      margin-top: 8px;
-      line-height: 1.4;
+    .pce-slide:nth-child(1) { background-image: url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1400&q=90&fit=crop'); }
+    .pce-slide:nth-child(2) { background-image: url('https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=1400&q=90&fit=crop'); }
+    .pce-slide:nth-child(3) { background-image: url('https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=1400&q=90&fit=crop'); }
+    .pce-slide:nth-child(4) { background-image: url('https://images.unsplash.com/photo-1544717305-2782549b5136?w=1400&q=90&fit=crop'); }
+    .pce-slide:nth-child(5) { background-image: url('https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1400&q=90&fit=crop'); }
+
+    .pce-slide::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(150deg, rgba(8,18,55,0.76) 0%, rgba(8,18,55,0.48) 55%, rgba(8,18,55,0.30) 100%);
     }
-    .form-label { font-weight: 600; color: #374151; font-size: 14px; }
-    .form-control:focus { border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,0.15); }
-    .btn-login {
-      background: linear-gradient(135deg, #1e3a5f, #0d6efd);
-      border: none;
-      border-radius: 8px;
-      padding: 12px;
-      font-weight: 600;
-      font-size: 15px;
-      letter-spacing: 0.5px;
+
+    .pce-brand {
+      position: absolute; top: 26px; left: 32px;
+      z-index: 30; display: flex; align-items: center; gap: 10px;
     }
-    .btn-login:hover { opacity: 0.9; }
-    .footer-text {
-      text-align: center;
-      font-size: 11px;
-      color: #9ca3af;
-      margin-top: 20px;
+    .pce-brand img {
+      width: 40px; height: 40px; object-fit: contain;
+      background: white; border-radius: 7px; padding: 3px;
+    }
+    .pce-brand-text { color: white; font-size: 0.78rem; font-weight: 600; line-height: 1.35; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
+    .pce-brand-text small { display: block; font-size: 0.60rem; font-weight: 400; opacity: 0.75; letter-spacing: 1.2px; text-transform: uppercase; }
+
+    .pce-slide-content { position: absolute; bottom: 80px; left: 46px; right: 46px; z-index: 20; color: white; }
+    .pce-slide-tag {
+      display: inline-block; background: rgba(255,255,255,0.14); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.22); font-size: 0.67rem; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase; padding: 5px 13px; border-radius: 20px; margin-bottom: 13px;
+    }
+    .pce-slide-title { font-family: 'Playfair Display', serif; font-size: 2.45rem; font-weight: 700; line-height: 1.18; margin-bottom: 11px; text-shadow: 0 2px 20px rgba(0,0,0,0.3); }
+    .pce-slide-sub { font-size: 0.88rem; color: rgba(255,255,255,0.80); line-height: 1.65; max-width: 420px; }
+
+    .pce-dots {
+      position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 7px; z-index: 30;
+    }
+    .pce-dot {
+      width: 8px; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.36);
+      border: none; outline: none; cursor: pointer; transition: all 0.4s ease; padding: 0;
+    }
+    .pce-dot.active { width: 26px; background: white; }
+
+    /* ── RIGHT LOGIN PANEL ── */
+    .pce-login-panel {
+      flex: 1; height: 100vh; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; background: white;
+      padding: 40px 50px; position: relative; overflow-y: auto;
+    }
+    .pce-login-inner { width: 100%; max-width: 355px; }
+
+    .pce-logo-block { text-align: center; margin-bottom: 26px; }
+    .pce-logo-block img { width: 62px; height: 62px; object-fit: contain; display: block; margin: 0 auto 12px; }
+    .pce-logo-block h2 { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; line-height: 1.35; }
+    .pce-logo-block p { font-size: 0.74rem; color: #94a3b8; margin: 0; }
+
+    .pce-divider { border: none; border-top: 1.5px solid #f0f4f8; margin: 0 0 22px; }
+    .pce-form-heading { text-align: center; font-size: 0.90rem; font-weight: 600; color: #2d3748; margin-bottom: 20px; }
+
+    #pce-errorDisplay {
+      background: #fff5f5; border: 1px solid #fed7d7; color: #c53030;
+      padding: 9px 13px; border-radius: 7px; font-size: 0.80rem; font-weight: 500;
+      margin-bottom: 15px; display: none; align-items: center; gap: 7px;
+    }
+
+    .pce-field { margin-bottom: 15px; }
+    .pce-field label { display: block; font-size: 0.75rem; font-weight: 600; color: #4a5568; margin-bottom: 6px; }
+    .pce-field-wrap { position: relative; }
+    .pce-field-wrap input {
+      width: 100%; height: 44px; padding: 0 44px 0 13px;
+      border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 0.88rem;
+      font-family: 'DM Sans', sans-serif; color: #1a1a2e; background: #f8fafc;
+      outline: none; transition: all 0.2s; box-sizing: border-box;
+    }
+    .pce-field-wrap input:focus { border-color: #1a73e8; background: white; box-shadow: 0 0 0 3px rgba(26,115,232,0.10); }
+    .pce-field-wrap input::placeholder { color: #b2bec3; font-size: 0.84rem; }
+    .pce-field-icon {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      color: #94a3b8; font-size: 0.93rem; background: none; border: none;
+      padding: 4px; cursor: pointer; line-height: 1; transition: color 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pce-field-icon:hover { color: #1a73e8; }
+
+    .pce-options { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 20px; }
+    .pce-remember { display: flex; align-items: center; gap: 7px; font-size: 0.79rem; color: #4a5568; font-weight: 500; cursor: pointer; user-select: none; }
+    .pce-remember input { width: 14px; height: 14px; accent-color: #1a73e8; cursor: pointer; }
+
+    .pce-forgot { font-size: 0.79rem; color: #1a73e8; font-weight: 500; text-decoration: none; background: none; border: none; cursor: pointer; padding: 0; }
+    .pce-forgot:hover { color: #1557b0; text-decoration: underline; }
+
+    #pce-loginBtn {
+      width: 100%; height: 46px; background: #1a73e8; color: white;
+      border: none; border-radius: 8px; font-size: 0.92rem; font-family: 'DM Sans', sans-serif;
+      font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 8px; transition: all 0.22s; letter-spacing: 0.2px;
+    }
+    #pce-loginBtn:hover:not(:disabled) { background: #1557b0; box-shadow: 0 6px 18px rgba(26,115,232,0.30); transform: translateY(-1px); }
+    #pce-loginBtn:disabled { opacity: 0.70; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .pce-btn-spinner {
+      width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: white; border-radius: 50%;
+      animation: pceSpin 0.65s linear infinite; display: none; flex-shrink: 0;
+    }
+    @keyframes pceSpin { to { transform: rotate(360deg); } }
+
+    .pce-footer { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 0.69rem; color: #b0bbc8; }
+    .pce-footer strong { color: #94a3b8; font-weight: 600; }
+
+    @media (max-width: 768px) {
+      .pce-slide-panel { display: none; }
+      .pce-login-panel { padding: 30px 22px; }
     }
   </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="logo-wrap">
-      <img src="https://pce.edu.gh/newimg/logo.png" alt="PCE Logo"
-           onerror="this.style.display='none'">
-      <div class="college-name">
-        PRESBYTERIAN COLLEGE OF EDUCATION<br>
-        <span style="font-weight:400;color:#6b7280;">Akropong-Akuapem</span>
+
+<div class="pce-login-wrap" id="pceLoginWrap">
+
+  <!-- LEFT: SLIDESHOW -->
+  <div class="pce-slide-panel">
+    <div class="pce-brand">
+      <img src="https://pce.edu.gh/newimg/logo.png" alt="PCE">
+      <div class="pce-brand-text">PCE Akropong<small>School Management System</small></div>
+    </div>
+
+    <div class="pce-slides-track" id="pceSlidesTrack">
+      <div class="pce-slide">
+        <div class="pce-slide-content">
+          <div class="pce-slide-tag">Welcome to PCE</div>
+          <div class="pce-slide-title">A Solution<br>That Works</div>
+          <div class="pce-slide-sub">Manage students, courses, assessments, finance and graduation — all in one place.</div>
+        </div>
+      </div>
+      <div class="pce-slide">
+        <div class="pce-slide-content">
+          <div class="pce-slide-tag">Student Portal</div>
+          <div class="pce-slide-title">Register Courses<br>With Ease</div>
+          <div class="pce-slide-sub">Students register for courses, view results and download transcripts instantly.</div>
+        </div>
+      </div>
+      <div class="pce-slide">
+        <div class="pce-slide-content">
+          <div class="pce-slide-tag">Finance Office</div>
+          <div class="pce-slide-title">Real-Time<br>Payment Tracking</div>
+          <div class="pce-slide-sub">Finance officers manage payments with live updates directly to students.</div>
+        </div>
+      </div>
+      <div class="pce-slide">
+        <div class="pce-slide-content">
+          <div class="pce-slide-tag">Assessment</div>
+          <div class="pce-slide-title">Upload Results<br>Instantly</div>
+          <div class="pce-slide-sub">Assessment officers upload grades and generate official PDF transcripts in seconds.</div>
+        </div>
+      </div>
+      <div class="pce-slide">
+        <div class="pce-slide-content">
+          <div class="pce-slide-tag">Registry</div>
+          <div class="pce-slide-title">Full Academic<br>Records Control</div>
+          <div class="pce-slide-sub">Registry manages student bio-data, registrations and annual level promotions.</div>
+        </div>
       </div>
     </div>
 
-    <h5 class="text-center mb-4" style="color:#1e3a5f;font-weight:700;">
-      Academic Portal
-    </h5>
+    <div class="pce-dots" id="pceDots"></div>
+  </div>
 
-    <div id="errorBox" class="alert alert-danger d-none" role="alert"></div>
+  <!-- RIGHT: LOGIN FORM -->
+  <div class="pce-login-panel">
+    <div class="pce-login-inner">
 
-    <div class="mb-3">
-      <label class="form-label">Email Address</label>
-      <input type="email" id="emailInput" class="form-control"
-             placeholder="your@email.com" autocomplete="email">
+      <div class="pce-logo-block">
+        <img src="https://pce.edu.gh/newimg/logo.png" alt="PCE Logo">
+        <h2>Presbyterian College of Education</h2>
+        <p>P. O. Box 27, Akropong-Akuapem</p>
+      </div>
+
+      <hr class="pce-divider">
+      <div class="pce-form-heading">Enter Your Credentials To Sign In</div>
+
+      <div id="pce-errorDisplay">
+        <i class="bi bi-exclamation-circle-fill"></i>
+        <span id="pce-errorText">Invalid email or password</span>
+      </div>
+
+      <div class="pce-field">
+        <label for="pce-email">Your Email Address</label>
+        <div class="pce-field-wrap">
+          <input type="email" id="pce-email" placeholder="yourname@pce.edu.gh"
+            autocomplete="email"
+            onkeydown="if(event.key==='Enter') document.getElementById('pce-password').focus()">
+          <span class="pce-field-icon"><i class="bi bi-envelope"></i></span>
+        </div>
+      </div>
+
+      <div class="pce-field">
+        <label for="pce-password">Password</label>
+        <div class="pce-field-wrap">
+          <input type="password" id="pce-password" placeholder="••••••••••"
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') submitLogin()">
+          <button class="pce-field-icon" type="button" onclick="togglePassword()">
+            <i class="bi bi-eye" id="pce-eyeIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="pce-options">
+        <label class="pce-remember">
+          <input type="checkbox" id="pce-rememberMe"> Remember my email
+        </label>
+        <button class="pce-forgot" type="button" onclick="forgotPassword()">Forgot Password?</button>
+      </div>
+
+      <button id="pce-loginBtn" onclick="submitLogin()">
+        <i class="bi bi-box-arrow-in-right" id="pce-btnIcon"></i>
+        <span id="pce-btnText">Sign In</span>
+        <div class="pce-btn-spinner" id="pce-btnSpinner"></div>
+      </button>
+
     </div>
 
-    <div class="mb-3">
-      <label class="form-label">Password</label>
-      <input type="password" id="passwordInput" class="form-control"
-             placeholder="Enter password" autocomplete="current-password">
-    </div>
-
-    <div class="mb-3 form-check">
-      <input type="checkbox" class="form-check-input" id="rememberMe">
-      <label class="form-check-label" for="rememberMe" style="font-size:13px;">
-        Remember my email
-      </label>
-    </div>
-
-    <button class="btn btn-primary btn-login w-100" id="loginBtn"
-            onclick="submitLogin()">
-      Sign In
-    </button>
-
-    <div class="footer-text">
-      Presbyterian College of Education &copy; 2025<br>
-      Established 1848 | Akropong-Akuapem
+    <div class="pce-footer">
+      © 2025 <strong>Presbyterian College of Education</strong> · Akropong-Akuapem
     </div>
   </div>
 
-  <script>
-    // ── Supabase client ───────────────────────────────────────────
-    const SUPABASE_URL = 'https://ilgfjyokqyoonteqzgbx.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsZ2ZqeW9rcXlvb250ZXF6Z2J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDc2NTgsImV4cCI6MjA4Nzc4MzY1OH0.ZWjz-J9J09QjVKFylOIjgXg5ey4Z6rvKU29AM3CQoTQ';
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</div>
 
-    // ── Restore remembered email ──────────────────────────────────
-    window.addEventListener('DOMContentLoaded', function () {
-      const saved = localStorage.getItem('pce_saved_email');
-      if (saved) {
-        document.getElementById('emailInput').value = saved;
-        document.getElementById('rememberMe').checked = true;
+<script>
+  // ── Supabase client ───────────────────────────────────────
+  const SUPABASE_URL = 'https://ilgfjyokqyoonteqzgbx.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsZ2ZqeW9rcXlvb250ZXF6Z2J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDc2NTgsImV4cCI6MjA4Nzc4MzY1OH0.ZWjz-J9J09QjVKFylOIjgXg5ey4Z6rvKU29AM3CQoTQ';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ── Slideshow ─────────────────────────────────────────────
+  var _timer = null, _current = 0;
+
+  function goTo(n) {
+    var track = document.getElementById('pceSlidesTrack');
+    var dots  = document.getElementById('pceDots');
+    if (!track) return;
+    var total = track.querySelectorAll('.pce-slide').length;
+    _current  = (n + total) % total;
+    track.style.transform = 'translateX(-' + (_current * 100) + '%)';
+    if (dots) {
+      dots.querySelectorAll('.pce-dot').forEach(function(d, i) {
+        d.classList.toggle('active', i === _current);
+      });
+    }
+  }
+
+  function startSlideshow() {
+    var track = document.getElementById('pceSlidesTrack');
+    var dots  = document.getElementById('pceDots');
+    if (!track) return;
+    var total = track.querySelectorAll('.pce-slide').length;
+    if (dots && dots.children.length === 0) {
+      for (var i = 0; i < total; i++) {
+        (function(idx) {
+          var d = document.createElement('button');
+          d.className = 'pce-dot' + (idx === 0 ? ' active' : '');
+          d.addEventListener('click', function() {
+            goTo(idx);
+            clearInterval(_timer);
+            _timer = setInterval(function() { goTo(_current + 1); }, 3000);
+          });
+          dots.appendChild(d);
+        })(i);
       }
-    });
+    }
+    goTo(0);
+    clearInterval(_timer);
+    _timer = setInterval(function() { goTo(_current + 1); }, 3000);
+  }
 
-    // ── SHA-256 hash (matches Code.gs hashPassword) ───────────────
-    async function hashPassword(password) {
-      const msgBuffer = new TextEncoder().encode(password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-      const hashArray  = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  // ── Password toggle ───────────────────────────────────────
+  function togglePassword() {
+    var inp  = document.getElementById('pce-password');
+    var icon = document.getElementById('pce-eyeIcon');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      icon.className = 'bi bi-eye-slash';
+    } else {
+      inp.type = 'password';
+      icon.className = 'bi bi-eye';
+    }
+  }
+
+  // ── Forgot password ───────────────────────────────────────
+  function forgotPassword() {
+    Swal.fire({
+      icon: 'info', title: 'Password Reset',
+      html: '<div style="text-align:center;padding:8px 0;">'
+          + '<div style="font-size:2.8rem;margin-bottom:12px;">🔐</div>'
+          + '<p style="font-size:0.95rem;color:#2d3748;margin-bottom:8px;">To reset your password, please visit the</p>'
+          + '<p style="font-size:1.1rem;font-weight:700;color:#1a73e8;margin-bottom:8px;">ICT Office</p>'
+          + '<p style="font-size:0.82rem;color:#718096;">A staff member will verify your identity and reset your password for you.</p>'
+          + '</div>',
+      confirmButtonText: 'Okay, Got It',
+      confirmButtonColor: '#1a73e8'
+    });
+  }
+
+  // ── SHA-256 (matches Code.gs hashPassword exactly) ────────
+  async function hashPassword(password) {
+    const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  // ── Login ─────────────────────────────────────────────────
+  async function submitLogin() {
+    const email    = document.getElementById('pce-email').value.trim().toLowerCase();
+    const password = document.getElementById('pce-password').value.trim();
+    const btn      = document.getElementById('pce-loginBtn');
+    const btnTxt   = document.getElementById('pce-btnText');
+    const btnIco   = document.getElementById('pce-btnIcon');
+    const btnSpn   = document.getElementById('pce-btnSpinner');
+    const errEl    = document.getElementById('pce-errorDisplay');
+    const errTxt   = document.getElementById('pce-errorText');
+
+    errEl.style.display = 'none';
+
+    if (!email || !password) {
+      Swal.fire({ icon: 'info', title: 'Missing Fields',
+        text: 'Please enter both your email and password.',
+        confirmButtonColor: '#1a73e8' });
+      return;
     }
 
-    // ── Login ─────────────────────────────────────────────────────
-    async function submitLogin() {
-      const email    = document.getElementById('emailInput').value.trim().toLowerCase();
-      const password = document.getElementById('passwordInput').value.trim();
-      const btn      = document.getElementById('loginBtn');
-      const errorBox = document.getElementById('errorBox');
+    // Loading state
+    btn.disabled      = true;
+    btnTxt.textContent = 'Authenticating...';
+    btnIco.style.display = 'none';
+    btnSpn.style.display = 'inline-block';
 
-      errorBox.classList.add('d-none');
+    function resetBtn() {
+      btn.disabled       = false;
+      btnTxt.textContent = 'Sign In';
+      btnIco.style.display = 'inline';
+      btnSpn.style.display = 'none';
+    }
 
-      if (!email || !password) {
-        Swal.fire({ icon: 'info', title: 'Missing Fields',
-          text: 'Please enter both your email and password.',
-          confirmButtonColor: '#0d6efd' });
+    function showError(msg) {
+      resetBtn();
+      errTxt.textContent  = msg;
+      errEl.style.display = 'flex';
+    }
+
+    try {
+      // 1. Fetch user
+      const { data: users, error } = await db
+        .from('users').select('*').eq('email', email).limit(1);
+
+      if (error || !users || users.length === 0) {
+        showError('Invalid email or password.');
         return;
       }
 
-      btn.disabled = true;
-      btn.innerHTML = 'Authenticating... <span class="spinner-border spinner-border-sm"></span>';
+      const user = users[0];
 
-      try {
-        // 1. Fetch user record
-        const { data: users, error } = await db
-          .from('users')
-          .select('*')
-          .eq('email', email)
-          .limit(1);
-
-        if (error || !users || users.length === 0) {
-          showError(btn, errorBox, 'Invalid email or password.');
-          return;
-        }
-
-        const user = users[0];
-
-        // 2. Check lockout
-        if (user.locked_until && new Date(user.locked_until) > new Date()) {
-          const mins = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
-          showError(btn, errorBox, 'Account locked. Try again in ' + mins + ' minute(s).');
-          return;
-        }
-
-        // 3. Hash and compare password
-        const hashed = await hashPassword(password);
-        if (hashed !== user.password) {
-          const attempts = (user.failed_attempts || 0) + 1;
-          const patch    = attempts >= 5
-            ? { failed_attempts: attempts,
-                locked_until: new Date(Date.now() + 15 * 60000).toISOString() }
-            : { failed_attempts: attempts };
-          await db.from('users').update(patch).eq('email', email);
-          const msg = attempts >= 5
-            ? 'Too many failed attempts. Account locked for 15 minutes.'
-            : 'Invalid email or password. ' + (5 - attempts) + ' attempt(s) remaining.';
-          showError(btn, errorBox, msg);
-          return;
-        }
-
-        // 4. Reset failed attempts
-        await db.from('users')
-          .update({ failed_attempts: 0, locked_until: null })
-          .eq('email', email);
-
-        // 5. Save session
-        const session = {
-          email:        user.email,
-          role:         user.role.toUpperCase(),
-          isFirstLogin: user.is_first_login === true ||
-                        String(user.is_first_login).toUpperCase() === 'TRUE',
-          token:        crypto.randomUUID()
-        };
-        sessionStorage.setItem('pce_session', JSON.stringify(session));
-
-        // 6. Remember email if checked
-        if (document.getElementById('rememberMe').checked) {
-          localStorage.setItem('pce_saved_email', email);
-        } else {
-          localStorage.removeItem('pce_saved_email');
-        }
-
-        // 7. Redirect
-        const Toast = Swal.mixin({ toast: true, position: 'top-end',
-          showConfirmButton: false, timer: 2000, timerProgressBar: true });
-        Toast.fire({ icon: 'success', title: 'Signed in successfully' });
-
-        setTimeout(function () {
-          if (session.isFirstLogin) {
-            window.location.href = 'reset-password.html';
-          } else {
-            window.location.href = 'dashboard.html';
-          }
-        }, 1500);
-
-      } catch (e) {
-        showError(btn, errorBox, 'System error: ' + e.message);
+      // 2. Lockout check
+      if (user.locked_until && new Date(user.locked_until) > new Date()) {
+        const mins = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+        showError('Account locked. Try again in ' + mins + ' minute(s).');
+        return;
       }
+
+      // 3. Password check
+      const hashed = await hashPassword(password);
+      if (hashed !== user.password) {
+        const attempts = (user.failed_attempts || 0) + 1;
+        const patch    = attempts >= 5
+          ? { failed_attempts: attempts, locked_until: new Date(Date.now() + 15*60000).toISOString() }
+          : { failed_attempts: attempts };
+        await db.from('users').update(patch).eq('email', email);
+        showError(attempts >= 5
+          ? 'Too many failed attempts. Account locked for 15 minutes.'
+          : 'Invalid email or password. ' + (5 - attempts) + ' attempt(s) remaining.');
+        return;
+      }
+
+      // 4. Reset failed attempts
+      await db.from('users').update({ failed_attempts: 0, locked_until: null }).eq('email', email);
+
+      // 5. Save session to sessionStorage
+      const session = {
+        email:        user.email,
+        role:         String(user.role).toUpperCase(),
+        isFirstLogin: user.is_first_login === true || String(user.is_first_login).toUpperCase() === 'TRUE'
+      };
+      sessionStorage.setItem('pce_session', JSON.stringify(session));
+
+      // 6. Remember email
+      const rememberMe = document.getElementById('pce-rememberMe');
+      if (rememberMe && rememberMe.checked) {
+        localStorage.setItem('pce_saved_email', email);
+      } else {
+        localStorage.removeItem('pce_saved_email');
+      }
+
+      // 7. Success toast then redirect
+      Swal.mixin({ toast: true, position: 'top-end',
+        showConfirmButton: false, timer: 1500, timerProgressBar: true })
+        .fire({ icon: 'success', title: 'Signed in successfully' });
+
+      clearInterval(_timer);
+
+      setTimeout(function() {
+        if (session.isFirstLogin) {
+          window.location.href = 'reset-password.html';
+        } else {
+          window.location.href = 'dashboard.html';
+        }
+      }, 1500);
+
+    } catch(e) {
+      showError('System error: ' + e.message);
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', function() {
+    startSlideshow();
+
+    // Restore saved email
+    const saved = localStorage.getItem('pce_saved_email');
+    if (saved) {
+      document.getElementById('pce-email').value = saved;
+      document.getElementById('pce-rememberMe').checked = true;
+      setTimeout(function() { document.getElementById('pce-password').focus(); }, 300);
     }
 
-    function showError(btn, errorBox, message) {
-      btn.disabled = false;
-      btn.innerHTML = 'Sign In';
-      errorBox.textContent = message;
-      errorBox.classList.remove('d-none');
-    }
-
-    // Allow Enter key to submit
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') submitLogin();
+    // Hide error on typing
+    ['pce-email','pce-password'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', function() {
+        document.getElementById('pce-errorDisplay').style.display = 'none';
+      });
     });
-  </script>
+  });
+</script>
 </body>
 </html>
