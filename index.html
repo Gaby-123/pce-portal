@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCE Portal — Login</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0d6efd 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .login-card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .logo-wrap {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .logo-wrap img {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+    }
+    .college-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e3a5f;
+      text-align: center;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+    .form-label { font-weight: 600; color: #374151; font-size: 14px; }
+    .form-control:focus { border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,0.15); }
+    .btn-login {
+      background: linear-gradient(135deg, #1e3a5f, #0d6efd);
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+    }
+    .btn-login:hover { opacity: 0.9; }
+    .footer-text {
+      text-align: center;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="logo-wrap">
+      <img src="https://pce.edu.gh/newimg/logo.png" alt="PCE Logo"
+           onerror="this.style.display='none'">
+      <div class="college-name">
+        PRESBYTERIAN COLLEGE OF EDUCATION<br>
+        <span style="font-weight:400;color:#6b7280;">Akropong-Akuapem</span>
+      </div>
+    </div>
+
+    <h5 class="text-center mb-4" style="color:#1e3a5f;font-weight:700;">
+      Academic Portal
+    </h5>
+
+    <div id="errorBox" class="alert alert-danger d-none" role="alert"></div>
+
+    <div class="mb-3">
+      <label class="form-label">Email Address</label>
+      <input type="email" id="emailInput" class="form-control"
+             placeholder="your@email.com" autocomplete="email">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input type="password" id="passwordInput" class="form-control"
+             placeholder="Enter password" autocomplete="current-password">
+    </div>
+
+    <div class="mb-3 form-check">
+      <input type="checkbox" class="form-check-input" id="rememberMe">
+      <label class="form-check-label" for="rememberMe" style="font-size:13px;">
+        Remember my email
+      </label>
+    </div>
+
+    <button class="btn btn-primary btn-login w-100" id="loginBtn"
+            onclick="submitLogin()">
+      Sign In
+    </button>
+
+    <div class="footer-text">
+      Presbyterian College of Education &copy; 2025<br>
+      Established 1848 | Akropong-Akuapem
+    </div>
+  </div>
+
+  <script>
+    // ── Supabase client ───────────────────────────────────────────
+    const SUPABASE_URL = 'https://ilgfjyokqyoonteqzgbx.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsZ2ZqeW9rcXlvb250ZXF6Z2J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDc2NTgsImV4cCI6MjA4Nzc4MzY1OH0.ZWjz-J9J09QjVKFylOIjgXg5ey4Z6rvKU29AM3CQoTQ';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ── Restore remembered email ──────────────────────────────────
+    window.addEventListener('DOMContentLoaded', function () {
+      const saved = localStorage.getItem('pce_saved_email');
+      if (saved) {
+        document.getElementById('emailInput').value = saved;
+        document.getElementById('rememberMe').checked = true;
+      }
+    });
+
+    // ── SHA-256 hash (matches Code.gs hashPassword) ───────────────
+    async function hashPassword(password) {
+      const msgBuffer = new TextEncoder().encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray  = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // ── Login ─────────────────────────────────────────────────────
+    async function submitLogin() {
+      const email    = document.getElementById('emailInput').value.trim().toLowerCase();
+      const password = document.getElementById('passwordInput').value.trim();
+      const btn      = document.getElementById('loginBtn');
+      const errorBox = document.getElementById('errorBox');
+
+      errorBox.classList.add('d-none');
+
+      if (!email || !password) {
+        Swal.fire({ icon: 'info', title: 'Missing Fields',
+          text: 'Please enter both your email and password.',
+          confirmButtonColor: '#0d6efd' });
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = 'Authenticating... <span class="spinner-border spinner-border-sm"></span>';
+
+      try {
+        // 1. Fetch user record
+        const { data: users, error } = await db
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .limit(1);
+
+        if (error || !users || users.length === 0) {
+          showError(btn, errorBox, 'Invalid email or password.');
+          return;
+        }
+
+        const user = users[0];
+
+        // 2. Check lockout
+        if (user.locked_until && new Date(user.locked_until) > new Date()) {
+          const mins = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+          showError(btn, errorBox, 'Account locked. Try again in ' + mins + ' minute(s).');
+          return;
+        }
+
+        // 3. Hash and compare password
+        const hashed = await hashPassword(password);
+        if (hashed !== user.password) {
+          const attempts = (user.failed_attempts || 0) + 1;
+          const patch    = attempts >= 5
+            ? { failed_attempts: attempts,
+                locked_until: new Date(Date.now() + 15 * 60000).toISOString() }
+            : { failed_attempts: attempts };
+          await db.from('users').update(patch).eq('email', email);
+          const msg = attempts >= 5
+            ? 'Too many failed attempts. Account locked for 15 minutes.'
+            : 'Invalid email or password. ' + (5 - attempts) + ' attempt(s) remaining.';
+          showError(btn, errorBox, msg);
+          return;
+        }
+
+        // 4. Reset failed attempts
+        await db.from('users')
+          .update({ failed_attempts: 0, locked_until: null })
+          .eq('email', email);
+
+        // 5. Save session
+        const session = {
+          email:        user.email,
+          role:         user.role.toUpperCase(),
+          isFirstLogin: user.is_first_login === true ||
+                        String(user.is_first_login).toUpperCase() === 'TRUE',
+          token:        crypto.randomUUID()
+        };
+        sessionStorage.setItem('pce_session', JSON.stringify(session));
+
+        // 6. Remember email if checked
+        if (document.getElementById('rememberMe').checked) {
+          localStorage.setItem('pce_saved_email', email);
+        } else {
+          localStorage.removeItem('pce_saved_email');
+        }
+
+        // 7. Redirect
+        const Toast = Swal.mixin({ toast: true, position: 'top-end',
+          showConfirmButton: false, timer: 2000, timerProgressBar: true });
+        Toast.fire({ icon: 'success', title: 'Signed in successfully' });
+
+        setTimeout(function () {
+          if (session.isFirstLogin) {
+            window.location.href = 'reset-password.html';
+          } else {
+            window.location.href = 'dashboard.html';
+          }
+        }, 1500);
+
+      } catch (e) {
+        showError(btn, errorBox, 'System error: ' + e.message);
+      }
+    }
+
+    function showError(btn, errorBox, message) {
+      btn.disabled = false;
+      btn.innerHTML = 'Sign In';
+      errorBox.textContent = message;
+      errorBox.classList.remove('d-none');
+    }
+
+    // Allow Enter key to submit
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') submitLogin();
+    });
+  </script>
+</body>
+</html>
