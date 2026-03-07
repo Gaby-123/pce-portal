@@ -1,105 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PCE — Finance Portal</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #f8fafc; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+<style>
+  :root { --pce-blue: #0284c7; --sidebar-width: 260px; }
+  .finance-container {
+    display: flex; height: calc(100vh - 62px);
+    background: #f8fafc; overflow: hidden;
+  }
+  .sidebar {
+    width: var(--sidebar-width); background: white;
+    border-right: 1px solid #e2e8f0; display: flex; flex-direction: column;
+    flex-shrink: 0;
+  }
+  .sidebar-header {
+    padding: 20px; border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white;
+  }
+  .sidebar-header h5 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+  .sidebar-menu { flex: 1; overflow-y: auto; padding: 10px 0; }
+  .menu-item {
+    display: flex; align-items: center; padding: 12px 20px;
+    color: #475569; cursor: pointer; border-left: 3px solid transparent;
+    transition: all 0.2s; text-decoration: none;
+  }
+  .menu-item:hover { background: #f1f5f9; color: #0284c7; border-left-color: #0284c7; }
+  .menu-item.active { background: #e0f2fe; color: #0284c7; border-left-color: #0284c7; font-weight: 600; }
+  .menu-item i { margin-right: 12px; font-size: 1.1rem; width: 20px; }
+  .main-content { flex: 1; overflow-y: auto; padding: 25px; }
+  .finance-section { display: none; animation: fadeInF 0.3s; }
+  .finance-section.active { display: block; }
+  @keyframes fadeInF { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .section-header { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
+  .section-header h4 { color: #0f172a; font-weight: 700; margin: 0; }
+  .stat-card {
+    background: white; border-radius: 10px; padding: 20px;
+    border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px;
+  }
+  @media (max-width: 768px) { .sidebar { display: none; } .finance-container { height: auto; } .main-content { padding: 15px; } }
+</style>
 
-    /* ── NAVBAR ── */
-    .user-profile-corner { display: flex; align-items: center; gap: 10px; }
-    .user-initials {
-      background: white !important; color: #0d6efd !important;
-      width: 35px; height: 35px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: bold; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0;
-    }
-    .custom-logout-btn {
-      background-color: white !important; color: #dc3545 !important;
-      border: 1px solid #dc3545 !important; transition: all 0.3s ease;
-    }
-    .custom-logout-btn:hover {
-      background-color: #dc3545 !important; color: white !important;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-
-    /* ── FINANCE LAYOUT ── */
-    :root { --pce-blue: #0284c7; --sidebar-width: 260px; }
-
-    .finance-container {
-      display: flex; height: calc(100vh - 62px);
-      background: #f8fafc; overflow: hidden;
-    }
-    .sidebar {
-      width: var(--sidebar-width); background: white;
-      border-right: 1px solid #e2e8f0; display: flex; flex-direction: column;
-    }
-    .sidebar-header {
-      padding: 20px; border-bottom: 1px solid #e2e8f0;
-      background: linear-gradient(135deg, var(--pce-blue) 0%, #0369a1 100%); color: white;
-    }
-    .sidebar-header h5 { margin: 0; font-size: 1.1rem; font-weight: 700; }
-    .sidebar-menu { flex: 1; overflow-y: auto; padding: 10px 0; }
-    .menu-item {
-      display: flex; align-items: center; padding: 12px 20px;
-      color: #475569; cursor: pointer; border-left: 3px solid transparent;
-      transition: all 0.2s; text-decoration: none;
-    }
-    .menu-item:hover { background: #f1f5f9; color: var(--pce-blue); border-left-color: var(--pce-blue); }
-    .menu-item.active { background: #e0f2fe; color: var(--pce-blue); border-left-color: var(--pce-blue); font-weight: 600; }
-    .menu-item i { margin-right: 12px; font-size: 1.1rem; width: 20px; }
-    .main-content { flex: 1; overflow-y: auto; padding: 25px; }
-    .finance-section { display: none; animation: fadeIn 0.3s; }
-    .finance-section.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .section-header { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
-    .section-header h4 { color: #0f172a; font-weight: 700; margin: 0; }
-    .stat-card {
-      background: white; border-radius: 10px; padding: 20px;
-      border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px;
-    }
-
-    @media (max-width: 768px) {
-      .sidebar { display: none; }
-      .finance-container { height: auto; }
-      .main-content { padding: 15px; }
-    }
-  </style>
-</head>
-<body>
-
-<!-- ── NAVBAR ── -->
-<nav class="navbar navbar-dark bg-primary" style="border-bottom:3px solid #0a58ca;">
-  <div class="container-fluid px-3 px-sm-4">
-    <a class="navbar-brand d-flex align-items-center" href="#" style="gap:10px;max-width:70%;">
-      <img src="https://pce.edu.gh/newimg/logo.png" alt="PCE" width="38" height="38"
-           style="background:white;padding:2px;border-radius:4px;flex-shrink:0;">
-      <div class="d-flex flex-column" style="line-height:1.1;overflow:hidden;">
-        <span class="fw-bold d-none d-sm-inline" style="font-size:0.9rem;">PRESBYTERIAN COLLEGE OF EDUCATION</span>
-        <span class="fw-bold d-inline d-sm-none" style="font-size:0.85rem;">PCE AKROPONG</span>
-        <small class="text-white-50" style="font-size:0.7rem;">AKROPONG-AKUAPEM</small>
-      </div>
-    </a>
-    <div class="user-profile-corner">
-      <div class="text-end d-none d-sm-block">
-        <div id="userNameDisplay" class="text-white" style="font-weight:500;line-height:1;font-size:0.85rem;">---</div>
-        <small class="text-white-50" style="font-size:0.65rem;text-transform:uppercase;">Finance Officer</small>
-      </div>
-      <div class="user-initials" id="userInitials">F</div>
-      <button class="btn btn-light btn-sm ms-2 fw-bold custom-logout-btn" onclick="logout()">Logout</button>
-    </div>
-  </div>
-</nav>
-
-<!-- ── FINANCE LAYOUT ── -->
 <div class="finance-container">
 
   <!-- SIDEBAR -->
@@ -108,23 +44,23 @@
       <h5><i class="bi bi-cash-stack me-2"></i>Finance Portal</h5>
       <p class="mb-0 small opacity-75">Payment &amp; Fee Management</p>
     </div>
-    <nav class="sidebar-menu finance-nav">
-      <a class="menu-item active" onclick="showSection('year-setup', this)">
+    <nav class="sidebar-menu">
+      <a class="menu-item active" onclick="finShowSection('year-setup', this)">
         <i class="bi bi-calendar-check"></i><span>Academic Year Setup</span>
       </a>
-      <a class="menu-item" onclick="showSection('fee-setup', this)">
+      <a class="menu-item" onclick="finShowSection('fee-setup', this)">
         <i class="bi bi-calculator"></i><span>Fee Structure Setup</span>
       </a>
-      <a class="menu-item" onclick="showSection('clearance', this)">
+      <a class="menu-item" onclick="finShowSection('clearance', this)">
         <i class="bi bi-check-circle"></i><span>Clearance Management</span>
       </a>
-      <a class="menu-item" onclick="showSection('payment-tracking', this)">
+      <a class="menu-item" onclick="finShowSection('payment-tracking', this)">
         <i class="bi bi-receipt"></i><span>Payment Tracking</span>
       </a>
-      <a class="menu-item" onclick="showSection('student-lookup', this)">
+      <a class="menu-item" onclick="finShowSection('student-lookup', this)">
         <i class="bi bi-search"></i><span>Student Financial Lookup</span>
       </a>
-      <a class="menu-item" onclick="showSection('reports', this)">
+      <a class="menu-item" onclick="finShowSection('reports', this)">
         <i class="bi bi-file-earmark-bar-graph"></i><span>Reports &amp; Export</span>
       </a>
     </nav>
@@ -139,7 +75,6 @@
         <h4><i class="bi bi-calendar-check me-2"></i>Academic Year Management</h4>
         <p class="text-muted mb-0">Activate the academic year students will be checked against</p>
       </div>
-
       <div class="stat-card mb-4">
         <div class="d-flex justify-content-between align-items-center">
           <div>
@@ -150,7 +85,6 @@
           <i class="bi bi-calendar2-check" style="font-size:3.5rem;color:#0284c7;opacity:0.2;"></i>
         </div>
       </div>
-
       <div class="row">
         <div class="col-md-5">
           <div class="stat-card">
@@ -165,7 +99,7 @@
                      placeholder="e.g., 2025/2026" style="font-size:1rem;font-weight:700;">
               <div class="form-text">Format: YYYY/YYYY</div>
             </div>
-            <button class="btn btn-danger w-100 fw-bold" onclick="confirmActivateYear()">
+            <button class="btn btn-danger w-100 fw-bold" onclick="finConfirmActivateYear()">
               <i class="bi bi-lightning-charge-fill me-2"></i>Activate This Academic Year
             </button>
             <div id="activateYearStatus" class="mt-2" style="display:none;"></div>
@@ -178,11 +112,7 @@
             <div style="max-height:380px;overflow-y:auto;">
               <table class="table table-sm table-hover mb-0">
                 <thead class="table-light sticky-top">
-                  <tr>
-                    <th>Academic Year</th><th class="text-center">Level</th>
-                    <th class="text-end">Fees (GH₵)</th><th class="text-center">Status</th>
-                    <th class="small text-muted">Set By</th>
-                  </tr>
+                  <tr><th>Academic Year</th><th class="text-center">Level</th><th class="text-end">Fees (GH₵)</th><th class="text-center">Status</th><th class="small text-muted">Set By</th></tr>
                 </thead>
                 <tbody id="yearFeeStatusTable">
                   <tr><td colspan="5" class="text-center p-3 text-muted">Loading...</td></tr>
@@ -221,7 +151,7 @@
               <label class="form-label small fw-bold">Total Fees (GH₵)</label>
               <input type="number" id="feeAmount" class="form-control" placeholder="e.g., 5000" step="0.01">
             </div>
-            <button class="btn btn-primary w-100" onclick="submitFeeStructure()">
+            <button class="btn btn-primary w-100" onclick="finSubmitFeeStructure()">
               <i class="bi bi-save me-2"></i>Save Fee Structure
             </button>
             <div id="feeStatus" class="mt-2" style="display:none;"></div>
@@ -236,9 +166,7 @@
             <div style="max-height:400px;overflow-y:auto;">
               <table class="table table-sm table-hover mb-0">
                 <thead class="table-light sticky-top">
-                  <tr>
-                    <th>Academic Year</th><th class="text-center">Level</th><th class="text-end">Amount</th>
-                  </tr>
+                  <tr><th>Academic Year</th><th class="text-center">Level</th><th class="text-end">Amount</th></tr>
                 </thead>
                 <tbody id="feeStructureTable">
                   <tr><td colspan="3" class="text-center p-3">Loading...</td></tr>
@@ -258,8 +186,9 @@
       </div>
       <div class="input-group mb-3">
         <span class="input-group-text"><i class="bi bi-search"></i></span>
-        <input type="text" id="fInput" class="form-control" placeholder="Search by name, email, or index...">
-        <button class="btn btn-primary" onclick="runSearch()">Search</button>
+        <input type="text" id="fInput" class="form-control" placeholder="Search by name, email, or index..."
+               onkeydown="if(event.key==='Enter') finRunSearch()">
+        <button class="btn btn-primary" onclick="finRunSearch()">Search</button>
       </div>
       <div id="fStatus" class="alert alert-info py-2 px-3 mb-3 small" style="display:none;"></div>
       <div class="stat-card" style="max-height:600px;overflow-y:auto;">
@@ -292,10 +221,10 @@
             <input type="file" id="paymentFile" class="form-control" accept=".csv">
           </div>
           <div class="col-md-4 d-flex gap-2">
-            <button class="btn btn-outline-primary flex-fill" onclick="downloadPaymentTemplate()">
+            <button class="btn btn-outline-primary flex-fill" onclick="finDownloadPaymentTemplate()">
               <i class="bi bi-download me-1"></i>Template
             </button>
-            <button class="btn btn-success flex-fill" onclick="uploadPaymentsBulk()">
+            <button class="btn btn-success flex-fill" onclick="finUploadPaymentsBulk()">
               <i class="bi bi-upload me-1"></i>Upload
             </button>
           </div>
@@ -314,8 +243,8 @@
         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
         <input type="text" id="finSearchInput" class="form-control"
                placeholder="Enter student email or index number..."
-               onkeydown="if(event.key==='Enter') searchStudentFinancials()">
-        <button class="btn btn-primary px-4" onclick="searchStudentFinancials()">
+               onkeydown="if(event.key==='Enter') finSearchStudentFinancials()">
+        <button class="btn btn-primary px-4" onclick="finSearchStudentFinancials()">
           <i class="bi bi-search me-1"></i>Search
         </button>
       </div>
@@ -342,7 +271,7 @@
           <option value="300">Level 300</option>
           <option value="400">Level 400</option>
         </select>
-        <button class="btn btn-success w-100" onclick="runDl()">
+        <button class="btn btn-success w-100" onclick="finRunDl()">
           <i class="bi bi-download me-2"></i>Download Registered Students (CSV)
         </button>
       </div>
@@ -387,7 +316,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary px-4" onclick="submitManualPayment()">
+        <button type="button" class="btn btn-primary px-4" onclick="finSubmitManualPayment()">
           <i class="bi bi-check-circle me-1"></i>Submit Transaction
         </button>
       </div>
@@ -396,87 +325,39 @@
 </div>
 
 <script>
-// ── Supabase ────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://ilgfjyokqyoonteqzgbx.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsZ2ZqeW9rcXlvb250ZXF6Z2J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDc2NTgsImV4cCI6MjA4Nzc4MzY1OH0.ZWjz-J9J09QjVKFylOIjgXg5ey4Z6rvKU29AM3CQoTQ';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// All finance functions are prefixed fin* to avoid any global name collisions
 
-var userSession = { email: '', role: '', name: '' };
-
-// ── Supabase fetch helper ───────────────────────────────────────
-async function sbFetch(path, opts = {}) {
-  try {
-    const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
-      method: opts.method || 'GET',
-      headers: {
-        'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json', 'Prefer': opts.prefer || '',
-        ...(opts.headers || {})
-      },
-      body: opts.body ? JSON.stringify(opts.body) : undefined
-    });
-    if (!res.ok) { const e = await res.text(); console.error('sbFetch', res.status, e); return null; }
-    const t = await res.text();
-    return t ? JSON.parse(t) : [];
-  } catch(e) { console.error('sbFetch failed:', e); return null; }
+function finShowSection(id, el) {
+  document.querySelectorAll('.finance-section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.sidebar-menu .menu-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (id === 'fee-setup')  { finLoadFeeStructure(); }
+  if (id === 'year-setup') { finLoadActiveYearDisplay(); finLoadYearFeeStatusTable(); }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────
-function getCurrentAcademicYear() {
-  const now = new Date(), m = now.getMonth(), y = now.getFullYear();
+// ── Helpers ────────────────────────────────────────────────────
+function finGetCurrentAcademicYear() {
+  const m = new Date().getMonth(), y = new Date().getFullYear();
   return m >= 8 ? `${y}/${y+1}` : `${y-1}/${y}`;
 }
 
-async function getActiveAcademicYear() {
-  // Try to get from fee_structure where status = ACTIVE
+async function finGetActiveAcademicYear() {
   const rows = await sbFetch('fee_structure?status=eq.ACTIVE&select=academic_year&limit=1');
   if (rows && rows.length > 0) return rows[0].academic_year;
-  // Fallback: check localStorage
-  const stored = localStorage.getItem('pce_active_year');
-  if (stored) return stored;
-  return getCurrentAcademicYear();
+  return localStorage.getItem('pce_active_year') || finGetCurrentAcademicYear();
 }
 
-function downloadCSV(base64, filename) {
-  const a = document.createElement('a');
-  a.href = 'data:text/csv;base64,' + btoa(unescape(encodeURIComponent(atob(base64))));
-  a.download = filename; a.click();
-}
-
-function csvToBase64(content) {
-  return btoa(unescape(encodeURIComponent(content)));
-}
-
-// ── Navigation ──────────────────────────────────────────────────
-function showSection(id, el) {
-  document.querySelectorAll('.finance-section').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  document.querySelectorAll('.menu-item').forEach(n => n.classList.remove('active'));
-  if (el) el.classList.add('active');
-  if (id === 'fee-setup')  loadFeeStructure();
-  if (id === 'year-setup') { loadActiveYearDisplay(); loadYearFeeStatusTable(); }
-}
-
-// ── Logout ──────────────────────────────────────────────────────
-function logout() {
-  Swal.fire({
-    title: 'Logging out?', icon: 'question',
-    showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Yes, logout'
-  }).then(r => {
-    if (r.isConfirmed) { sessionStorage.removeItem('pce_session'); window.location.href = 'index.html'; }
-  });
-}
-
-// ── Academic Year ───────────────────────────────────────────────
-async function loadActiveYearDisplay() {
-  const year = await getActiveAcademicYear();
+// ── Academic Year ──────────────────────────────────────────────
+async function finLoadActiveYearDisplay() {
+  const year = await finGetActiveAcademicYear();
   const el   = document.getElementById('activeYearDisplay');
   const note = document.getElementById('currentAcademicYear');
   if (el)   el.innerText   = year || 'Not Set';
   if (note) note.innerText = 'Active: ' + (year || 'Not Set');
 }
 
-async function loadYearFeeStatusTable() {
+async function finLoadYearFeeStatusTable() {
   const tbody = document.getElementById('yearFeeStatusTable');
   if (!tbody) return;
   const fees = await sbFetch('fee_structure?select=*&order=academic_year.desc,level.asc');
@@ -488,30 +369,22 @@ async function loadYearFeeStatusTable() {
       <td class="fw-bold">${f.academic_year}</td>
       <td class="text-center"><span class="badge bg-secondary">Level ${f.level}</span></td>
       <td class="text-end text-success fw-bold">GH₵ ${Number(f.amount).toFixed(2)}</td>
-      <td class="text-center">
-        <span class="badge ${f.status === 'ACTIVE' ? 'bg-success' : 'bg-light text-dark border'}">
-          ${f.status === 'ACTIVE' ? '● ACTIVE' : 'INACTIVE'}
-        </span>
-      </td>
+      <td class="text-center"><span class="badge ${f.status === 'ACTIVE' ? 'bg-success' : 'bg-light text-dark border'}">${f.status === 'ACTIVE' ? '● ACTIVE' : 'INACTIVE'}</span></td>
       <td class="small text-muted">${f.set_by || '—'}</td>
     </tr>`).join('');
 }
 
-async function confirmActivateYear() {
+async function finConfirmActivateYear() {
   const year   = document.getElementById('activateYearInput').value.trim();
   const status = document.getElementById('activateYearStatus');
-
   if (!year || !year.includes('/')) {
     status.className = 'alert alert-danger mt-2'; status.style.display = 'block';
     status.innerHTML = '⚠️ Enter a valid academic year e.g., 2025/2026'; return;
   }
-
   const confirm = await Swal.fire({
     title: `Activate ${year}?`,
-    html: `<p>This sets <strong>${year}</strong> as the active year.<br>
-           <span class="text-danger small">All other years become INACTIVE.</span></p>`,
-    icon: 'warning', showCancelButton: true,
-    confirmButtonColor: '#dc2626', confirmButtonText: 'Yes, Activate'
+    html: `<p>This sets <strong>${year}</strong> as the active year.<br><span class="text-danger small">All other years become INACTIVE.</span></p>`,
+    icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Yes, Activate'
   });
   if (!confirm.isConfirmed) return;
 
@@ -519,462 +392,288 @@ async function confirmActivateYear() {
   status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Activating...';
 
   try {
-    // 1. Mark all fee_structure INACTIVE
-    await fetch(SUPABASE_URL + '/rest/v1/fee_structure?status=neq.INACTIVE', {
+    await fetch(SUPABASE_URL + '/rest/v1/fee_structure', {
       method: 'PATCH',
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'INACTIVE' })
     });
-
-    // 2. Mark this year's fees ACTIVE
     await fetch(SUPABASE_URL + '/rest/v1/fee_structure?academic_year=eq.' + encodeURIComponent(year), {
       method: 'PATCH',
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'ACTIVE' })
     });
-
-    // 3. Store active year
     localStorage.setItem('pce_active_year', year);
 
-    // 4. Get fee map for this year
     const feesForYear = await sbFetch('fee_structure?academic_year=eq.' + encodeURIComponent(year) + '&select=level,amount');
-    if (!feesForYear || feesForYear.length === 0) {
+    if (!feesForYear || !feesForYear.length) {
       status.className = 'alert alert-danger mt-2';
       status.innerHTML = '⚠️ No fee structure found for ' + year + '. Set fees first.'; return;
     }
     const feeMap = {};
     feesForYear.forEach(f => { feeMap[String(f.level).trim()] = Number(f.amount) || 0; });
 
-    // 5. Get prior balances
-    const allPriorFinance = await sbFetch('student_finance?select=email,academic_year,balance&order=academic_year.asc') || [];
+    const allPrior = await sbFetch('student_finance?select=email,academic_year,balance&order=academic_year.asc') || [];
     const priorByStudent = {};
-    allPriorFinance.forEach(row => {
-      if (row.academic_year === year) return;
-      const em = row.email.toLowerCase().trim();
+    allPrior.forEach(r => {
+      if (r.academic_year === year) return;
+      const em = r.email.toLowerCase().trim();
       if (!priorByStudent[em]) priorByStudent[em] = [];
-      priorByStudent[em].push({ year: row.academic_year, balance: Number(row.balance) || 0 });
+      priorByStudent[em].push({ year: r.academic_year, balance: Number(r.balance) || 0 });
     });
-    const previousBalances = {};
+    const prevBalances = {};
     Object.keys(priorByStudent).forEach(em => {
       const sorted = priorByStudent[em].sort((a, b) =>
-        (parseInt(String(b.year).split('/')[0]) || 0) - (parseInt(String(a.year).split('/')[0]) || 0));
-      if (sorted[0] && sorted[0].balance > 0) previousBalances[em] = sorted[0].balance;
+        (parseInt(String(b.year).split('/')[0])||0) - (parseInt(String(a.year).split('/')[0])||0));
+      if (sorted[0] && sorted[0].balance > 0) prevBalances[em] = sorted[0].balance;
     });
 
-    // 6. Get existing finance records for this year
-    const existingForYear = await sbFetch('student_finance?academic_year=eq.' + encodeURIComponent(year) + '&select=email') || [];
-    const existingEmails  = new Set(existingForYear.map(r => r.email.toLowerCase().trim()));
+    const existingRows = await sbFetch('student_finance?academic_year=eq.' + encodeURIComponent(year) + '&select=email') || [];
+    const existingEmails = new Set(existingRows.map(r => r.email.toLowerCase().trim()));
 
-    // 7. Get all students
     const bioRows = await sbFetch('student_bio?select=email,name,level') || [];
     const newRows = [];
     bioRows.forEach(row => {
-      const em       = row.email.toLowerCase().trim();
-      const level    = String(row.level || '').trim();
+      const em = row.email.toLowerCase().trim();
       if (!em || existingEmails.has(em)) return;
-      const baseFees  = feeMap[level] || 0;
-      const carryOver = previousBalances[em] || 0;
-      const totalReq  = baseFees + carryOver;
-      newRows.push({
-        email: em, name: row.name || '', level: level,
-        academic_year: year, base_fees: baseFees,
-        carry_over: carryOver, total_required: totalReq,
-        total_paid: 0, balance: totalReq, percentage: 0, can_register: false
-      });
+      const level = String(row.level || '').trim();
+      const base  = feeMap[level] || 0;
+      const carry = prevBalances[em] || 0;
+      const total = base + carry;
+      newRows.push({ email: em, name: row.name || '', level, academic_year: year, base_fees: base, carry_over: carry, total_required: total, total_paid: 0, balance: total, percentage: 0, can_register: false });
     });
 
-    // 8. Insert in chunks of 100
     let inserted = 0;
     for (let i = 0; i < newRows.length; i += 100) {
-      const chunk = newRows.slice(i, i + 100);
       const res = await fetch(SUPABASE_URL + '/rest/v1/student_finance', {
         method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(chunk)
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify(newRows.slice(i, i+100))
       });
-      if (res.ok) inserted += chunk.length;
+      if (res.ok) inserted += Math.min(100, newRows.length - i);
     }
 
     status.className = 'alert alert-success mt-2';
-    status.innerHTML = `✅ ${year} activated. ${inserted} of ${newRows.length} finance records created.
-      ${existingEmails.size > 0 ? ' (' + existingEmails.size + ' already had records — skipped.)' : ''}`;
-
-    loadActiveYearDisplay(); loadYearFeeStatusTable(); loadFeeStructure();
-
+    status.innerHTML = `✅ ${year} activated. ${inserted} new finance records created.`;
+    finLoadActiveYearDisplay(); finLoadYearFeeStatusTable(); finLoadFeeStructure();
   } catch(e) {
-    status.className = 'alert alert-danger mt-2';
-    status.innerHTML = '⚠️ Error: ' + e.message;
+    status.className = 'alert alert-danger mt-2'; status.innerHTML = '⚠️ Error: ' + e.message;
   }
 }
 
-// ── Fee Structure ───────────────────────────────────────────────
-async function loadFeeStructure(year) {
+// ── Fee Structure ──────────────────────────────────────────────
+async function finLoadFeeStructure(year) {
   const display = document.getElementById('feeStructureTable');
   if (!display) return;
   display.innerHTML = '<tr><td colspan="3" class="text-center p-3"><div class="spinner-border spinner-border-sm"></div></td></tr>';
-
-  let endpoint = 'fee_structure?select=*&order=academic_year.desc,level.asc';
-  if (year) endpoint += '&academic_year=eq.' + encodeURIComponent(year);
-
-  const fees = await sbFetch(endpoint);
-  if (!fees || fees.length === 0) {
-    display.innerHTML = '<tr><td colspan="3" class="text-center text-muted p-4">No fees configured yet</td></tr>'; return;
-  }
+  let ep = 'fee_structure?select=*&order=academic_year.desc,level.asc';
+  if (year) ep += '&academic_year=eq.' + encodeURIComponent(year);
+  const fees = await sbFetch(ep);
+  if (!fees || !fees.length) { display.innerHTML = '<tr><td colspan="3" class="text-center text-muted p-4">No fees configured yet</td></tr>'; return; }
   display.innerHTML = fees.map(f => `
-    <tr>
-      <td class="fw-bold">${f.academic_year}</td>
-      <td class="text-center"><span class="badge bg-primary">Level ${f.level}</span></td>
-      <td class="text-end fw-bold text-success">GH₵ ${Number(f.amount).toFixed(2)}</td>
-    </tr>`).join('');
+    <tr><td class="fw-bold">${f.academic_year}</td>
+    <td class="text-center"><span class="badge bg-primary">Level ${f.level}</span></td>
+    <td class="text-end fw-bold text-success">GH₵ ${Number(f.amount).toFixed(2)}</td></tr>`).join('');
 }
 
-async function submitFeeStructure() {
+async function finSubmitFeeStructure() {
   const year   = document.getElementById('feeYear').value.trim();
   const level  = document.getElementById('feeLevel').value;
   const amount = parseFloat(document.getElementById('feeAmount').value);
   const status = document.getElementById('feeStatus');
-
   if (!year || !level || !amount || amount <= 0) {
     status.className = 'alert alert-danger mt-2'; status.style.display = 'block';
     status.innerHTML = '⚠️ Please fill all fields with valid values'; return;
   }
-
   status.className = 'alert alert-info mt-2'; status.style.display = 'block';
   status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Saving...';
-
   try {
-    const activeYear = await getActiveAcademicYear();
-    const feeStatus  = year === activeYear ? 'ACTIVE' : 'INACTIVE';
-
-    const res = await fetch(
-      SUPABASE_URL + '/rest/v1/fee_structure?on_conflict=academic_year,level',
-      {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates,return=minimal'
-        },
-        body: JSON.stringify({
-          academic_year: year, level: String(level), amount: amount,
-          status: feeStatus, set_by: userSession.email || 'Finance Officer'
-        })
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.text();
-      status.className = 'alert alert-danger mt-2';
-      status.innerHTML = '⚠️ Database error: ' + err; return;
-    }
-
+    const activeYear = await finGetActiveAcademicYear();
+    const res = await fetch(SUPABASE_URL + '/rest/v1/fee_structure?on_conflict=academic_year,level', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ academic_year: year, level: String(level), amount, status: year === activeYear ? 'ACTIVE' : 'INACTIVE', set_by: userSession.email || 'Finance Officer' })
+    });
+    if (!res.ok) { status.className = 'alert alert-danger mt-2'; status.innerHTML = '⚠️ ' + await res.text(); return; }
     status.className = 'alert alert-success mt-2';
     status.innerHTML = `✅ ${year} Level ${level} → GH₵ ${amount.toFixed(2)} saved.`;
     document.getElementById('feeAmount').value = '';
-    loadFeeStructure();
-
-  } catch(e) {
-    status.className = 'alert alert-danger mt-2';
-    status.innerHTML = '⚠️ Error: ' + e.message;
-  }
+    finLoadFeeStructure();
+  } catch(e) { status.className = 'alert alert-danger mt-2'; status.innerHTML = '⚠️ Error: ' + e.message; }
 }
 
-// ── Clearance ───────────────────────────────────────────────────
-async function runSearch() {
+// ── Clearance ──────────────────────────────────────────────────
+async function finRunSearch() {
   const q       = document.getElementById('fInput').value.trim();
   const display = document.getElementById('fTableBody');
   const status  = document.getElementById('fStatus');
   if (!q) return;
-
   status.style.display = 'block'; status.innerHTML = 'Searching...';
   display.innerHTML = '<tr><td colspan="4" class="text-center p-5">Loading...</td></tr>';
-
-  const [byEmail, byName, byIndex] = await Promise.all([
+  const [a, b, c] = await Promise.all([
     sbFetch('student_bio?email=ilike.*' + encodeURIComponent(q) + '*&select=email,name,index_number,status&limit=30'),
     sbFetch('student_bio?name=ilike.*'  + encodeURIComponent(q) + '*&select=email,name,index_number,status&limit=30'),
     sbFetch('student_bio?index_number=ilike.*' + encodeURIComponent(q) + '*&select=email,name,index_number,status&limit=30')
   ]);
-
   const seen = new Set(), merged = [];
-  [...(byEmail||[]), ...(byName||[]), ...(byIndex||[])].forEach(r => {
-    if (!seen.has(r.email)) { seen.add(r.email); merged.push(r); }
-  });
-
-  if (!merged.length) {
-    status.innerHTML = 'No student found.';
-    display.innerHTML = '<tr><td colspan="4" class="text-center p-5">No results.</td></tr>'; return;
-  }
-
+  [...(a||[]),...(b||[]),...(c||[])].forEach(r => { if (!seen.has(r.email)) { seen.add(r.email); merged.push(r); } });
+  if (!merged.length) { status.innerHTML = 'No student found.'; display.innerHTML = '<tr><td colspan="4" class="text-center p-5">No results.</td></tr>'; return; }
   status.innerHTML = 'Found ' + merged.length + ' student(s).';
   display.innerHTML = merged.map((stu, i) => {
-    const isCleared  = stu.status === 'CLEARED';
-    const isEligible = stu.status === 'ELIGIBLE';
+    const isCleared  = stu.status === 'CLEARED', isEligible = stu.status === 'ELIGIBLE';
     const badgeClass = isCleared ? 'bg-success' : isEligible ? 'bg-warning text-dark' : 'bg-danger';
-    const btnClass   = (isCleared || isEligible) ? 'btn-outline-danger' : 'btn-success';
-    const btnLabel   = (isCleared || isEligible) ? 'Revoke Clearance' : 'Grant Clearance';
-    const nextStatus = (isCleared || isEligible) ? 'PENDING' : 'CLEARED';
-    return `<tr>
-      <td><strong>${stu.name}</strong><br><small class="text-muted">${stu.email}</small></td>
-      <td>${stu.index_number || ''}</td>
-      <td><span class="badge ${badgeClass}">${stu.status || 'PENDING'}</span></td>
-      <td>
-        <input type="checkbox" class="me-1" onchange="document.getElementById('act_${i}').disabled=!this.checked">
-        <button id="act_${i}" class="btn btn-sm ${btnClass}" disabled
-                onclick="runClearance('${stu.email}','${nextStatus}')">${btnLabel}</button>
-      </td></tr>`;
+    const btnClass   = (isCleared||isEligible) ? 'btn-outline-danger' : 'btn-success';
+    const btnLabel   = (isCleared||isEligible) ? 'Revoke Clearance' : 'Grant Clearance';
+    const nextStatus = (isCleared||isEligible) ? 'PENDING' : 'CLEARED';
+    return `<tr><td><strong>${stu.name}</strong><br><small class="text-muted">${stu.email}</small></td>
+      <td>${stu.index_number||''}</td>
+      <td><span class="badge ${badgeClass}">${stu.status||'PENDING'}</span></td>
+      <td><input type="checkbox" class="me-1" onchange="document.getElementById('act_${i}').disabled=!this.checked">
+      <button id="act_${i}" class="btn btn-sm ${btnClass}" disabled onclick="finRunClearance('${stu.email}','${nextStatus}')">${btnLabel}</button></td></tr>`;
   }).join('');
 }
 
-async function runClearance(email, nextStatus) {
-  const res = await fetch(
-    SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(email),
-    {
-      method: 'PATCH',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: nextStatus })
-    }
-  );
-  if (res.ok) {
-    Swal.fire({ icon: 'success', title: 'Updated', text: 'Student status set to ' + nextStatus, timer: 1500, showConfirmButton: false });
-    runSearch();
-  } else {
-    Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not update status.' });
-  }
+async function finRunClearance(email, nextStatus) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(email), {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: nextStatus })
+  });
+  if (res.ok) { Swal.fire({ icon: 'success', title: 'Updated', text: 'Status set to ' + nextStatus, timer: 1500, showConfirmButton: false }); finRunSearch(); }
+  else Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not update status.' });
 }
 
-// ── Student Financial Lookup ────────────────────────────────────
-async function getStudentFinancials(email) {
-  const activeYear = await getActiveAcademicYear();
-  const cleanEmail = email.toLowerCase().trim();
-
+// ── Student Financial Lookup ───────────────────────────────────
+async function finGetStudentFinancials(email) {
+  const activeYear = await finGetActiveAcademicYear();
+  const em = email.toLowerCase().trim();
   const [sfRows, payRows] = await Promise.all([
-    sbFetch('student_finance?email=eq.' + encodeURIComponent(cleanEmail) +
-            '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=*&limit=1'),
-    sbFetch('payments?email=eq.' + encodeURIComponent(cleanEmail) +
-            '&academic_year=eq.' + encodeURIComponent(activeYear) +
-            '&select=amount,type,payment_date,reference,recorded_by&order=payment_date.asc')
+    sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=*&limit=1'),
+    sbFetch('payments?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=*&order=payment_date.asc')
   ]);
-
-  if (!sfRows || sfRows.length === 0) return { error: 'NO_FEES_SET', noFeesSet: true, academicYear: activeYear };
-
-  const sf         = sfRows[0];
-  const payments   = payRows || [];
+  if (!sfRows || !sfRows.length) return { error: true, academicYear: activeYear };
+  const sf = sfRows[0], payments = payRows || [];
   const totalPaid  = payments.reduce((s, p) => s + Number(p.amount), 0);
   const totalReq   = Number(sf.total_required) || 0;
   const balance    = totalReq - totalPaid;
-  const percentage = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
-  const canRegister = percentage >= 70;
-
-  // Update student_finance if numbers changed
-  const storedPaid = Number(sf.total_paid) || 0;
-  if (Math.abs(storedPaid - totalPaid) > 0.001) {
-    const newStatus = percentage >= 100 ? 'CLEARED' : percentage >= 70 ? 'ELIGIBLE' : 'PENDING';
-    fetch(SUPABASE_URL + '/rest/v1/student_finance?email=eq.' + encodeURIComponent(cleanEmail) + '&academic_year=eq.' + encodeURIComponent(activeYear), {
-      method: 'PATCH',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ total_paid: totalPaid, balance, percentage, can_register: canRegister })
-    });
-    fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(cleanEmail), {
-      method: 'PATCH',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus })
-    });
-  }
-
+  const percentage = totalReq > 0 ? parseFloat(((totalPaid/totalReq)*100).toFixed(1)) : 0;
   return {
-    academicYear: activeYear, level: String(sf.level || '').trim(),
-    baseFees: Number(sf.base_fees) || 0, carryOver: Number(sf.carry_over) || 0,
-    requiredFees: totalReq, totalPaid, balance, percentage, canRegister,
+    academicYear: activeYear, level: String(sf.level||''), baseFees: Number(sf.base_fees||0),
+    carryOver: Number(sf.carry_over||0), requiredFees: totalReq, totalPaid, balance, percentage,
+    canRegister: percentage >= 70,
     payments: payments.map(p => ({
-      amount: Number(p.amount),
-      type:   String(p.type || '').trim(),
-      date:   p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : '',
-      reference:  String(p.reference || '').trim(),
-      recordedBy: String(p.recorded_by || '').trim()
+      amount: Number(p.amount), type: String(p.type||''), reference: String(p.reference||''),
+      recordedBy: String(p.recorded_by||''),
+      date: p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : ''
     }))
   };
 }
 
-async function searchStudentFinancials() {
+async function finSearchStudentFinancials() {
   const query   = document.getElementById('finSearchInput').value.trim();
   const display = document.getElementById('finSearchResults');
   if (!query) { alert('Please enter a student email or index'); return; }
-
   display.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div><p class="mt-2">Searching...</p></div>';
-
-  const [byEmail, byName, byIndex] = await Promise.all([
-    sbFetch('student_bio?email=ilike.*' + encodeURIComponent(query) + '*&select=email,name,index_number,level,status&limit=20'),
-    sbFetch('student_bio?name=ilike.*'  + encodeURIComponent(query) + '*&select=email,name,index_number,level,status&limit=20'),
-    sbFetch('student_bio?index_number=ilike.*' + encodeURIComponent(query) + '*&select=email,name,index_number,level,status&limit=20')
+  const [a, b, c] = await Promise.all([
+    sbFetch('student_bio?email=ilike.*' + encodeURIComponent(query) + '*&select=*&limit=10'),
+    sbFetch('student_bio?name=ilike.*'  + encodeURIComponent(query) + '*&select=*&limit=10'),
+    sbFetch('student_bio?index_number=ilike.*' + encodeURIComponent(query) + '*&select=*&limit=10')
   ]);
-
   const seen = new Set(), students = [];
-  [...(byEmail||[]), ...(byName||[]), ...(byIndex||[])].forEach(r => {
-    if (!seen.has(r.email)) { seen.add(r.email); students.push(r); }
-  });
-
+  [...(a||[]),...(b||[]),...(c||[])].forEach(r => { if (!seen.has(r.email)) { seen.add(r.email); students.push(r); } });
   if (!students.length) { display.innerHTML = '<div class="alert alert-warning">No student found</div>'; return; }
-
   const s = students[0];
-  const f = await getStudentFinancials(s.email);
+  const f = await finGetStudentFinancials(s.email);
+  if (f.error) { display.innerHTML = `<div class="alert alert-warning">No financial record for ${f.academicYear}. Activate the academic year first.</div>`; return; }
 
-  if (f.error === 'NO_FEES_SET') {
-    display.innerHTML = `<div class="alert alert-warning">No financial record found for ${f.academicYear}. The academic year may not have been activated yet.</div>`; return;
-  }
-
-  const paymentRowsHtml = f.payments.length > 0 ? f.payments.map(p => `
-    <tr>
-      <td class="small">${p.date}</td>
-      <td><span class="badge ${p.type === 'PAYMENT' ? 'bg-success' : 'bg-warning'}">${p.type}</span></td>
-      <td class="text-end fw-bold ${p.amount < 0 ? 'text-danger' : 'text-success'}">GH₵ ${Math.abs(p.amount).toFixed(2)}</td>
-      <td class="small">${p.reference || ''}</td>
-      <td class="small text-muted">${p.recordedBy || '—'}</td>
-    </tr>`).join('') : '';
+  const payRows = f.payments.map(p => `<tr>
+    <td class="small">${p.date}</td>
+    <td><span class="badge ${p.type==='PAYMENT'?'bg-success':'bg-warning'}">${p.type}</span></td>
+    <td class="text-end fw-bold ${p.amount<0?'text-danger':'text-success'}">GH₵ ${Math.abs(p.amount).toFixed(2)}</td>
+    <td class="small">${p.reference||''}</td>
+    <td class="small text-muted">${p.recordedBy||'—'}</td></tr>`).join('');
 
   display.innerHTML = `
     <div class="card mb-3">
       <div class="card-header bg-primary text-white">
-        <h6 class="mb-0">${s.name}</h6>
-        <small>${s.email} | ${s.index_number || ''}</small>
+        <h6 class="mb-0">${s.name}</h6><small>${s.email} | ${s.index_number||''}</small>
       </div>
       <div class="card-body">
         <div class="row g-3 mb-3">
-          <div class="col-4 text-center">
-            <small class="text-muted d-block">Required Fees</small>
-            <h5 class="text-primary mb-0">GH₵ ${f.requiredFees.toFixed(2)}</h5>
-          </div>
-          <div class="col-4 text-center">
-            <small class="text-muted d-block">Total Paid</small>
-            <h5 class="text-success mb-0">GH₵ ${f.totalPaid.toFixed(2)}</h5>
-          </div>
-          <div class="col-4 text-center">
-            <small class="text-muted d-block">Balance</small>
-            <h5 class="text-danger mb-0">GH₵ ${f.balance.toFixed(2)}</h5>
-          </div>
+          <div class="col-4 text-center"><small class="text-muted d-block">Required Fees</small><h5 class="text-primary mb-0">GH₵ ${f.requiredFees.toFixed(2)}</h5></div>
+          <div class="col-4 text-center"><small class="text-muted d-block">Total Paid</small><h5 class="text-success mb-0">GH₵ ${f.totalPaid.toFixed(2)}</h5></div>
+          <div class="col-4 text-center"><small class="text-muted d-block">Balance</small><h5 class="text-danger mb-0">GH₵ ${f.balance.toFixed(2)}</h5></div>
         </div>
         <div class="progress mb-3" style="height:25px;">
-          <div class="progress-bar ${f.percentage >= 70 ? 'bg-success' : 'bg-danger'}"
-               style="width:${Math.min(f.percentage,100)}%">${f.percentage}%</div>
+          <div class="progress-bar ${f.percentage>=70?'bg-success':'bg-danger'}" style="width:${Math.min(f.percentage,100)}%">${f.percentage}%</div>
         </div>
         <div class="d-flex gap-2 mb-3">
-          <button class="btn btn-primary btn-sm flex-fill"
-                  onclick="showPaymentEntryModal('${s.email}','${s.name}')">
-            Add Payment / Deduction
-          </button>
-          <button class="btn btn-outline-secondary btn-sm"
-                  onclick="printFinanceReceipt('${s.email}','${f.academicYear}')">
-            Print Receipt
-          </button>
+          <button class="btn btn-primary btn-sm flex-fill" onclick="finShowPaymentEntryModal('${s.email}','${s.name.replace(/'/g,"\\'")}')">Add Payment / Deduction</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="finPrintFinanceReceipt('${s.email}','${f.academicYear}')">Print Receipt</button>
         </div>
-        ${paymentRowsHtml ? `
-          <table class="table table-sm table-bordered mb-0">
-            <thead class="table-light">
-              <tr><th>Date</th><th>Type</th><th>Amount</th><th>Ref</th><th>By</th></tr>
-            </thead>
-            <tbody>${paymentRowsHtml}</tbody>
-          </table>` : ''}
+        ${payRows ? `<table class="table table-sm table-bordered mb-0">
+          <thead class="table-light"><tr><th>Date</th><th>Type</th><th>Amount</th><th>Ref</th><th>By</th></tr></thead>
+          <tbody>${payRows}</tbody></table>` : '<p class="text-muted small">No transactions yet.</p>'}
       </div>
     </div>`;
 
-  // Load full history
-  loadStudentFullFinanceHistory(s.email);
+  finLoadStudentFullHistory(s.email);
 }
 
-async function loadStudentFullFinanceHistory(email) {
-  const section    = document.getElementById('financeHistorySection');
-  const cleanEmail = email.toLowerCase().trim();
-  const activeYear = await getActiveAcademicYear();
-
+async function finLoadStudentFullHistory(email) {
+  const section = document.getElementById('financeHistorySection');
+  const em      = email.toLowerCase().trim();
+  const activeYear = await finGetActiveAcademicYear();
   const [sfRows, payRows] = await Promise.all([
-    sbFetch('student_finance?email=eq.' + encodeURIComponent(cleanEmail) + '&select=*&order=academic_year.asc'),
-    sbFetch('payments?email=eq.' + encodeURIComponent(cleanEmail) +
-            '&select=amount,type,payment_date,reference,recorded_by,academic_year&order=payment_date.asc')
+    sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&select=*&order=academic_year.asc'),
+    sbFetch('payments?email=eq.' + encodeURIComponent(em) + '&select=*&order=payment_date.asc')
   ]);
-
-  if (!sfRows || sfRows.length === 0) { section.innerHTML = ''; return; }
-
+  if (!sfRows || !sfRows.length) { section.innerHTML = ''; return; }
   const paysByYear = {};
-  (payRows || []).forEach(p => {
-    const yr = String(p.academic_year || '').trim();
+  (payRows||[]).forEach(p => {
+    const yr = String(p.academic_year||'').trim();
     if (!paysByYear[yr]) paysByYear[yr] = [];
-    paysByYear[yr].push({
-      amount: Number(p.amount), type: String(p.type || '').trim(),
-      date: p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : '',
-      reference: String(p.reference || '').trim(), recordedBy: String(p.recorded_by || '').trim()
-    });
+    paysByYear[yr].push({ amount: Number(p.amount), type: String(p.type||''), reference: String(p.reference||''), recordedBy: String(p.recorded_by||''), date: p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : '' });
   });
-
-  const prevYears = sfRows.filter(r => String(r.academic_year).trim() !== activeYear);
-  if (!prevYears.length) { section.innerHTML = ''; return; }
-
-  let hHtml = '<div class="card"><div class="card-header bg-light"><h6 class="mb-0 text-muted"><i class="bi bi-clock-history me-2"></i>Previous Years Financial History</h6></div><div class="card-body p-0">';
-
+  const prev = sfRows.filter(r => String(r.academic_year).trim() !== activeYear);
+  if (!prev.length) { section.innerHTML = ''; return; }
   let grandReq = 0, grandPaid = 0;
-
-  prevYears.sort((a, b) => String(b.academic_year).localeCompare(String(a.academic_year))).forEach(sf => {
-    const yr       = String(sf.academic_year || '').trim();
-    const payments = paysByYear[yr] || [];
-    const totalPaid  = payments.reduce((s, p) => s + p.amount, 0);
-    const totalReq   = Number(sf.total_required) || 0;
-    const balance    = totalReq - totalPaid;
-    const percentage = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
-    grandReq += totalReq; grandPaid += totalPaid;
-
-    const sc = percentage >= 100 ? 'success' : percentage >= 70 ? 'primary' : 'danger';
-    const label = percentage >= 100 ? 'FULLY PAID' : percentage >= 70 ? 'ELIGIBLE' : 'OUTSTANDING';
-
-    const yrPayRows = payments.map(p => `
-      <tr>
-        <td class="small">${p.date}</td>
-        <td><span class="badge ${p.type === 'PAYMENT' ? 'bg-success' : 'bg-warning'}">${p.type}</span></td>
-        <td class="text-end fw-bold ${p.amount < 0 ? 'text-danger' : 'text-success'}">GH₵ ${Math.abs(p.amount).toFixed(2)}</td>
-        <td class="small">${p.reference || ''}</td>
-        <td class="small text-muted">${p.recordedBy || '—'}</td>
-      </tr>`).join('');
-
-    hHtml += `
-      <div class="border-bottom p-3">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div>
-            <strong>${yr}</strong>
-            <span class="badge bg-secondary ms-2">Level ${sf.level}</span>
-            <span class="badge bg-${sc} ms-1">${label}</span>
-          </div>
-          <button class="btn btn-outline-secondary btn-sm"
-                  onclick="printFinanceReceipt('${cleanEmail}','${yr}')">
-            <i class="bi bi-printer me-1"></i>Print Receipt
-          </button>
-        </div>
-        <div class="row g-2 small mb-2">
-          <div class="col-3"><span class="text-muted">Base Fees:</span> <strong>GH₵ ${Number(sf.base_fees||0).toFixed(2)}</strong></div>
-          ${Number(sf.carry_over||0) > 0 ? `<div class="col-3"><span class="text-muted">Carry Over:</span> <strong class="text-warning">GH₵ ${Number(sf.carry_over).toFixed(2)}</strong></div>` : ''}
-          <div class="col-3"><span class="text-muted">Total Paid:</span> <strong class="text-success">GH₵ ${totalPaid.toFixed(2)}</strong></div>
-          <div class="col-3"><span class="text-muted">Balance:</span> <strong class="${balance > 0 ? 'text-danger' : 'text-success'}">GH₵ ${balance.toFixed(2)}</strong></div>
-        </div>
-        ${yrPayRows ? `<table class="table table-sm table-bordered mb-0">
-          <thead class="table-light"><tr><th>Date</th><th>Type</th><th class="text-end">Amount</th><th>Ref</th><th>Recorded By</th></tr></thead>
-          <tbody>${yrPayRows}</tbody></table>` : '<p class="small text-muted mb-0">No payment records.</p>'}
-      </div>`;
-  });
-
-  const grandBalance = grandReq - grandPaid;
-  hHtml += `
-    <div class="p-3 bg-light border-top">
-      <div class="row text-center small fw-bold">
-        <div class="col-4">All-time Required: <span class="text-primary">GH₵ ${grandReq.toFixed(2)}</span></div>
-        <div class="col-4">All-time Paid: <span class="text-success">GH₵ ${grandPaid.toFixed(2)}</span></div>
-        <div class="col-4">All-time Balance: <span class="${grandBalance > 0 ? 'text-danger' : 'text-success'}">GH₵ ${grandBalance.toFixed(2)}</span></div>
+  let html = '<div class="card"><div class="card-header bg-light"><h6 class="mb-0 text-muted"><i class="bi bi-clock-history me-2"></i>Previous Years Financial History</h6></div><div class="card-body p-0">';
+  prev.sort((a,b) => String(b.academic_year).localeCompare(String(a.academic_year))).forEach(sf => {
+    const yr   = String(sf.academic_year||'').trim();
+    const pays = paysByYear[yr] || [];
+    const paid = pays.reduce((s,p) => s+p.amount, 0);
+    const req  = Number(sf.total_required)||0;
+    const bal  = req - paid;
+    const pct  = req > 0 ? parseFloat(((paid/req)*100).toFixed(1)) : 0;
+    grandReq += req; grandPaid += paid;
+    const sc    = pct>=100?'success':pct>=70?'primary':'danger';
+    const label = pct>=100?'FULLY PAID':pct>=70?'ELIGIBLE':'OUTSTANDING';
+    const yrRows = pays.map(p => `<tr><td class="small">${p.date}</td><td><span class="badge ${p.type==='PAYMENT'?'bg-success':'bg-warning'}">${p.type}</span></td><td class="text-end fw-bold ${p.amount<0?'text-danger':'text-success'}">GH₵ ${Math.abs(p.amount).toFixed(2)}</td><td class="small">${p.reference||''}</td><td class="small text-muted">${p.recordedBy||'—'}</td></tr>`).join('');
+    html += `<div class="border-bottom p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div><strong>${yr}</strong><span class="badge bg-secondary ms-2">Level ${sf.level}</span><span class="badge bg-${sc} ms-1">${label}</span></div>
+        <button class="btn btn-outline-secondary btn-sm" onclick="finPrintFinanceReceipt('${em}','${yr}')"><i class="bi bi-printer me-1"></i>Print</button>
       </div>
-    </div></div></div>`;
-
-  section.innerHTML = hHtml;
+      <div class="row g-2 small mb-2">
+        <div class="col-3"><span class="text-muted">Base:</span> <strong>GH₵ ${Number(sf.base_fees||0).toFixed(2)}</strong></div>
+        ${Number(sf.carry_over||0)>0?`<div class="col-3"><span class="text-muted">Carry:</span> <strong class="text-warning">GH₵ ${Number(sf.carry_over).toFixed(2)}</strong></div>`:''}
+        <div class="col-3"><span class="text-muted">Paid:</span> <strong class="text-success">GH₵ ${paid.toFixed(2)}</strong></div>
+        <div class="col-3"><span class="text-muted">Balance:</span> <strong class="${bal>0?'text-danger':'text-success'}">GH₵ ${bal.toFixed(2)}</strong></div>
+      </div>
+      ${yrRows?`<table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>Date</th><th>Type</th><th class="text-end">Amount</th><th>Ref</th><th>Recorded By</th></tr></thead><tbody>${yrRows}</tbody></table>`:'<p class="small text-muted mb-0">No payments.</p>'}
+    </div>`;
+  });
+  const gb = grandReq - grandPaid;
+  html += `<div class="p-3 bg-light border-top"><div class="row text-center small fw-bold">
+    <div class="col-4">All-time Required: <span class="text-primary">GH₵ ${grandReq.toFixed(2)}</span></div>
+    <div class="col-4">All-time Paid: <span class="text-success">GH₵ ${grandPaid.toFixed(2)}</span></div>
+    <div class="col-4">All-time Balance: <span class="${gb>0?'text-danger':'text-success'}">GH₵ ${gb.toFixed(2)}</span></div>
+  </div></div></div></div>`;
+  section.innerHTML = html;
 }
 
-// ── Payment Modal ───────────────────────────────────────────────
-function showPaymentEntryModal(email, name) {
+// ── Payment Modal ──────────────────────────────────────────────
+function finShowPaymentEntryModal(email, name) {
   document.getElementById('paymentStudentEmail').value    = email;
   document.getElementById('paymentStudentName').innerText = name;
   document.getElementById('paymentAmount').value          = '';
@@ -984,279 +683,111 @@ function showPaymentEntryModal(email, name) {
   new bootstrap.Modal(document.getElementById('paymentEntryModal')).show();
 }
 
-async function submitManualPayment() {
+async function finSubmitManualPayment() {
   const email      = document.getElementById('paymentStudentEmail').value;
   const amount     = parseFloat(document.getElementById('paymentAmount').value);
   const type       = document.getElementById('paymentType').value;
   const reference  = document.getElementById('paymentReference').value.trim() || 'MANUAL_ENTRY';
   const recordedBy = document.getElementById('paymentRecordedBy').value.trim() || 'Finance Officer';
   const status     = document.getElementById('paymentEntryStatus');
-
-  if (!amount || amount === 0) {
-    status.className = 'alert alert-danger mt-2'; status.style.display = 'block';
-    status.innerHTML = '⚠️ Please enter a valid amount'; return;
-  }
-
+  if (!amount || amount === 0) { status.className = 'alert alert-danger mt-2'; status.style.display = 'block'; status.innerHTML = '⚠️ Enter a valid amount'; return; }
   status.className = 'alert alert-info mt-2'; status.style.display = 'block';
   status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Processing...';
-
   try {
-    const activeYear  = await getActiveAcademicYear();
-    const finalAmount = type === 'DEDUCTION' ? -Math.abs(amount) : Math.abs(amount);
-
-    const res = await fetch(SUPABASE_URL + '/rest/v1/payments', {
+    const year   = await finGetActiveAcademicYear();
+    const final  = type === 'DEDUCTION' ? -Math.abs(amount) : Math.abs(amount);
+    const res    = await fetch(SUPABASE_URL + '/rest/v1/payments', {
       method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        email: email.toLowerCase().trim(), amount: finalAmount,
-        type: type, payment_date: new Date().toISOString(),
-        reference: reference, academic_year: activeYear, recorded_by: recordedBy
-      })
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ email: email.toLowerCase().trim(), amount: final, type, payment_date: new Date().toISOString(), reference, academic_year: year, recorded_by: recordedBy })
     });
-
-    if (!res.ok) {
-      status.className = 'alert alert-danger mt-2';
-      status.innerHTML = '⚠️ Payment could not be saved: ' + await res.text(); return;
-    }
-
+    if (!res.ok) { status.className = 'alert alert-danger mt-2'; status.innerHTML = '⚠️ ' + await res.text(); return; }
     status.className = 'alert alert-success mt-2';
-    status.innerHTML = `✅ ${type} of GH₵ ${Math.abs(finalAmount).toFixed(2)} recorded — By: ${recordedBy}`;
-
-    setTimeout(() => {
-      bootstrap.Modal.getInstance(document.getElementById('paymentEntryModal')).hide();
-      searchStudentFinancials();
-    }, 1500);
-
-  } catch(e) {
-    status.className = 'alert alert-danger mt-2';
-    status.innerHTML = '⚠️ Error: ' + e.message;
-  }
+    status.innerHTML = `✅ ${type} of GH₵ ${Math.abs(final).toFixed(2)} recorded.`;
+    setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('paymentEntryModal')).hide(); finSearchStudentFinancials(); }, 1500);
+  } catch(e) { status.className = 'alert alert-danger mt-2'; status.innerHTML = '⚠️ Error: ' + e.message; }
 }
 
-// ── Bulk Upload ─────────────────────────────────────────────────
-async function uploadPaymentsBulk() {
+// ── Bulk Upload ────────────────────────────────────────────────
+async function finUploadPaymentsBulk() {
   const fileInput = document.getElementById('paymentFile');
   const file      = fileInput.files[0];
   const status    = document.getElementById('paymentUploadStatus');
   if (!file) { Swal.fire('No File', 'Please select a CSV file', 'info'); return; }
-
   status.style.display = 'block'; status.className = 'alert alert-info';
-  status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Processing payments...';
-
+  status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Processing...';
   try {
-    const text    = await file.text();
-    const lines   = text.trim().split('\n').slice(1);
-    const year    = await getActiveAcademicYear();
-    const toUpload = lines.filter(l => l.trim()).map(line => {
-      const cols = line.split(',');
-      return {
-        email:         (cols[0] || '').trim().toLowerCase().replace(/"/g,''),
-        amount:        Number((cols[1] || '0').replace(/"/g,'')),
-        type:          ((cols[2] || 'PAYMENT').trim().toUpperCase()).replace(/"/g,''),
-        payment_date:  cols[3] ? new Date((cols[3]).replace(/"/g,'').trim()).toISOString() : new Date().toISOString(),
-        reference:     (cols[4] || 'BULK_UPLOAD').replace(/"/g,'').trim(),
-        recorded_by:   (cols[5] || 'Bulk Upload').replace(/"/g,'').trim(),
-        academic_year: year
-      };
+    const text = await file.text(), year = await finGetActiveAcademicYear();
+    const rows = text.trim().split('\n').slice(1).filter(l=>l.trim()).map(line => {
+      const c = line.split(',');
+      return { email: (c[0]||'').trim().toLowerCase().replace(/"/g,''), amount: Number((c[1]||'0').replace(/"/g,'')), type: ((c[2]||'PAYMENT').trim().toUpperCase()).replace(/"/g,''), payment_date: c[3] ? new Date(c[3].replace(/"/g,'').trim()).toISOString() : new Date().toISOString(), reference: (c[4]||'BULK_UPLOAD').replace(/"/g,'').trim(), recorded_by: (c[5]||'Bulk Upload').replace(/"/g,'').trim(), academic_year: year };
     }).filter(r => r.email && r.amount);
-
-    if (!toUpload.length) {
-      status.className = 'alert alert-danger'; status.innerHTML = '⚠️ No valid payment records found.'; return;
-    }
-
+    if (!rows.length) { status.className = 'alert alert-danger'; status.innerHTML = '⚠️ No valid records found.'; return; }
     let synced = 0;
-    for (let i = 0; i < toUpload.length; i += 100) {
-      const chunk = toUpload.slice(i, i + 100);
-      const res = await fetch(SUPABASE_URL + '/rest/v1/payments', {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(chunk)
-      });
-      if (res.ok) synced += chunk.length;
+    for (let i = 0; i < rows.length; i += 100) {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/payments', { method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(rows.slice(i, i+100)) });
+      if (res.ok) synced += Math.min(100, rows.length-i);
     }
-
-    status.className = 'alert alert-success';
-    status.innerHTML = `✅ ${synced} of ${toUpload.length} payments uploaded successfully.`;
+    status.className = 'alert alert-success'; status.innerHTML = `✅ ${synced} payments uploaded.`;
     fileInput.value = '';
-    Swal.fire({ icon: 'success', title: 'Payments Uploaded!', text: `${synced} payments saved.`, confirmButtonColor: '#10b981' });
-
-  } catch(e) {
-    status.className = 'alert alert-danger'; status.innerHTML = '⚠️ Error: ' + e.message;
-  }
+    Swal.fire({ icon: 'success', title: 'Done!', text: synced + ' payments saved.', confirmButtonColor: '#10b981' });
+  } catch(e) { status.className = 'alert alert-danger'; status.innerHTML = '⚠️ Error: ' + e.message; }
 }
 
-function downloadPaymentTemplate() {
-  const csv = 'Email,Amount,Type,Date,Reference,RecordedBy\n' +
-              'student@pce.edu.gh,3500,PAYMENT,2024-09-15,TXN12345,Mrs. Asante';
+function finDownloadPaymentTemplate() {
+  const csv = 'Email,Amount,Type,Date,Reference,RecordedBy\nstudent@pce.edu.gh,3500,PAYMENT,2024-09-15,TXN12345,Mrs. Asante';
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
   a.download = 'Payment_Upload_Template.csv'; a.click();
 }
 
-// ── Receipt PDF ─────────────────────────────────────────────────
-async function printFinanceReceipt(email, academicYear) {
-  Swal.fire({ title: 'Generating Receipt...', html: '<div class="spinner-border text-primary"></div>', allowOutsideClick: false, showConfirmButton: false });
-
-  const cleanEmail = email.toLowerCase().trim();
+// ── Receipt PDF ────────────────────────────────────────────────
+async function finPrintFinanceReceipt(email, academicYear) {
+  Swal.fire({ title: 'Generating...', html: '<div class="spinner-border text-primary"></div>', allowOutsideClick: false, showConfirmButton: false });
+  const em = email.toLowerCase().trim();
   const [bioRows, sfRows, payRows] = await Promise.all([
-    sbFetch('student_bio?email=eq.' + encodeURIComponent(cleanEmail) + '&select=*&limit=1'),
-    sbFetch('student_finance?email=eq.' + encodeURIComponent(cleanEmail) + '&academic_year=eq.' + encodeURIComponent(academicYear) + '&select=*&limit=1'),
-    sbFetch('payments?email=eq.' + encodeURIComponent(cleanEmail) + '&academic_year=eq.' + encodeURIComponent(academicYear) + '&select=*&order=payment_date.asc')
+    sbFetch('student_bio?email=eq.' + encodeURIComponent(em) + '&select=*&limit=1'),
+    sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(academicYear) + '&select=*&limit=1'),
+    sbFetch('payments?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(academicYear) + '&select=*&order=payment_date.asc')
   ]);
-
-  if (!bioRows || !bioRows.length || !sfRows || !sfRows.length) {
-    Swal.fire({ icon: 'error', title: 'No Records', text: 'No payment records found.' }); return;
-  }
-
-  const student  = bioRows[0];
-  const sf       = sfRows[0];
-  const payments = payRows || [];
-  const totalPaid  = payments.reduce((s, p) => s + Number(p.amount), 0);
-  const totalReq   = Number(sf.total_required) || 0;
+  if (!bioRows||!bioRows.length||!sfRows||!sfRows.length) { Swal.fire({ icon:'error', title:'No Records', text:'No payment records found.' }); return; }
+  const student = bioRows[0], sf = sfRows[0], payments = payRows||[];
+  const totalPaid  = payments.reduce((s,p)=>s+Number(p.amount),0);
+  const totalReq   = Number(sf.total_required)||0;
   const balance    = totalReq - totalPaid;
-  const percentage = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
-
-  const statusLabel = percentage >= 100 ? 'FULLY PAID' : percentage >= 70 ? '70% CLEARED — ELIGIBLE TO REGISTER' : 'INSUFFICIENT PAYMENT';
-  const statusColor = percentage >= 70 ? '#166534' : '#991b1b';
-  const statusBg    = percentage >= 70 ? '#dcfce7' : '#fee2e2';
-
-  const paymentRows = payments.map((p, idx) => `
-    <tr style="background:${idx%2===0?'#f9fafb':'#fff'};">
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">${idx+1}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">${p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : ''}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">
-        <span style="background:${Number(p.amount)>=0?'#dcfce7':'#fee2e2'};color:${Number(p.amount)>=0?'#166534':'#991b1b'};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:bold;">
-          ${p.type||'PAYMENT'}
-        </span>
-      </td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:bold;color:${Number(p.amount)>=0?'#166534':'#dc2626'};">
-        ${Number(p.amount)>=0?'+':''}GH₵ ${Math.abs(Number(p.amount)).toFixed(2)}
-      </td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:10px;">${p.reference||''}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:10px;">${p.recorded_by||''}</td>
-    </tr>`).join('');
-
-  const html = `
-    <div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;padding:20px;max-width:700px;margin:0 auto;">
-      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:15px;">
-        <div style="font-size:17px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>
-        <div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div>
-      </div>
-      <div style="text-align:center;margin-bottom:20px;">
-        <div style="font-size:14px;font-weight:bold;text-decoration:underline;">OFFICIAL PAYMENT RECEIPT</div>
-        <div style="font-size:11px;color:#555;margin-top:4px;">Academic Year: <strong>${academicYear}</strong></div>
-      </div>
-      <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:15px;border-collapse:collapse;">
-        <tr style="background:#f1f5f9;"><td colspan="4" style="padding:8px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;">Student Information</td></tr>
-        <tr><td style="padding:8px 12px;width:25%;"><strong>Full Name:</strong></td><td style="padding:8px 12px;">${String(student.name||'').toUpperCase()}</td>
-        <td style="padding:8px 12px;"><strong>Index Number:</strong></td><td style="padding:8px 12px;">${student.index_number||''}</td></tr>
-        <tr style="background:#f9fafb;"><td style="padding:8px 12px;"><strong>Program:</strong></td><td style="padding:8px 12px;">${String(student.program||'N/A').toUpperCase()}</td>
-        <td style="padding:8px 12px;"><strong>Level:</strong></td><td style="padding:8px 12px;">${sf.level||'N/A'}</td></tr>
-      </table>
-      <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:15px;border-collapse:collapse;">
-        <tr style="background:#f1f5f9;"><td colspan="2" style="padding:8px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;">Fee Summary</td></tr>
-        <tr><td style="padding:8px 12px;">Base Fees</td><td style="padding:8px 12px;text-align:right;font-weight:bold;">GH₵ ${Number(sf.base_fees||0).toFixed(2)}</td></tr>
-        ${Number(sf.carry_over||0)>0?`<tr style="background:#fff7ed;"><td style="padding:8px 12px;">Carried Over</td><td style="padding:8px 12px;text-align:right;font-weight:bold;color:#c2410c;">GH₵ ${Number(sf.carry_over).toFixed(2)}</td></tr>`:''}
-        <tr style="background:#f9fafb;"><td style="padding:8px 12px;font-weight:bold;">Total Required</td><td style="padding:8px 12px;text-align:right;font-weight:bold;">GH₵ ${totalReq.toFixed(2)}</td></tr>
-        <tr><td style="padding:8px 12px;">Total Paid</td><td style="padding:8px 12px;text-align:right;font-weight:bold;color:#166534;">GH₵ ${totalPaid.toFixed(2)}</td></tr>
-        <tr><td style="padding:8px 12px;border-top:2px solid #000;">Outstanding Balance</td>
-        <td style="padding:8px 12px;text-align:right;font-weight:bold;border-top:2px solid #000;color:${balance>0?'#dc2626':'#166534'};">GH₵ ${balance.toFixed(2)}</td></tr>
-        <tr><td colspan="2" style="padding:10px 12px;">
-          <span style="background:${statusBg};color:${statusColor};padding:4px 14px;border-radius:4px;font-weight:bold;font-size:11px;">
-            ${statusLabel} (${percentage}%)
-          </span>
-        </td></tr>
-      </table>
-      <div style="font-weight:bold;font-size:10px;text-transform:uppercase;margin-bottom:8px;">Payment Transaction History</div>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">
-        <thead><tr style="background:#1e3a5f;color:white;">
-          <th style="padding:8px;font-size:10px;">#</th>
-          <th style="padding:8px;font-size:10px;">Date</th>
-          <th style="padding:8px;font-size:10px;">Type</th>
-          <th style="padding:8px;font-size:10px;text-align:right;">Amount</th>
-          <th style="padding:8px;font-size:10px;">Reference</th>
-          <th style="padding:8px;font-size:10px;">Recorded By</th>
-        </tr></thead>
-        <tbody>${paymentRows||'<tr><td colspan="6" style="padding:12px;text-align:center;color:#9ca3af;">No transactions</td></tr>'}</tbody>
-      </table>
-      <div style="margin-top:40px;display:flex;justify-content:space-between;border-top:1px solid #000;padding-top:10px;">
-        <div><div style="border-top:1px solid #000;width:200px;padding-top:5px;margin-top:40px;"><strong>FINANCE OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></div>
-        <div style="text-align:right;"><strong>Date of Issue:</strong> ${new Date().toLocaleDateString('en-GB')}<br><small style="color:#9ca3af;">Generated by PCE Finance System</small></div>
-      </div>
-    </div>`;
-
+  const pct        = totalReq>0 ? parseFloat(((totalPaid/totalReq)*100).toFixed(1)) : 0;
+  const label      = pct>=100?'FULLY PAID':pct>=70?'70% CLEARED — ELIGIBLE':'INSUFFICIENT';
+  const sc         = pct>=70?'#166534':'#991b1b', sb = pct>=70?'#dcfce7':'#fee2e2';
+  const payRows2   = payments.map((p,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'}"><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">${i+1}</td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">${p.payment_date?new Date(p.payment_date).toLocaleDateString('en-GB'):''}</td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;"><span style="background:${Number(p.amount)>=0?'#dcfce7':'#fee2e2'};color:${Number(p.amount)>=0?'#166534':'#991b1b'};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:bold;">${p.type||'PAYMENT'}</span></td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:bold;color:${Number(p.amount)>=0?'#166534':'#dc2626'};">${Number(p.amount)>=0?'+':''}GH₵ ${Math.abs(Number(p.amount)).toFixed(2)}</td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:10px;">${p.reference||''}</td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:10px;">${p.recorded_by||''}</td></tr>`).join('');
+  const htmlContent = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;padding:20px;max-width:700px;margin:0 auto;"><div style="text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:15px;"><div style="font-size:17px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div><div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | www.pce.edu.gh</div></div><div style="text-align:center;margin-bottom:20px;"><div style="font-size:14px;font-weight:bold;text-decoration:underline;">OFFICIAL PAYMENT RECEIPT</div><div style="font-size:11px;color:#555;margin-top:4px;">Academic Year: <strong>${academicYear}</strong></div></div><table style="width:100%;border:1px solid #e5e7eb;margin-bottom:15px;border-collapse:collapse;"><tr style="background:#f1f5f9;"><td colspan="4" style="padding:8px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;">Student Information</td></tr><tr><td style="padding:8px 12px;width:25%;"><strong>Full Name:</strong></td><td style="padding:8px 12px;">${String(student.name||'').toUpperCase()}</td><td style="padding:8px 12px;"><strong>Index Number:</strong></td><td style="padding:8px 12px;">${student.index_number||''}</td></tr><tr style="background:#f9fafb;"><td style="padding:8px 12px;"><strong>Program:</strong></td><td style="padding:8px 12px;">${String(student.program||'N/A').toUpperCase()}</td><td style="padding:8px 12px;"><strong>Level:</strong></td><td style="padding:8px 12px;">${sf.level||'N/A'}</td></tr></table><table style="width:100%;border:1px solid #e5e7eb;margin-bottom:15px;border-collapse:collapse;"><tr style="background:#f1f5f9;"><td colspan="2" style="padding:8px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;">Fee Summary</td></tr><tr><td style="padding:8px 12px;">Base Fees</td><td style="padding:8px 12px;text-align:right;font-weight:bold;">GH₵ ${Number(sf.base_fees||0).toFixed(2)}</td></tr>${Number(sf.carry_over||0)>0?`<tr style="background:#fff7ed;"><td style="padding:8px 12px;">Carried Over</td><td style="padding:8px 12px;text-align:right;font-weight:bold;color:#c2410c;">GH₵ ${Number(sf.carry_over).toFixed(2)}</td></tr>`:''}<tr style="background:#f9fafb;"><td style="padding:8px 12px;font-weight:bold;">Total Required</td><td style="padding:8px 12px;text-align:right;font-weight:bold;">GH₵ ${totalReq.toFixed(2)}</td></tr><tr><td style="padding:8px 12px;">Total Paid</td><td style="padding:8px 12px;text-align:right;font-weight:bold;color:#166534;">GH₵ ${totalPaid.toFixed(2)}</td></tr><tr><td style="padding:8px 12px;border-top:2px solid #000;">Outstanding Balance</td><td style="padding:8px 12px;text-align:right;font-weight:bold;border-top:2px solid #000;color:${balance>0?'#dc2626':'#166534'};">GH₵ ${balance.toFixed(2)}</td></tr><tr><td colspan="2" style="padding:10px 12px;"><span style="background:${sb};color:${sc};padding:4px 14px;border-radius:4px;font-weight:bold;font-size:11px;">${label} (${pct}%)</span></td></tr></table><div style="font-weight:bold;font-size:10px;text-transform:uppercase;margin-bottom:8px;">Payment Transactions</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;"><thead><tr style="background:#1e3a5f;color:white;"><th style="padding:8px;font-size:10px;">#</th><th style="padding:8px;font-size:10px;">Date</th><th style="padding:8px;font-size:10px;">Type</th><th style="padding:8px;font-size:10px;text-align:right;">Amount</th><th style="padding:8px;font-size:10px;">Reference</th><th style="padding:8px;font-size:10px;">Recorded By</th></tr></thead><tbody>${payRows2||'<tr><td colspan="6" style="padding:12px;text-align:center;color:#9ca3af;">No transactions</td></tr>'}</tbody></table><div style="margin-top:40px;display:flex;justify-content:space-between;border-top:1px solid #000;padding-top:10px;"><div><div style="border-top:1px solid #000;width:200px;padding-top:5px;margin-top:40px;"><strong>FINANCE OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></div><div style="text-align:right;"><strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}<br><small style="color:#9ca3af;">PCE Finance System</small></div></div></div>`;
   Swal.close();
-
-  const container = document.createElement('div');
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  const opt = {
-    margin: 0.4, filename: `Receipt_${student.index_number}_${academicYear.replace('/','-')}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-  };
-
-  await html2pdf().set(opt).from(container).save();
-  document.body.removeChild(container);
+  const wrap = document.createElement('div');
+  wrap.innerHTML = htmlContent;
+  document.body.appendChild(wrap);
+  await html2pdf().set({ margin:0.4, filename:`Receipt_${student.index_number||em}_${academicYear.replace('/','-')}.pdf`, image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'in',format:'a4',orientation:'portrait'} }).from(wrap).save();
+  document.body.removeChild(wrap);
 }
 
-// ── Download ─────────────────────────────────────────────────────
-async function runDl() {
+// ── Reports ────────────────────────────────────────────────────
+async function finRunDl() {
   const lvl = document.getElementById('lvlDl').value;
-
   const [regRows, bioRows] = await Promise.all([
     sbFetch('registrations?level=eq.' + encodeURIComponent(lvl) + '&select=email'),
     sbFetch('student_bio?level=eq.' + encodeURIComponent(lvl) + '&select=email,name,index_number,program,status')
   ]);
-
-  if (!regRows || regRows.length === 0) { alert('No registered students found for Level ' + lvl); return; }
-
-  const registered = new Set(regRows.map(r => r.email.toLowerCase().trim()));
-  const filtered   = (bioRows || []).filter(r => r.email && registered.has(r.email.toLowerCase().trim()));
-
-  if (!filtered.length) { alert('No matching student records found.'); return; }
-
-  const headers = ['Email','Name','Index','Program','Status'];
-  const rows    = [headers, ...filtered.map(r => [r.email||'',r.name||'',r.index_number||'',r.program||'',r.status||'PENDING'])];
-  const csv     = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const a       = document.createElement('a');
-  a.href        = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download    = 'Level_' + lvl + '_Registered.csv'; a.click();
+  if (!regRows||!regRows.length) { alert('No registered students found for Level ' + lvl); return; }
+  const reg = new Set(regRows.map(r=>r.email.toLowerCase().trim()));
+  const rows = (bioRows||[]).filter(r=>r.email&&reg.has(r.email.toLowerCase().trim()));
+  if (!rows.length) { alert('No matching records found.'); return; }
+  const csv = [['Email','Name','Index','Program','Status'], ...rows.map(r=>[r.email,r.name,r.index_number,r.program,r.status||'PENDING'])].map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'Level_' + lvl + '_Registered.csv'; a.click();
 }
 
-// ── Init ────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async function() {
-  // Check session
-  const raw = sessionStorage.getItem('pce_session');
-  if (!raw) { window.location.href = 'index.html'; return; }
-
-  let session;
-  try { session = JSON.parse(raw); } catch(e) { window.location.href = 'index.html'; return; }
-
-  if (!session.email || !['FINANCE','ADMIN'].includes(session.role)) {
-    window.location.href = 'index.html'; return;
-  }
-
-  userSession.email = session.email;
-  userSession.role  = session.role;
-
-  // Update navbar
-  const nameFromEmail = session.email.split('@')[0];
-  document.getElementById('userNameDisplay').innerText = nameFromEmail;
-  document.getElementById('userInitials').innerText    = nameFromEmail.charAt(0).toUpperCase();
-
-  // Load finance portal
-  loadActiveYearDisplay();
-  loadYearFeeStatusTable();
-});
+// ── Auto-init when fragment loads ──────────────────────────────
+(async function() {
+  await finLoadActiveYearDisplay();
+  await finLoadYearFeeStatusTable();
+})();
 </script>
-</body>
-</html>
