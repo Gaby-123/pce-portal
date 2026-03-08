@@ -823,21 +823,37 @@ async function finPrintFinanceReceipt(email, academicYear, calledBy) {
          <strong>FINANCE OFFICER</strong><br><small>(Signature &amp; Stamp)</small>
        </div>`;
 
-  const logoUrl = 'https://pce.edu.gh/newimg/logo.png';
+  // Fetch logo as base64 so html2pdf can embed it (avoids CORS + works offline)
+  let logoDataUri = '';
+  try {
+    const logoRes  = await fetch('https://pce.edu.gh/newimg/logo.png');
+    const blob     = await logoRes.blob();
+    logoDataUri    = await new Promise(resolve => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.readAsDataURL(blob);
+    });
+  } catch(e) {
+    // If logo fetch fails, watermark/header just won't show image — no crash
+    logoDataUri = '';
+  }
 
   const htmlContent = `
-    <div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;padding:20px;max-width:720px;margin:0 auto;position:relative;">
+    <div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;padding:20px;max-width:720px;margin:0 auto;position:relative;min-height:1050px;">
 
-      <!-- Watermark -->
-      <div style="position:fixed;top:25%;left:10%;width:80%;opacity:0.05;z-index:-1;text-align:center;">
-        <img src="${logoUrl}" style="width:400px;" crossorigin="anonymous">
+      <!-- Watermark: absolute inside relative parent (html2pdf ignores position:fixed) -->
+      <div style="position:absolute;top:280px;left:110px;width:500px;opacity:0.07;z-index:0;text-align:center;pointer-events:none;">
+        ${logoDataUri ? `<img src="${logoDataUri}" style="width:500px;">` : ''}
       </div>
+
+      <!-- All real content above the watermark -->
+      <div style="position:relative;z-index:1;">
 
       <!-- Header: logo + college name side by side -->
       <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:15px;border-collapse:collapse;">
         <tr>
           <td style="width:80px;vertical-align:middle;">
-            <img src="${logoUrl}" width="65" crossorigin="anonymous">
+            ${logoDataUri ? `<img src="${logoDataUri}" width="65">` : ''}
           </td>
           <td style="vertical-align:middle;text-align:center;">
             <div style="font-size:17px;font-weight:bold;text-transform:uppercase;">
@@ -949,6 +965,7 @@ async function finPrintFinanceReceipt(email, academicYear, calledBy) {
         </table>
       </div>
 
+      </div><!-- end z-index:1 wrapper -->
     </div>`;
 
   Swal.close();
