@@ -823,19 +823,23 @@ async function finPrintFinanceReceipt(email, academicYear, calledBy) {
          <strong>FINANCE OFFICER</strong><br><small>(Signature &amp; Stamp)</small>
        </div>`;
 
-  // Fetch logo as base64 so html2pdf can embed it (avoids CORS + works offline)
-  let logoDataUri = '';
+  // Try to get base64 for the watermark (needs data URI for absolute-positioned img)
+  // Header logo uses URL directly — html2pdf useCORS:true handles it fine
+  const logoUrl = 'https://pce.edu.gh/newimg/logo.png';
+  let logoDataUri = logoUrl; // default: use URL directly
   try {
-    const logoRes  = await fetch('https://pce.edu.gh/newimg/logo.png');
-    const blob     = await logoRes.blob();
-    logoDataUri    = await new Promise(resolve => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.readAsDataURL(blob);
-    });
+    const logoRes = await fetch(logoUrl, { mode: 'cors' });
+    if (logoRes.ok) {
+      const blob = await logoRes.blob();
+      logoDataUri = await new Promise(resolve => {
+        const r = new FileReader();
+        r.onload  = () => resolve(r.result);
+        r.onerror = () => resolve(logoUrl); // fallback to URL if FileReader fails
+        r.readAsDataURL(blob);
+      });
+    }
   } catch(e) {
-    // If logo fetch fails, watermark/header just won't show image — no crash
-    logoDataUri = '';
+    logoDataUri = logoUrl; // CORS blocked — use URL directly, useCORS:true will handle it
   }
 
   const htmlContent = `
@@ -853,7 +857,7 @@ async function finPrintFinanceReceipt(email, academicYear, calledBy) {
       <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:15px;border-collapse:collapse;">
         <tr>
           <td style="width:80px;vertical-align:middle;">
-            ${logoDataUri ? `<img src="${logoDataUri}" width="65">` : ''}
+            <img src="${logoDataUri}" width="65" style="display:block;">
           </td>
           <td style="vertical-align:middle;text-align:center;">
             <div style="font-size:17px;font-weight:bold;text-transform:uppercase;">
