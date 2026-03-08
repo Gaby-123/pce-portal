@@ -44,23 +44,23 @@
       <h5><i class="bi bi-cash-stack me-2"></i>Finance Portal</h5>
       <p class="mb-0 small opacity-75">Payment &amp; Fee Management</p>
     </div>
-    <nav class="sidebar-menu">
-      <a class="menu-item active" onclick="finShowSection('year-setup', this)">
+    <nav class="sidebar-menu" id="finSidebarMenu">
+      <a class="menu-item active" data-section="year-setup">
         <i class="bi bi-calendar-check"></i><span>Academic Year Setup</span>
       </a>
-      <a class="menu-item" onclick="finShowSection('fee-setup', this)">
+      <a class="menu-item" data-section="fee-setup">
         <i class="bi bi-calculator"></i><span>Fee Structure Setup</span>
       </a>
-      <a class="menu-item" onclick="finShowSection('clearance', this)">
+      <a class="menu-item" data-section="clearance">
         <i class="bi bi-check-circle"></i><span>Clearance Management</span>
       </a>
-      <a class="menu-item" onclick="finShowSection('payment-tracking', this)">
+      <a class="menu-item" data-section="payment-tracking">
         <i class="bi bi-receipt"></i><span>Payment Tracking</span>
       </a>
-      <a class="menu-item" onclick="finShowSection('student-lookup', this)">
+      <a class="menu-item" data-section="student-lookup">
         <i class="bi bi-search"></i><span>Student Financial Lookup</span>
       </a>
-      <a class="menu-item" onclick="finShowSection('reports', this)">
+      <a class="menu-item" data-section="reports">
         <i class="bi bi-file-earmark-bar-graph"></i><span>Reports &amp; Export</span>
       </a>
     </nav>
@@ -327,14 +327,24 @@
 <script>
 // All finance functions are prefixed fin* to avoid any global name collisions
 
-function finShowSection(id, el) {
-  document.querySelectorAll('.finance-section').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  document.querySelectorAll('.sidebar-menu .menu-item').forEach(n => n.classList.remove('active'));
-  if (el) el.classList.add('active');
-  if (id === 'fee-setup')  { finLoadFeeStructure(); }
+function finShowSection(id) {
+  // Use inline style — never depends on CSS classes surviving injection
+  document.querySelectorAll('.finance-section').forEach(s => {
+    s.style.display = s.id === id ? 'block' : 'none';
+  });
+  document.querySelectorAll('#finSidebarMenu .menu-item').forEach(n => {
+    n.classList.toggle('active', n.getAttribute('data-section') === id);
+  });
+  if (id === 'fee-setup')  finLoadFeeStructure();
   if (id === 'year-setup') { finLoadActiveYearDisplay(); finLoadYearFeeStatusTable(); }
 }
+
+// Attach sidebar clicks via JS — no onclick attributes needed
+document.querySelectorAll('#finSidebarMenu .menu-item').forEach(item => {
+  item.addEventListener('click', function() {
+    finShowSection(this.getAttribute('data-section'));
+  });
+});
 
 // ── Helpers ────────────────────────────────────────────────────
 function finGetCurrentAcademicYear() {
@@ -787,6 +797,10 @@ async function finRunDl() {
 
 // ── Auto-init when fragment loads ──────────────────────────────
 (async function() {
+  // Set initial display states via inline style (reliable regardless of CSS injection order)
+  document.querySelectorAll('.finance-section').forEach(s => {
+    s.style.display = s.id === 'year-setup' ? 'block' : 'none';
+  });
   await finLoadActiveYearDisplay();
   await finLoadYearFeeStatusTable();
 })();
