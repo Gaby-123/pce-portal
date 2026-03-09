@@ -533,7 +533,7 @@ function regPopulateEditModal(r) {
   document.getElementById('regEditIndex').value      = r.index_number || '';
   document.getElementById('regEditLevel').value      = String(r.level || '100');
   document.getElementById('regEditProgram').value    = r.program    || '';
-  document.getElementById('regEditSpec').value       = r.spec || r.specialization || '';
+  document.getElementById('regEditSpec').value       = r.specialization || r.spec || '';
   document.getElementById('regEditDepartment').value = r.department || 'SOCIAL SCIENCE';
   const statusInput = document.getElementById('regEditStatus');
   statusInput.value = status;
@@ -569,7 +569,7 @@ async function regSaveStudentEdit() {
     index_number: document.getElementById('regEditIndex').value.trim(),
     level:        document.getElementById('regEditLevel').value,
     program:      document.getElementById('regEditProgram').value.trim(),
-    spec:         document.getElementById('regEditSpec').value.trim(),
+    specialization: document.getElementById('regEditSpec').value.trim(),
     department:   document.getElementById('regEditDepartment').value
   };
 
@@ -647,7 +647,7 @@ async function regSubmitManualStudent() {
     gender,
     program,
     department,
-    spec,
+    specialization: spec,
     dob: dob || null,
     phone,
     status: 'PENDING'
