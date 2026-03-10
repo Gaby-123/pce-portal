@@ -619,9 +619,9 @@ async function handleDownloadSlip(btnEl) {
     if (lr.ok) { var lb = await lr.blob(); logoBase64 = await new Promise(function(rs) { var rd = new FileReader(); rd.onload = function() { rs(rd.result); }; rd.onerror = function() { rs(''); }; rd.readAsDataURL(lb); }); }
   } catch(e) {}
 
-  // FIX: logo cell and watermark — watermark uses position:fixed with zero layout impact
-  var logoCell  = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
-  var watermark = logoBase64 ? '<div style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:0;pointer-events:none;"><img src="' + logoBase64 + '" style="width:420px;opacity:0.07;"></div>' : '';
+  var logoCell = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
+  // WATERMARK: use background-image on the outer div — zero layout impact, works with html2canvas
+  var wmStyle = logoBase64 ? 'background-image:url(' + logoBase64 + ');background-repeat:no-repeat;background-position:center center;background-size:380px 380px;' : '';
 
   var courseRows = codes.map(function(code, i) {
     var c = courseMap[code] || { title: 'Unknown', credits: 3 };
@@ -634,10 +634,8 @@ async function handleDownloadSlip(btnEl) {
   }).join('');
   var totalCredits = codes.reduce(function(s, c) { return s + Number((courseMap[c] || { credits: 3 }).credits || 3); }, 0);
 
-  // FIX: width set to 794px (A4 at 96dpi), no position:relative on outer wrapper
   var html =
-    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:794px;padding:28px;box-sizing:border-box;background:#fff;">' +
-    watermark +
+    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:738px;padding:28px;box-sizing:border-box;background:#fff;' + wmStyle + '">' +
     '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;"><tr>' + logoCell +
     '<td style="vertical-align:middle;text-align:center;"><div style="font-size:15px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
     '<div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
@@ -664,27 +662,26 @@ async function handleDownloadSlip(btnEl) {
     '</tr></table></div></div>';
 
   Swal.close();
+  // Use a visibility:hidden on-screen container — html2canvas CANNOT render off-screen (-9999px) correctly
   var wrap = document.createElement('div');
-  // FIX: wrap width matches A4
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;';
+  wrap.style.cssText = 'position:absolute;top:0;left:0;width:738px;visibility:hidden;overflow:hidden;z-index:-1;';
   wrap.innerHTML = html;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: 0,                        // FIX: zero margin — padding handled inside HTML
+      margin: 0,
       filename: 'RegSlip_' + (student.index_number || email) + '_L' + lvl + '_' + sem + '.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
-        scale: 1.5,                     // FIX: reduced scale prevents canvas blowout
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: 794,                     // FIX: explicit A4 pixel width
-        windowWidth: 794
+        width: 738,
+        windowWidth: 738
       },
-      jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait', hotfixes: ['px_scaling'] }
-      // FIX: unit:'px' eliminates inch/pixel mismatch
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     }).from(wrap.firstElementChild).save();
   } finally { document.body.removeChild(wrap); }
   if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
@@ -806,9 +803,9 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
     if (lr.ok) { var lb = await lr.blob(); logoBase64 = await new Promise(function(rs) { var rd = new FileReader(); rd.onload = function() { rs(rd.result); }; rd.onerror = function() { rs(''); }; rd.readAsDataURL(lb); }); }
   } catch(e) {}
 
-  // FIX: logo cell and watermark — watermark uses position:fixed with zero layout impact
-  var logoCell  = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
-  var watermark = logoBase64 ? '<div style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:0;pointer-events:none;"><img src="' + logoBase64 + '" style="width:420px;opacity:0.07;"></div>' : '';
+  var logoCell = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
+  // WATERMARK: use background-image on the outer div — zero layout impact, works with html2canvas
+  var wmStyle = logoBase64 ? 'background-image:url(' + logoBase64 + ');background-repeat:no-repeat;background-position:center center;background-size:380px 380px;' : '';
 
   var courseRows = filtered.map(function(r, i) {
     var info = courseMap[r.course_code] || {}, grade = String(r.grade).toUpperCase().trim();
@@ -827,10 +824,9 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
 
   var gpaColor = parseFloat(semGPA) >= 3.5 ? '#166534' : parseFloat(semGPA) >= 2.5 ? '#0284c7' : parseFloat(semGPA) >= 1.5 ? '#d97706' : '#dc2626';
 
-  // FIX: width set to 794px (A4 at 96dpi), no position:relative on outer wrapper
+  // FIX: width 738px = A4 content width at 96dpi minus padding; background-image watermark
   var html =
-    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:794px;padding:28px;box-sizing:border-box;background:#fff;">' +
-    watermark +
+    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:738px;padding:28px;box-sizing:border-box;background:#fff;' + wmStyle + '">' +
     '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;"><tr>' + logoCell +
     '<td style="vertical-align:middle;text-align:center;"><div style="font-size:15px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
     '<div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
@@ -861,26 +857,25 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
 
   Swal.close();
   var wrap = document.createElement('div');
-  // FIX: wrap width matches A4
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;';
+  // Use a visibility:hidden on-screen container — html2canvas CANNOT render off-screen (-9999px) correctly
+  wrap.style.cssText = 'position:absolute;top:0;left:0;width:738px;visibility:hidden;overflow:hidden;z-index:-1;';
   wrap.innerHTML = html;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: 0,                        // FIX: zero margin — padding handled inside HTML
+      margin: 0,
       filename: 'ResultSlip_' + (student.index_number || email) + '_L' + lvl + '_' + sem + '.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
-        scale: 1.5,                     // FIX: reduced scale prevents canvas blowout
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: 794,                     // FIX: explicit A4 pixel width
-        windowWidth: 794
+        width: 738,
+        windowWidth: 738
       },
-      jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait', hotfixes: ['px_scaling'] }
-      // FIX: unit:'px' eliminates inch/pixel mismatch
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     }).from(wrap.firstElementChild).save();
   } finally { document.body.removeChild(wrap); }
 }
@@ -964,9 +959,9 @@ async function printStudentReceipt() {
   // FIX: use stuFetchLogo() helper
   const logoBase64 = await stuFetchLogo();
 
-  // FIX: logo cell and watermark — watermark uses position:fixed with zero layout impact
-  const logoCell      = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
-  const watermarkHtml = logoBase64 ? `<div style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:0;pointer-events:none;"><img src="${logoBase64}" style="width:440px;opacity:0.07;"></div>` : '';
+  // WATERMARK: use background-image on the outer div — zero layout impact, works with html2canvas
+  const logoCell   = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
+  const wmStyle    = logoBase64 ? `background-image:url(${logoBase64});background-repeat:no-repeat;background-position:center center;background-size:380px 380px;` : '';
 
   const payRowsHtml = payRows.map((p, idx) => {
     const amt = Number(p.amount);
@@ -983,9 +978,8 @@ async function printStudentReceipt() {
     ? `<tr style="background:#fff7ed;"><td style="padding:7px 12px;">Carried Over from Previous Year</td><td style="padding:7px 12px;text-align:right;font-weight:bold;color:#c2410c;">GH&#8373; ${carryOver.toFixed(2)}</td></tr>`
     : '';
 
-  // FIX: width set to 794px (A4 at 96dpi), no position:relative on outer wrapper
-  const receiptHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:794px;padding:28px;box-sizing:border-box;background:#ffffff;">
-  ${watermarkHtml}
+  // FIX: width 738px = A4 content width; background-image watermark has zero layout impact
+  const receiptHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:738px;padding:28px;box-sizing:border-box;background:#ffffff;${wmStyle}">
     <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;">
       <tr>
         ${logoCell}
@@ -1051,26 +1045,25 @@ async function printStudentReceipt() {
   Swal.close();
 
   const wrap = document.createElement('div');
-  // FIX: wrap width matches A4
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;';
+  // Use a visibility:hidden on-screen container — html2canvas CANNOT render off-screen (-9999px) correctly
+  wrap.style.cssText = 'position:absolute;top:0;left:0;width:738px;visibility:hidden;overflow:hidden;z-index:-1;';
   wrap.innerHTML = receiptHtml;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: 0,                        // FIX: zero margin — padding handled inside HTML
+      margin: 0,
       filename: `Receipt_${student.index_number || em}_${String(year).replace('/', '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
-        scale: 1.5,                     // FIX: reduced scale prevents canvas blowout
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: 794,                     // FIX: explicit A4 pixel width
-        windowWidth: 794
+        width: 738,
+        windowWidth: 738
       },
-      jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait', hotfixes: ['px_scaling'] }
-      // FIX: unit:'px' eliminates inch/pixel mismatch
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     }).from(wrap.firstElementChild).save();
   } finally { document.body.removeChild(wrap); }
 }
