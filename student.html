@@ -547,97 +547,143 @@ async function stuGetActiveYear(level) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SHARED LOGO HELPER — same CORS proxy pattern as finance.html
+// ═══════════════════════════════════════════════════════════════
+async function stuFetchLogo() {
+  try {
+    const resp = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
+    if (!resp.ok) return '';
+    const blob = await resp.blob();
+    return await new Promise(resolve => {
+      const r = new FileReader();
+      r.onload  = () => resolve(r.result);
+      r.onerror = () => resolve('');
+      r.readAsDataURL(blob);
+    });
+  } catch(e) { return ''; }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // REGISTRATION SLIP PDF
 // ═══════════════════════════════════════════════════════════════
 async function handleDownloadSlip(btnEl) {
-  var lvl  = document.getElementById('regLvl').value;
-  var sem  = document.getElementById('regSem').value;
-  var orig = btnEl ? btnEl.innerHTML : '';
+  const lvl  = document.getElementById('regLvl').value;
+  const sem  = document.getElementById('regSem').value;
+  const orig = btnEl ? btnEl.innerHTML : '';
   if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...'; }
 
   Swal.fire({ title: 'Generating Slip...', html: '<div class="spinner-border text-primary"></div>', allowOutsideClick: false, showConfirmButton: false });
 
-  var email = userSession.email.toLowerCase().trim();
-  var activeYear = _stuActiveYear || await stuGetActiveYear(lvl);
+  const email      = userSession.email.toLowerCase().trim();
+  const activeYear = _stuActiveYear || await stuGetActiveYear(lvl);
 
-  var fetched = await Promise.all([
+  const [bioRows, regRows] = await Promise.all([
     sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=*&limit=1'),
     sbFetch('registrations?email=eq.' + encodeURIComponent(email) + '&level=eq.' + encodeURIComponent(lvl) + '&semester=eq.' + encodeURIComponent(sem) + '&select=course_code,registered_at&order=course_code')
   ]);
-  var bioRows = fetched[0], regRows = fetched[1];
 
   if (!bioRows || !bioRows.length || !regRows || !regRows.length) {
-    Swal.fire({ icon: 'warning', title: 'No Registration Found', text: 'No registration found for Level ' + lvl + ' ' + sem + '. Please contact Registry.' });
+    Swal.fire({ icon: 'warning', title: 'No Registration Found', text: `No registration found for Level ${lvl} ${sem}. Please contact Registry.` });
     if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
     return;
   }
 
-  var codes = regRows.map(function(r) { return r.course_code; });
-  var courseData = await sbFetch('courses?course_code=in.(' + codes.map(encodeURIComponent).join(',') + ')&select=course_code,title,credits&order=course_code');
-  var courseMap = {};
-  (courseData || []).forEach(function(c) { courseMap[c.course_code] = c; });
+  const codes     = regRows.map(r => r.course_code);
+  const courseData = await sbFetch('courses?course_code=in.(' + codes.map(encodeURIComponent).join(',') + ')&select=course_code,title,credits&order=course_code');
+  const courseMap  = {};
+  (courseData || []).forEach(c => { courseMap[c.course_code] = c; });
 
-  var student  = bioRows[0];
-  var semLabel = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
-  var regDate  = regRows[0].registered_at ? new Date(regRows[0].registered_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+  const student  = bioRows[0];
+  const semLabel = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
+  const regDate  = regRows[0].registered_at ? new Date(regRows[0].registered_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
 
-  var logoBase64 = '';
-  try {
-    var lr = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
-    if (lr.ok) { var lb = await lr.blob(); logoBase64 = await new Promise(function(rs) { var rd = new FileReader(); rd.onload = function() { rs(rd.result); }; rd.onerror = function() { rs(''); }; rd.readAsDataURL(lb); }); }
-  } catch(e) {}
+  const logoBase64 = await stuFetchLogo();
+  const logoCell   = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
+  const watermarkHtml = logoBase64 ? `<img src="${logoBase64}" style="position:absolute;top:200px;left:50%;margin-left:-220px;width:440px;opacity:0.07;z-index:0;pointer-events:none;">` : '';
 
-  var logoCell  = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
-  var watermark = logoBase64 ? '<img src="' + logoBase64 + '" style="position:absolute;top:200px;left:50%;margin-left:-210px;width:420px;opacity:0.07;z-index:0;pointer-events:none;">' : '';
-
-  var courseRows = codes.map(function(code, i) {
-    var c = courseMap[code] || { title: 'Unknown', credits: 3 };
-    return '<tr style="background:' + (i % 2 === 0 ? '#f9fafb' : '#fff') + ';">' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">' + (i + 1) + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-family:monospace;">' + code + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">' + c.title + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">' + (c.credits || 3) + '</td>' +
-    '</tr>';
+  const courseRows = codes.map((code, i) => {
+    const c = courseMap[code] || { title: 'Unknown', credits: 3 };
+    return `<tr style="background:${i % 2 === 0 ? '#f9fafb' : '#ffffff'};">
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${i + 1}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-family:monospace;">${code}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${c.title}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${c.credits || 3}</td>
+    </tr>`;
   }).join('');
-  var totalCredits = codes.reduce(function(s, c) { return s + Number((courseMap[c] || { credits: 3 }).credits || 3); }, 0);
+  const totalCredits = codes.reduce((s, c) => s + Number((courseMap[c] || { credits: 3 }).credits || 3), 0);
 
-  var html =
-    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;">' + watermark +
-    '<div style="position:relative;z-index:1;">' +
-    '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;"><tr>' + logoCell +
-    '<td style="vertical-align:middle;text-align:center;"><div style="font-size:15px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
-    '<div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
-    '<div style="text-align:center;margin-bottom:16px;"><div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Course Registration Slip</div>' +
-    '<div style="font-size:11px;color:#555;margin-top:5px;">Academic Year: <strong>' + activeYear + '</strong> &nbsp;|&nbsp; ' + semLabel + '</div></div>' +
-    '<table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">' +
-    '<tr style="background:#f1f5f9;"><td colspan="4" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Student Information</td></tr>' +
-    '<tr><td style="padding:7px 12px;width:22%;"><strong>Full Name:</strong></td><td style="padding:7px 12px;width:28%;">' + String(student.name || '').toUpperCase() + '</td>' +
-    '<td style="padding:7px 12px;width:22%;"><strong>Index Number:</strong></td><td style="padding:7px 12px;width:28%;">' + (student.index_number || '') + '</td></tr>' +
-    '<tr style="background:#f9fafb;"><td style="padding:7px 12px;"><strong>Program:</strong></td><td style="padding:7px 12px;">' + String(student.program || 'N/A').toUpperCase() + '</td>' +
-    '<td style="padding:7px 12px;"><strong>Level:</strong></td><td style="padding:7px 12px;">' + lvl + '</td></tr>' +
-    '<tr><td style="padding:7px 12px;"><strong>Department:</strong></td><td style="padding:7px 12px;">' + (student.department || 'N/A') + '</td>' +
-    '<td style="padding:7px 12px;"><strong>Specialization:</strong></td><td style="padding:7px 12px;">' + (student.specialization || 'N/A') + '</td></tr></table>' +
-    '<div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;color:#374151;">Registered Courses</div>' +
-    '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;"><thead><tr style="background:#1e3a5f;">' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;">#</th><th style="padding:8px 10px;font-size:10px;color:white;">Course Code</th>' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;">Course Title</th><th style="padding:8px 10px;font-size:10px;color:white;text-align:center;">Credits</th>' +
-    '</tr></thead><tbody>' + courseRows + '</tbody>' +
-    '<tfoot><tr style="background:#f1f5f9;font-weight:bold;"><td colspan="3" style="padding:7px 10px;border-top:2px solid #000;text-align:right;">Total Credit Hours:</td>' +
-    '<td style="padding:7px 10px;border-top:2px solid #000;text-align:center;">' + totalCredits + '</td></tr></tfoot></table>' +
-    '<div style="margin-top:35px;padding-top:10px;border-top:1px solid #000;"><table style="width:100%;border-collapse:collapse;"><tr>' +
-    '<td style="width:50%;vertical-align:bottom;"><div style="margin-top:45px;border-top:1px solid #000;width:200px;padding-top:5px;"><strong>REGISTRY OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
-    '<td style="width:50%;text-align:right;vertical-align:bottom;"><strong>Date Registered:</strong> ' + regDate + '<br><strong>Date Printed:</strong> ' + new Date().toLocaleDateString('en-GB') + '<br><small style="color:#9ca3af;">Generated by PCE Academic System</small></td>' +
-    '</tr></table></div></div></div>';
+  const slipHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#ffffff;position:relative;">
+  ${watermarkHtml}
+  <div style="position:relative;z-index:1;">
+    <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;">
+      <tr>${logoCell}<td style="vertical-align:middle;text-align:center;">
+        <div style="font-size:15px;font-weight:bold;text-transform:uppercase;line-height:1.4;">Presbyterian College of Education, Akropong-Akuapem</div>
+        <div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem &nbsp;|&nbsp; Tel: +233 (0) 256 977 765 &nbsp;|&nbsp; www.pce.edu.gh</div>
+      </td></tr>
+    </table>
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Course Registration Slip</div>
+      <div style="font-size:11px;color:#555;margin-top:5px;">Academic Year: <strong>${activeYear}</strong> &nbsp;|&nbsp; ${semLabel}</div>
+    </div>
+    <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">
+      <tr style="background:#f1f5f9;"><td colspan="4" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Student Information</td></tr>
+      <tr>
+        <td style="padding:7px 12px;width:22%;"><strong>Full Name:</strong></td>
+        <td style="padding:7px 12px;width:28%;">${String(student.name || '').toUpperCase()}</td>
+        <td style="padding:7px 12px;width:22%;"><strong>Index Number:</strong></td>
+        <td style="padding:7px 12px;width:28%;">${student.index_number || ''}</td>
+      </tr>
+      <tr style="background:#f9fafb;">
+        <td style="padding:7px 12px;"><strong>Program:</strong></td>
+        <td style="padding:7px 12px;">${String(student.program || 'N/A').toUpperCase()}</td>
+        <td style="padding:7px 12px;"><strong>Level:</strong></td>
+        <td style="padding:7px 12px;">${lvl}</td>
+      </tr>
+      <tr>
+        <td style="padding:7px 12px;"><strong>Department:</strong></td>
+        <td style="padding:7px 12px;">${student.department || 'N/A'}</td>
+        <td style="padding:7px 12px;"><strong>Specialization:</strong></td>
+        <td style="padding:7px 12px;">${student.specialization || 'N/A'}</td>
+      </tr>
+    </table>
+    <div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;color:#374151;">Registered Courses</div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">
+      <thead><tr style="background:#1e3a5f;">
+        <th style="padding:8px 10px;font-size:10px;color:white;">#</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;">Course Code</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;">Course Title</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;text-align:center;">Credits</th>
+      </tr></thead>
+      <tbody>${courseRows}</tbody>
+      <tfoot><tr style="background:#f1f5f9;font-weight:bold;">
+        <td colspan="3" style="padding:7px 10px;border-top:2px solid #000;text-align:right;">Total Credit Hours:</td>
+        <td style="padding:7px 10px;border-top:2px solid #000;text-align:center;">${totalCredits}</td>
+      </tr></tfoot>
+    </table>
+    <div style="margin-top:35px;padding-top:10px;border-top:1px solid #000;">
+      <table style="width:100%;border-collapse:collapse;"><tr>
+        <td style="width:50%;vertical-align:bottom;">
+          <div style="margin-top:45px;border-top:1px solid #000;width:200px;padding-top:5px;"><strong>REGISTRY OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div>
+        </td>
+        <td style="width:50%;text-align:right;vertical-align:bottom;">
+          <strong>Date Registered:</strong> ${regDate}<br>
+          <strong>Date Printed:</strong> ${new Date().toLocaleDateString('en-GB')}<br>
+          <small style="color:#9ca3af;">Generated by PCE Academic System</small>
+        </td>
+      </tr></table>
+    </div>
+  </div>
+</div>`;
 
   Swal.close();
-  var wrap = document.createElement('div');
+  const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:760px;';
-  wrap.innerHTML = html;
+  wrap.innerHTML = slipHtml;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: [0.4,0.4,0.4,0.4],
-      filename: 'RegSlip_' + (student.index_number || email) + '_L' + lvl + '_' + sem + '.pdf',
+      margin: [0.4, 0.4, 0.4, 0.4],
+      filename: `RegSlip_${student.index_number || email}_L${lvl}_${sem}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
@@ -707,80 +753,108 @@ async function runFetchResults() {
 async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, cgpa) {
   Swal.fire({ title: 'Generating Result Slip...', html: '<div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div>', allowOutsideClick: false, showConfirmButton: false });
 
-  var email    = userSession.email.toLowerCase().trim();
-  var semLabel = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
-  var scale    = { 'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0 };
-  var gradeMap = { 'A':'DISTINCTION','B+':'VERY GOOD','B':'GOOD','C+':'CREDIT','C':'CREDIT','D+':'PASS','D':'PASS','E':'FAIL','IC':'INCOMPLETE','F':'FAIL' };
+  const email    = userSession.email.toLowerCase().trim();
+  const semLabel = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
+  const scale    = { 'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0 };
+  const gradeMap = { 'A':'DISTINCTION','B+':'VERY GOOD','B':'GOOD','C+':'CREDIT','C':'CREDIT','D+':'PASS','D':'PASS','E':'FAIL','IC':'INCOMPLETE','F':'FAIL' };
 
-  var bioRows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=name,index_number,program,level,department,specialization&limit=1');
-  var student = bioRows && bioRows.length ? bioRows[0] : { name:'', index_number:'', program:'', department:'', specialization:'' };
+  const bioRows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=name,index_number,program,level,department,specialization&limit=1');
+  const student = bioRows && bioRows.length ? bioRows[0] : { name:'', index_number:'', program:'', department:'', specialization:'' };
 
-  var logoBase64 = '';
-  try {
-    var lr = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
-    if (lr.ok) { var lb = await lr.blob(); logoBase64 = await new Promise(function(rs) { var rd = new FileReader(); rd.onload = function() { rs(rd.result); }; rd.onerror = function() { rs(''); }; rd.readAsDataURL(lb); }); }
-  } catch(e) {}
+  const logoBase64   = await stuFetchLogo();
+  const logoCell     = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
+  const watermarkHtml = logoBase64 ? `<img src="${logoBase64}" style="position:absolute;top:200px;left:50%;margin-left:-220px;width:440px;opacity:0.07;z-index:0;pointer-events:none;">` : '';
 
-  var logoCell  = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
-  var watermark = logoBase64 ? '<img src="' + logoBase64 + '" style="position:absolute;top:200px;left:50%;margin-left:-210px;width:420px;opacity:0.07;z-index:0;pointer-events:none;">' : '';
-
-  var courseRows = filtered.map(function(r, i) {
-    var info = courseMap[r.course_code] || {}, grade = String(r.grade).toUpperCase().trim();
-    var gp   = ((scale[grade] || 0) * (info.credits || 0)).toFixed(1);
-    var fail = grade === 'E' || grade === 'IC' || grade === 'F';
-    return '<tr style="background:' + (i % 2 === 0 ? '#f9fafb' : '#fff') + ';">' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">' + (i+1) + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-family:monospace;">' + r.course_code + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">' + (info.title || 'Unknown') + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">' + (info.credits || 3) + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:' + (fail ? '#dc2626':'#166534') + ';">' + grade + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">' + gp + '</td>' +
-      '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280;">' + (gradeMap[grade] || grade) + '</td>' +
-    '</tr>';
+  const courseRows = filtered.map((r, i) => {
+    const info  = courseMap[r.course_code] || {};
+    const grade = String(r.grade).toUpperCase().trim();
+    const gp    = ((scale[grade] || 0) * (info.credits || 0)).toFixed(1);
+    const fail  = grade === 'E' || grade === 'IC' || grade === 'F';
+    return `<tr style="background:${i % 2 === 0 ? '#f9fafb' : '#ffffff'};">
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${i + 1}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-family:monospace;">${r.course_code}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${info.title || 'Unknown'}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${info.credits || 3}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${fail ? '#dc2626' : '#166534'};">${grade}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${gp}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280;">${gradeMap[grade] || grade}</td>
+    </tr>`;
   }).join('');
 
-  var gpaColor = parseFloat(semGPA) >= 3.5 ? '#166534' : parseFloat(semGPA) >= 2.5 ? '#0284c7' : parseFloat(semGPA) >= 1.5 ? '#d97706' : '#dc2626';
+  const gpaColor = parseFloat(semGPA) >= 3.5 ? '#166534' : parseFloat(semGPA) >= 2.5 ? '#0284c7' : parseFloat(semGPA) >= 1.5 ? '#d97706' : '#dc2626';
 
-  var html =
-    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;">' + watermark +
-    '<div style="position:relative;z-index:1;">' +
-    '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;"><tr>' + logoCell +
-    '<td style="vertical-align:middle;text-align:center;"><div style="font-size:15px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
-    '<div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
-    '<div style="text-align:center;margin-bottom:16px;"><div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Semester Result Slip</div>' +
-    '<div style="font-size:11px;color:#555;margin-top:5px;">Level ' + lvl + ' &#8212; ' + semLabel + '</div></div>' +
-    '<table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">' +
-    '<tr style="background:#f1f5f9;"><td colspan="4" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Student Information</td></tr>' +
-    '<tr><td style="padding:7px 12px;width:22%;"><strong>Full Name:</strong></td><td style="padding:7px 12px;width:28%;">' + String(student.name || '').toUpperCase() + '</td>' +
-    '<td style="padding:7px 12px;width:22%;"><strong>Index Number:</strong></td><td style="padding:7px 12px;width:28%;">' + (student.index_number || '') + '</td></tr>' +
-    '<tr style="background:#f9fafb;"><td style="padding:7px 12px;"><strong>Program:</strong></td><td style="padding:7px 12px;">' + String(student.program || 'N/A').toUpperCase() + '</td>' +
-    '<td style="padding:7px 12px;"><strong>Department:</strong></td><td style="padding:7px 12px;">' + (student.department || 'N/A') + '</td></tr></table>' +
-    '<div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;color:#374151;">Course Results</div>' +
-    '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;"><thead><tr style="background:#1e3a5f;">' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;">#</th><th style="padding:8px 10px;font-size:10px;color:white;">Code</th>' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;">Title</th><th style="padding:8px 10px;font-size:10px;color:white;text-align:center;">Cr</th>' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;text-align:center;">Grade</th><th style="padding:8px 10px;font-size:10px;color:white;text-align:center;">GP</th>' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;">Remark</th></tr></thead><tbody>' + courseRows + '</tbody></table>' +
-    '<table style="width:100%;border:1px solid #e5e7eb;margin-top:12px;border-collapse:collapse;"><tr style="background:#f1f5f9;">' +
-    '<td style="padding:10px 14px;font-weight:bold;width:25%;">Semester GPA:</td>' +
-    '<td style="padding:10px 14px;font-size:18px;font-weight:bold;color:' + gpaColor + ';width:25%;">' + semGPA + '</td>' +
-    '<td style="padding:10px 14px;font-weight:bold;width:25%;">Cumulative GPA:</td>' +
-    '<td style="padding:10px 14px;font-size:16px;font-weight:bold;color:#0284c7;width:25%;">' + cgpa + '</td>' +
-    '</tr></table>' +
-    '<div style="margin-top:35px;padding-top:10px;border-top:1px solid #000;"><table style="width:100%;border-collapse:collapse;"><tr>' +
-    '<td style="width:50%;vertical-align:bottom;"><div style="margin-top:45px;border-top:1px solid #000;width:200px;padding-top:5px;"><strong>EXAMINATIONS OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
-    '<td style="width:50%;text-align:right;vertical-align:bottom;"><strong>Date Printed:</strong> ' + new Date().toLocaleDateString('en-GB') + '<br><small style="color:#9ca3af;">Generated by PCE Academic System</small></td>' +
-    '</tr></table></div></div></div>';
+  const resultHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#ffffff;position:relative;">
+  ${watermarkHtml}
+  <div style="position:relative;z-index:1;">
+    <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;">
+      <tr>${logoCell}<td style="vertical-align:middle;text-align:center;">
+        <div style="font-size:15px;font-weight:bold;text-transform:uppercase;line-height:1.4;">Presbyterian College of Education, Akropong-Akuapem</div>
+        <div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem &nbsp;|&nbsp; Tel: +233 (0) 256 977 765 &nbsp;|&nbsp; www.pce.edu.gh</div>
+      </td></tr>
+    </table>
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Semester Result Slip</div>
+      <div style="font-size:11px;color:#555;margin-top:5px;">Level ${lvl} &mdash; ${semLabel}</div>
+    </div>
+    <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">
+      <tr style="background:#f1f5f9;"><td colspan="4" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Student Information</td></tr>
+      <tr>
+        <td style="padding:7px 12px;width:22%;"><strong>Full Name:</strong></td>
+        <td style="padding:7px 12px;width:28%;">${String(student.name || '').toUpperCase()}</td>
+        <td style="padding:7px 12px;width:22%;"><strong>Index Number:</strong></td>
+        <td style="padding:7px 12px;width:28%;">${student.index_number || ''}</td>
+      </tr>
+      <tr style="background:#f9fafb;">
+        <td style="padding:7px 12px;"><strong>Program:</strong></td>
+        <td style="padding:7px 12px;">${String(student.program || 'N/A').toUpperCase()}</td>
+        <td style="padding:7px 12px;"><strong>Department:</strong></td>
+        <td style="padding:7px 12px;">${student.department || 'N/A'}</td>
+      </tr>
+    </table>
+    <div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;color:#374151;">Course Results</div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">
+      <thead><tr style="background:#1e3a5f;">
+        <th style="padding:8px 10px;font-size:10px;color:white;">#</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;">Code</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;">Title</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;text-align:center;">Cr</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;text-align:center;">Grade</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;text-align:center;">GP</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;">Remark</th>
+      </tr></thead>
+      <tbody>${courseRows}</tbody>
+    </table>
+    <table style="width:100%;border:1px solid #e5e7eb;margin-top:12px;border-collapse:collapse;">
+      <tr style="background:#f1f5f9;">
+        <td style="padding:10px 14px;font-weight:bold;width:25%;">Semester GPA:</td>
+        <td style="padding:10px 14px;font-size:18px;font-weight:bold;color:${gpaColor};width:25%;">${semGPA}</td>
+        <td style="padding:10px 14px;font-weight:bold;width:25%;">Cumulative GPA:</td>
+        <td style="padding:10px 14px;font-size:16px;font-weight:bold;color:#0284c7;width:25%;">${cgpa}</td>
+      </tr>
+    </table>
+    <div style="margin-top:35px;padding-top:10px;border-top:1px solid #000;">
+      <table style="width:100%;border-collapse:collapse;"><tr>
+        <td style="width:50%;vertical-align:bottom;">
+          <div style="margin-top:45px;border-top:1px solid #000;width:200px;padding-top:5px;"><strong>EXAMINATIONS OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div>
+        </td>
+        <td style="width:50%;text-align:right;vertical-align:bottom;">
+          <strong>Date Printed:</strong> ${new Date().toLocaleDateString('en-GB')}<br>
+          <small style="color:#9ca3af;">Generated by PCE Academic System</small>
+        </td>
+      </tr></table>
+    </div>
+  </div>
+</div>`;
 
   Swal.close();
-  var wrap = document.createElement('div');
+  const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:760px;';
-  wrap.innerHTML = html;
+  wrap.innerHTML = resultHtml;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: [0.4,0.4,0.4,0.4],
-      filename: 'ResultSlip_' + (student.index_number || email) + '_L' + lvl + '_' + sem + '.pdf',
+      margin: [0.4, 0.4, 0.4, 0.4],
+      filename: `ResultSlip_${student.index_number || email}_L${lvl}_${sem}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
@@ -871,98 +945,153 @@ function renderStudentFinanceTab(fin, availableYears) {
 }
 
 async function printStudentReceipt() {
-  var select = document.getElementById('receiptYearSelect');
+  const select = document.getElementById('receiptYearSelect');
   if (!select) { alert('Please load the Finance tab first.'); return; }
-  var year = select.value;
+  const year = select.value;
   if (!year) { alert('Please select an academic year.'); return; }
 
   Swal.fire({ title: 'Generating Receipt...', html: '<div class="spinner-border text-primary"></div>', allowOutsideClick: false, showConfirmButton: false });
 
-  var em = userSession.email.toLowerCase().trim();
-  var fetched = await Promise.all([
+  const em = userSession.email.toLowerCase().trim();
+  const [bioRows, sfRows, payRows] = await Promise.all([
     sbFetch('student_bio?email=eq.'     + encodeURIComponent(em) + '&select=*&limit=1'),
     sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(year) + '&select=*&limit=1'),
     sbFetch('payments?email=eq.'        + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(year) + '&select=*&order=payment_date.asc')
   ]);
-  var bioRows = fetched[0], sfRows = fetched[1], payRows = fetched[2] || [];
 
-  if (!bioRows || !bioRows.length || !sfRows || !sfRows.length) { Swal.fire({ icon:'error', title:'No Records', text:'No records found for ' + year }); return; }
-  if (!payRows.length) { Swal.fire({ icon:'warning', title:'No Payments', text:'No payment records found for ' + year }); return; }
+  if (!bioRows || !bioRows.length || !sfRows || !sfRows.length) {
+    Swal.fire({ icon: 'error', title: 'No Records', text: 'No records found for ' + year }); return;
+  }
+  if (!payRows || !payRows.length) {
+    Swal.fire({ icon: 'warning', title: 'No Payments', text: 'No payment records found for ' + year }); return;
+  }
 
-  var student = bioRows[0], sf = sfRows[0];
-  var totalPaid  = payRows.reduce(function(s, p) { return s + Number(p.amount); }, 0);
-  var baseFees   = Number(sf.base_fees  || 0);
-  var carryOver  = Number(sf.carry_over || 0);
-  var totalReq   = Number(sf.total_required || 0);
-  var balance    = totalReq - totalPaid;
-  var percentage = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
-  var statusLabel = percentage >= 100 ? 'FULLY PAID' : percentage >= 70 ? '70% CLEARED &#8212; ELIGIBLE TO REGISTER' : 'INSUFFICIENT PAYMENT';
-  var statusColor = percentage >= 70 ? '#166534' : '#991b1b';
-  var statusBg    = percentage >= 70 ? '#dcfce7' : '#fee2e2';
+  const student   = bioRows[0];
+  const sf        = sfRows[0];
+  const totalPaid = payRows.reduce((s, p) => s + Number(p.amount), 0);
+  const baseFees  = Number(sf.base_fees  || 0);
+  const carryOver = Number(sf.carry_over || 0);
+  const totalReq  = Number(sf.total_required || 0);
+  const balance   = totalReq - totalPaid;
+  const percentage = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
+  const statusLabel = percentage >= 100 ? 'FULLY PAID' : percentage >= 70 ? '70% CLEARED — ELIGIBLE TO REGISTER' : 'INSUFFICIENT PAYMENT';
+  const statusColor = percentage >= 70 ? '#166534' : '#991b1b';
+  const statusBg    = percentage >= 70 ? '#dcfce7'  : '#fee2e2';
 
-  var logoBase64 = '';
-  try {
-    var lr = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
-    if (lr.ok) { var lb = await lr.blob(); logoBase64 = await new Promise(function(rs) { var rd = new FileReader(); rd.onload = function() { rs(rd.result); }; rd.onerror = function() { rs(''); }; rd.readAsDataURL(lb); }); }
-  } catch(e) {}
+  // ── Same CORS proxy pattern as finance.html ──
+  const logoBase64   = await stuFetchLogo();
+  const logoCell     = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
+  const watermarkHtml = logoBase64 ? `<img src="${logoBase64}" style="position:absolute;top:200px;left:50%;margin-left:-220px;width:440px;opacity:0.07;z-index:0;pointer-events:none;">` : '';
 
-  var logoCell  = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
-  var watermark = logoBase64 ? '<img src="' + logoBase64 + '" style="position:absolute;top:200px;left:50%;margin-left:-210px;width:420px;opacity:0.07;z-index:0;pointer-events:none;">' : '';
-
-  var payRowsHtml = payRows.map(function(p, idx) {
-    var amt = Number(p.amount);
-    return '<tr style="background:' + (idx % 2 === 0 ? '#f9fafb' : '#fff') + ';">' +
-      '<td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">' + (idx+1) + '</td>' +
-      '<td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">' + (p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : 'N/A') + '</td>' +
-      '<td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;"><span style="background:' + (amt >= 0 ? '#dcfce7':'#fee2e2') + ';color:' + (amt >= 0 ? '#166534':'#991b1b') + ';padding:2px 8px;border-radius:4px;font-size:10px;font-weight:bold;">' + (p.type || 'PAYMENT') + '</span></td>' +
-      '<td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:bold;color:' + (amt >= 0 ? '#166534':'#dc2626') + ';">' + (amt >= 0 ? '+' : '') + 'GH&#8373; ' + Math.abs(amt).toFixed(2) + '</td>' +
-      '<td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280;">' + (p.reference || '') + '</td>' +
-    '</tr>';
+  const payRowsHtml = payRows.map((p, idx) => {
+    const amt = Number(p.amount);
+    return `<tr style="background:${idx % 2 === 0 ? '#f9fafb' : '#ffffff'};">
+      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">${idx + 1}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">${p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : 'N/A'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;"><span style="background:${amt >= 0 ? '#dcfce7' : '#fee2e2'};color:${amt >= 0 ? '#166534' : '#991b1b'};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:bold;">${p.type || 'PAYMENT'}</span></td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:bold;color:${amt >= 0 ? '#166534' : '#dc2626'};">${amt >= 0 ? '+' : ''}GH&#8373; ${Math.abs(amt).toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280;">${p.reference || ''}</td>
+    </tr>`;
   }).join('');
 
-  var carryRow = carryOver > 0 ? '<tr style="background:#fff7ed;"><td style="padding:7px 12px;">Carried Over</td><td style="padding:7px 12px;text-align:right;font-weight:bold;color:#c2410c;">GH&#8373; ' + carryOver.toFixed(2) + '</td></tr>' : '';
+  const carryOverRow = carryOver > 0
+    ? `<tr style="background:#fff7ed;"><td style="padding:7px 12px;">Carried Over from Previous Year</td><td style="padding:7px 12px;text-align:right;font-weight:bold;color:#c2410c;">GH&#8373; ${carryOver.toFixed(2)}</td></tr>`
+    : '';
 
-  var html =
-    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;">' + watermark +
-    '<div style="position:relative;z-index:1;">' +
-    '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;"><tr>' + logoCell +
-    '<td style="vertical-align:middle;text-align:center;"><div style="font-size:15px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
-    '<div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
-    '<div style="text-align:center;margin-bottom:16px;"><div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Official Payment Receipt</div>' +
-    '<div style="font-size:11px;color:#555;margin-top:5px;">Academic Year: <strong>' + year + '</strong></div>' +
-    '<div style="font-size:10px;color:#9ca3af;font-style:italic;margin-top:3px;">* Computer generated statement. Not an official receipt without Finance Office stamp.</div></div>' +
-    '<table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">' +
-    '<tr style="background:#f1f5f9;"><td colspan="4" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;">Student Information</td></tr>' +
-    '<tr><td style="padding:7px 12px;width:22%;"><strong>Full Name:</strong></td><td style="padding:7px 12px;width:28%;">' + String(student.name || student.full_name || '').toUpperCase() + '</td>' +
-    '<td style="padding:7px 12px;width:22%;"><strong>Index Number:</strong></td><td style="padding:7px 12px;width:28%;">' + (student.index_number || '') + '</td></tr>' +
-    '<tr style="background:#f9fafb;"><td style="padding:7px 12px;"><strong>Program:</strong></td><td style="padding:7px 12px;">' + String(student.program || 'N/A').toUpperCase() + '</td>' +
-    '<td style="padding:7px 12px;"><strong>Level (' + year + '):</strong></td><td style="padding:7px 12px;">' + (sf.level || 'N/A') + '</td></tr></table>' +
-    '<table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">' +
-    '<tr style="background:#f1f5f9;"><td colspan="2" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;">Fee Summary</td></tr>' +
-    '<tr><td style="padding:7px 12px;width:65%;">Base Fees</td><td style="padding:7px 12px;text-align:right;font-weight:bold;">GH&#8373; ' + baseFees.toFixed(2) + '</td></tr>' +
-    carryRow +
-    '<tr style="background:#f9fafb;"><td style="padding:7px 12px;font-weight:bold;">Total Required</td><td style="padding:7px 12px;text-align:right;font-weight:bold;">GH&#8373; ' + totalReq.toFixed(2) + '</td></tr>' +
-    '<tr><td style="padding:7px 12px;">Total Paid</td><td style="padding:7px 12px;text-align:right;font-weight:bold;color:#166534;">GH&#8373; ' + totalPaid.toFixed(2) + '</td></tr>' +
-    '<tr><td style="padding:7px 12px;border-top:2px solid #000;">Balance</td><td style="padding:7px 12px;text-align:right;font-weight:bold;border-top:2px solid #000;color:' + (balance > 0 ? '#dc2626':'#166534') + ';">GH&#8373; ' + balance.toFixed(2) + '</td></tr>' +
-    '<tr><td colspan="2" style="padding:9px 12px;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:4px 14px;border-radius:4px;font-weight:bold;font-size:11px;">' + statusLabel + ' (' + percentage + '%)</span></td></tr></table>' +
-    '<div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;color:#374151;">Payment History</div>' +
-    '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;"><thead><tr style="background:#1e3a5f;">' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;">#</th><th style="padding:8px 10px;font-size:10px;color:white;">Date</th>' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;">Type</th><th style="padding:8px 10px;font-size:10px;color:white;text-align:right;">Amount</th>' +
-    '<th style="padding:8px 10px;font-size:10px;color:white;">Reference</th></tr></thead><tbody>' + payRowsHtml + '</tbody></table>' +
-    '<div style="margin-top:30px;text-align:right;padding-top:10px;border-top:1px solid #000;"><strong>Date of Issue:</strong> ' + new Date().toLocaleDateString('en-GB') + '<br>' +
-    '<small style="color:#9ca3af;">Generated by PCE Finance System</small></div>' +
-    '</div></div>';
+  // ── Receipt HTML — mirrors finance.html structure exactly ──
+  // Outer div: position:relative contains the watermark (position:absolute).
+  // Content div: position:relative + z-index:1 sits above watermark.
+  const receiptHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#ffffff;position:relative;">
+
+  ${watermarkHtml}
+
+  <div style="position:relative;z-index:1;">
+
+    <!-- HEADER -->
+    <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;">
+      <tr>
+        ${logoCell}
+        <td style="vertical-align:middle;text-align:center;">
+          <div style="font-size:15px;font-weight:bold;text-transform:uppercase;line-height:1.4;">Presbyterian College of Education, Akropong-Akuapem</div>
+          <div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem &nbsp;|&nbsp; Tel: +233 (0) 256 977 765 &nbsp;|&nbsp; www.pce.edu.gh</div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- TITLE -->
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Official Payment Receipt</div>
+      <div style="font-size:11px;color:#555;margin-top:5px;">Academic Year: <strong>${year}</strong></div>
+      <div style="font-size:10px;color:#9ca3af;font-style:italic;margin-top:3px;">* Computer generated statement. Not an official receipt without Finance Office stamp.</div>
+    </div>
+
+    <!-- STUDENT INFO -->
+    <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">
+      <tr style="background:#f1f5f9;"><td colspan="4" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Student Information</td></tr>
+      <tr>
+        <td style="padding:7px 12px;width:22%;"><strong>Full Name:</strong></td>
+        <td style="padding:7px 12px;width:28%;">${String(student.name || '').toUpperCase()}</td>
+        <td style="padding:7px 12px;width:22%;"><strong>Index Number:</strong></td>
+        <td style="padding:7px 12px;width:28%;">${student.index_number || ''}</td>
+      </tr>
+      <tr style="background:#f9fafb;">
+        <td style="padding:7px 12px;"><strong>Program:</strong></td>
+        <td style="padding:7px 12px;">${String(student.program || 'N/A').toUpperCase()}</td>
+        <td style="padding:7px 12px;"><strong>Level (${year}):</strong></td>
+        <td style="padding:7px 12px;">${sf.level || 'N/A'}</td>
+      </tr>
+    </table>
+
+    <!-- FEE SUMMARY -->
+    <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">
+      <tr style="background:#f1f5f9;"><td colspan="2" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Fee Summary</td></tr>
+      <tr><td style="padding:7px 12px;width:65%;">Base Fees for ${year}</td><td style="padding:7px 12px;text-align:right;font-weight:bold;">GH&#8373; ${baseFees.toFixed(2)}</td></tr>
+      ${carryOverRow}
+      <tr style="background:#f9fafb;"><td style="padding:7px 12px;font-weight:bold;">Total Required</td><td style="padding:7px 12px;text-align:right;font-weight:bold;">GH&#8373; ${totalReq.toFixed(2)}</td></tr>
+      <tr><td style="padding:7px 12px;">Total Amount Paid</td><td style="padding:7px 12px;text-align:right;font-weight:bold;color:#166534;">GH&#8373; ${totalPaid.toFixed(2)}</td></tr>
+      <tr><td style="padding:7px 12px;border-top:2px solid #000;">Outstanding Balance</td><td style="padding:7px 12px;text-align:right;font-weight:bold;border-top:2px solid #000;color:${balance > 0 ? '#dc2626' : '#166534'};">GH&#8373; ${balance.toFixed(2)}</td></tr>
+      <tr><td colspan="2" style="padding:9px 12px;"><span style="background:${statusBg};color:${statusColor};padding:4px 14px;border-radius:4px;font-weight:bold;font-size:11px;">${statusLabel} (${percentage}%)</span></td></tr>
+    </table>
+
+    <!-- PAYMENT HISTORY -->
+    <div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;color:#374151;">Payment Transaction History</div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">
+      <thead><tr style="background:#1e3a5f;">
+        <th style="padding:8px 10px;font-size:10px;color:white;">#</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;">Date</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;">Type</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;text-align:right;">Amount</th>
+        <th style="padding:8px 10px;font-size:10px;color:white;">Reference</th>
+      </tr></thead>
+      <tbody>${payRowsHtml}</tbody>
+    </table>
+
+    <!-- FOOTER -->
+    <div style="margin-top:40px;padding-top:10px;border-top:1px solid #000;">
+      <table style="width:100%;border-collapse:collapse;"><tr>
+        <td style="width:50%;vertical-align:bottom;">
+          <p style="font-size:10px;color:#9ca3af;font-style:italic;">* Computer generated statement. Not an official receipt without Finance Office stamp.</p>
+        </td>
+        <td style="width:50%;text-align:right;vertical-align:bottom;">
+          <strong>Date of Issue:</strong> ${new Date().toLocaleDateString('en-GB')}<br>
+          <small style="color:#9ca3af;">Generated by PCE Finance System</small>
+        </td>
+      </tr></table>
+    </div>
+
+  </div>
+</div>`;
 
   Swal.close();
-  var wrap = document.createElement('div');
+
+  const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:760px;';
-  wrap.innerHTML = html;
+  wrap.innerHTML = receiptHtml;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: [0.4,0.4,0.4,0.4],
-      filename: 'Receipt_' + (student.index_number || em) + '_' + String(year).replace('/','-') + '.pdf',
+      margin: [0.4, 0.4, 0.4, 0.4],
+      filename: `Receipt_${student.index_number || em}_${String(year).replace('/', '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
