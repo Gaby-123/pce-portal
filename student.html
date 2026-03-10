@@ -727,49 +727,99 @@ async function runFetchResults() {
   var area = document.getElementById('resultsDisplay');
   area.innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm text-primary"></div><span class="ms-2">Fetching results...</span></div>';
 
-  var email     = userSession.email.toLowerCase().trim();
-  var searchSem = sem.replace(/\s+/g, '').toUpperCase();
-  var scale     = { 'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0 };
+  var email = userSession.email.toLowerCase().trim();
+  var scale = { 'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0 };
 
-  var results = await sbFetch('results?email=eq.' + encodeURIComponent(email) + '&select=course_code,grade,semester,academic_year&order=academic_year');
-  if (!results || results.length === 0) { area.innerHTML = '<div class="alert alert-info mt-2">No results found for Level ' + lvl + ' ' + sem + '.</div>'; return; }
+  // ── STEP 1: fetch ALL results for this student (no level filter in DB — level may not exist on results table)
+  var allResults = await sbFetch(
+    'results?email=eq.' + encodeURIComponent(email) + '&select=course_code,grade,semester,academic_year&order=academic_year'
+  );
+  if (!allResults || allResults.length === 0) {
+    area.innerHTML = '<div class="alert alert-info mt-2">No results on record yet.</div>';
+    return;
+  }
 
-  var codes   = Array.from(new Set(results.map(function(r) { return r.course_code; })));
-  var courses = await sbFetch('courses?course_code=in.(' + codes.map(encodeURIComponent).join(',') + ')&select=course_code,title,credits,level,semester');
+  // ── STEP 2: fetch ALL course info for ALL result codes in one query
+  // Use courses table as the source of truth for level + semester — not the results rows.
+  var allCodes = Array.from(new Set(allResults.map(function(r) { return r.course_code; })));
+  var allCourses = await sbFetch(
+    'courses?course_code=in.(' + allCodes.map(encodeURIComponent).join(',') + ')&select=course_code,title,credits,level,semester'
+  );
   var courseMap = {};
-  (courses || []).forEach(function(c) {
-    courseMap[c.course_code] = { title: c.title, credits: Number(c.credits) || 0, level: String(c.level).trim(), semester: String(c.semester).replace(/\s+/g,'').toUpperCase() };
+  (allCourses || []).forEach(function(c) {
+    courseMap[c.course_code] = {
+      title:    c.title || c.course_code,
+      credits:  Number(c.credits) || 3,
+      level:    String(c.level  || '').trim(),
+      semester: String(c.semester || '').replace(/\s+/g, '').toUpperCase()
+    };
   });
 
-  var filtered = results.filter(function(r) {
-    var info = courseMap[r.course_code]; if (!info) return false;
-    return info.level === String(lvl).trim() && String(r.semester).replace(/\s+/g,'').toUpperCase() === searchSem;
-  });
-  if (!filtered.length) { area.innerHTML = '<div class="alert alert-info mt-2">No results found for Level ' + lvl + ' ' + sem + '.</div>'; return; }
+  // ── STEP 3: filter results by matching course.level + course.semester
+  // If a course isn't in the courses table yet, keep the row anyway (show code, missing title)
+  // so results are never silently swallowed.
+  var normLevel = String(lvl).trim();
+  var normSem   = sem.replace(/\s+/g, '').toUpperCase();
 
+  var filtered = allResults.filter(function(r) {
+    var info = courseMap[r.course_code];
+    if (!info) {
+      // Course not in courses table — try matching by semester on the result row itself as fallback
+      var rSem = String(r.semester || '').replace(/\s+/g, '').toUpperCase();
+      return rSem === normSem; // include if semester matches; level unknown so we include it
+    }
+    return info.level === normLevel && info.semester === normSem;
+  });
+
+  if (!filtered.length) {
+    area.innerHTML = '<div class="alert alert-info mt-2">No results found for Level ' + lvl + ' — ' + sem + '.</div>';
+    return;
+  }
+
+  // ── STEP 4: build table + compute GPA
   var semPts = 0, semCreds = 0;
-  var rows = filtered.map(function(r) {
-    var info = courseMap[r.course_code] || {}, credits = info.credits || 0;
-    var grade = String(r.grade).toUpperCase().trim(), gp = (scale[grade] || 0) * credits;
-    semPts += gp; semCreds += credits;
-    return '<tr><td>' + r.course_code + '</td><td>' + (info.title || 'Unknown') + '</td><td class="text-center">' + credits + '</td><td class="fw-bold">' + grade + '</td></tr>';
+  var tableRows = filtered.map(function(r) {
+    var info    = courseMap[r.course_code] || { title: r.course_code, credits: 3 };
+    var grade   = String(r.grade || '').toUpperCase().trim();
+    var credits = info.credits || 3;
+    var gp      = (scale[grade] !== undefined ? scale[grade] : 0) * credits;
+    semPts   += gp;
+    semCreds += credits;
+    return '<tr>' +
+      '<td>' + r.course_code + '</td>' +
+      '<td>' + (info.title || r.course_code) + '</td>' +
+      '<td class="text-center">' + credits + '</td>' +
+      '<td class="fw-bold text-center">' + (grade || '—') + '</td>' +
+    '</tr>';
   }).join('');
   var semGPA = semCreds > 0 ? (semPts / semCreds).toFixed(2) : '0.00';
 
+  // CGPA across all results
   var globalPts = 0, globalCreds = 0;
-  results.forEach(function(r) {
-    var info = courseMap[r.course_code]; if (!info) return;
-    globalPts += (scale[String(r.grade).toUpperCase().trim()] || 0) * (info.credits || 0);
-    globalCreds += info.credits || 0;
+  allResults.forEach(function(r) {
+    var info    = courseMap[r.course_code] || { credits: 3 };
+    var grade   = String(r.grade || '').toUpperCase().trim();
+    globalPts   += (scale[grade] !== undefined ? scale[grade] : 0) * (info.credits || 3);
+    globalCreds += info.credits || 3;
   });
   var cgpa = globalCreds > 0 ? (globalPts / globalCreds).toFixed(2) : '0.00';
 
   area.innerHTML =
-    '<div class="alert alert-primary d-flex justify-content-between align-items-center"><span>Level ' + lvl + ' &#8212; ' + sem + '</span><span>CGPA: <strong>' + cgpa + '</strong></span></div>' +
-    '<table class="table table-sm table-hover bg-white border"><thead class="table-light"><tr><th>Code</th><th>Title</th><th class="text-center">Credits</th><th>Grade</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody>' +
-    '<tfoot class="table-light"><tr><td colspan="2" class="text-end fw-bold">Semester GPA:</td><td class="text-center fw-bold text-primary" colspan="2">' + semGPA + '</td></tr></tfoot></table>' +
-    '<button class="btn btn-danger w-100 btn-sm mt-2" id="stuPrintTranscriptBtn"><i class="bi bi-file-earmark-pdf me-1"></i>Download Result Slip</button>';
+    '<div class="alert alert-primary d-flex justify-content-between align-items-center">' +
+      '<span><strong>Level ' + lvl + '</strong> &mdash; ' + sem + ' <span class="badge bg-secondary ms-2">' + filtered.length + ' courses</span></span>' +
+      '<span>Cumulative GPA: <strong>' + cgpa + '</strong></span>' +
+    '</div>' +
+    '<table class="table table-sm table-hover bg-white border">' +
+      '<thead class="table-light"><tr><th>Code</th><th>Title</th><th class="text-center">Cr</th><th class="text-center">Grade</th></tr></thead>' +
+      '<tbody>' + tableRows + '</tbody>' +
+      '<tfoot class="table-light"><tr>' +
+        '<td colspan="2" class="text-end fw-bold">Semester GPA:</td>' +
+        '<td class="text-center fw-bold text-primary" colspan="2">' + semGPA + '</td>' +
+      '</tr></tfoot>' +
+    '</table>' +
+    '<button class="btn btn-danger w-100 btn-sm mt-2" id="stuPrintTranscriptBtn">' +
+      '<i class="bi bi-file-earmark-pdf me-1"></i>Download Result Slip (' + filtered.length + ' courses)' +
+    '</button>';
 
   document.getElementById('stuPrintTranscriptBtn').addEventListener('click', function() {
     runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, cgpa);
@@ -789,29 +839,33 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
 
   const logoBase64   = await stuFetchLogo();
   const logoCell     = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
-  const watermarkHtml = logoBase64 ? `<img src="${logoBase64}" style="position:absolute;top:200px;left:50%;margin-left:-220px;width:440px;opacity:0.07;z-index:0;pointer-events:none;">` : '';
+  // height:0 + overflow:visible = zero layout impact, watermark still renders visually behind content
+  const watermarkHtml = logoBase64
+    ? `<div style="height:0;overflow:visible;position:relative;z-index:0;pointer-events:none;"><img src="${logoBase64}" style="position:absolute;top:250px;left:50%;margin-left:-220px;width:440px;opacity:0.07;"></div>`
+    : '';
 
   const courseRows = filtered.map((r, i) => {
-    const info  = courseMap[r.course_code] || {};
-    const grade = String(r.grade).toUpperCase().trim();
-    const gp    = ((scale[grade] || 0) * (info.credits || 0)).toFixed(1);
-    const fail  = grade === 'E' || grade === 'IC' || grade === 'F';
+    const info    = courseMap[r.course_code] || { title: r.course_code, credits: 3 };
+    const grade   = String(r.grade || '').toUpperCase().trim();
+    const credits = info.credits || 3;
+    const pts     = scale[grade] !== undefined ? scale[grade] : 0;
+    const gp      = (pts * credits).toFixed(1);
+    const fail    = grade === 'E' || grade === 'IC' || grade === 'F';
     return `<tr style="background:${i % 2 === 0 ? '#f9fafb' : '#ffffff'};">
       <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${i + 1}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-family:monospace;">${r.course_code}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${info.title || 'Unknown'}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${info.credits || 3}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${fail ? '#dc2626' : '#166534'};">${grade}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${info.title || r.course_code}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${credits}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${fail ? '#dc2626' : '#166534'};">${grade || '—'}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${gp}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280;">${gradeMap[grade] || grade}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280;">${gradeMap[grade] || '—'}</td>
     </tr>`;
   }).join('');
 
   const gpaColor = parseFloat(semGPA) >= 3.5 ? '#166534' : parseFloat(semGPA) >= 2.5 ? '#0284c7' : parseFloat(semGPA) >= 1.5 ? '#d97706' : '#dc2626';
 
-  const resultHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#ffffff;position:relative;">
+  const resultHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#ffffff;">
   ${watermarkHtml}
-  <div style="position:relative;z-index:1;">
     <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;">
       <tr>${logoCell}<td style="vertical-align:middle;text-align:center;">
         <div style="font-size:15px;font-weight:bold;text-transform:uppercase;line-height:1.4;">Presbyterian College of Education, Akropong-Akuapem</div>
@@ -869,7 +923,6 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
         </td>
       </tr></table>
     </div>
-  </div>
 </div>`;
 
   Swal.close();
