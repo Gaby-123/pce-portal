@@ -251,7 +251,6 @@ async function initStudentPortal() {
 
   var em = email.toLowerCase().trim();
 
-  // Fetch bio + active year fee data + payments in parallel to compute status live
   var rows = await sbFetch(
     'student_bio?email=eq.' + encodeURIComponent(em) +
     '&select=email,name,level,index_number,program,dob,specialization,status,department,gender&limit=1'
@@ -260,8 +259,6 @@ async function initStudentPortal() {
 
   var r = rows[0];
 
-  // Compute finance status live from payments — don't trust student_bio.status column
-  // which may be stale. Mirrors the same logic used in runLoadCourses.
   var computedStatus = r.status || 'PENDING';
   try {
     var activeFeeRows = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(String(r.level).trim()) + '&select=academic_year&limit=1');
@@ -363,7 +360,6 @@ async function runLoadCourses() {
 
   var email = userSession.email.toLowerCase().trim();
 
-  // STEP 1 — official level
   var bioRows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=level,status&limit=1');
   if (!bioRows || bioRows.length === 0) {
     area.innerHTML = '<div class="alert alert-danger text-center mt-2"><h5>&#9888;&#65039; Profile Not Found</h5><p>Contact the Registry office.</p></div>';
@@ -371,13 +367,11 @@ async function runLoadCourses() {
   }
   var officialLevel = String(bioRows[0].level).trim();
 
-  // STEP 2 — anti-cheat
   if (String(lvl).trim() !== officialLevel) {
     area.innerHTML = '<div class="alert alert-danger text-center mt-2"><h5>&#9888;&#65039; Unauthorized</h5><p>Your official level is <strong>Level ' + officialLevel + '</strong>. You cannot register for Level ' + lvl + '.</p></div>';
     return;
   }
 
-  // STEP 3 — active academic year
   var activeFees = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(officialLevel) + '&select=academic_year,amount&limit=1');
   if (!activeFees || activeFees.length === 0) {
     area.innerHTML = '<div class="alert alert-warning text-center mt-2"><div style="font-size:2.5rem;">&#9203;</div><h5 class="fw-bold mt-2">Registration Not Yet Open</h5><p>The Finance Office has not yet activated an academic year for Level ' + officialLevel + '.</p></div>';
@@ -386,7 +380,6 @@ async function runLoadCourses() {
   var activeYear = activeFees[0].academic_year;
   _stuActiveYear = activeYear;
 
-  // STEP 4 — 70% payment check
   var step4 = await Promise.all([
     sbFetch('student_finance?email=eq.' + encodeURIComponent(email) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=total_required&limit=1'),
     sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=amount')
@@ -421,7 +414,6 @@ async function runLoadCourses() {
     return;
   }
 
-  // STEP 5 — semester registration status
   var otherSem = sem === 'SEMESTER1' ? 'SEMESTER2' : 'SEMESTER1';
   var semChecks = await Promise.all([
     sbFetch('registrations?email=eq.' + encodeURIComponent(email) + '&semester=eq.' + encodeURIComponent(sem) + '&level=eq.' + encodeURIComponent(officialLevel) + '&select=id&limit=1'),
@@ -452,14 +444,12 @@ async function runLoadCourses() {
     return;
   }
 
-  // STEP 6 — fetch courses
   var courses = await sbFetch('courses?level=eq.' + encodeURIComponent(officialLevel) + '&semester=eq.' + encodeURIComponent(sem) + '&select=course_code,title&order=course_code');
   if (!courses || courses.length === 0) {
     area.innerHTML = statusBar + '<div class="alert alert-secondary text-center">No courses found for Level ' + officialLevel + ' ' + semLabel + '. Contact the Registry office.</div>';
     return;
   }
 
-  // STEP 7 — course table
   var h = statusBar +
     '<div class="mb-2 d-flex gap-2 align-items-center">' +
       '<button type="button" class="btn btn-sm btn-outline-primary" id="stuSelAll">Select All</button>' +
@@ -543,7 +533,6 @@ async function runStudentSubmitReg() {
     return;
   }
 
-  // Patch student_bio
   await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(email), {
     method: 'PATCH',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
@@ -573,7 +562,7 @@ async function stuGetActiveYear(level) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SHARED LOGO HELPER — same CORS proxy pattern as finance.html
+// SHARED LOGO HELPER
 // ═══════════════════════════════════════════════════════════════
 async function stuFetchLogo() {
   try {
@@ -630,8 +619,9 @@ async function handleDownloadSlip(btnEl) {
     if (lr.ok) { var lb = await lr.blob(); logoBase64 = await new Promise(function(rs) { var rd = new FileReader(); rd.onload = function() { rs(rd.result); }; rd.onerror = function() { rs(''); }; rd.readAsDataURL(lb); }); }
   } catch(e) {}
 
+  // FIX: logo cell and watermark — watermark uses position:fixed with zero layout impact
   var logoCell  = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
-  var watermark = logoBase64 ? '<img src="' + logoBase64 + '" style="position:absolute;top:200px;left:50%;margin-left:-210px;width:420px;opacity:0.07;z-index:0;pointer-events:none;">' : '';
+  var watermark = logoBase64 ? '<div style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:0;pointer-events:none;"><img src="' + logoBase64 + '" style="width:420px;opacity:0.07;"></div>' : '';
 
   var courseRows = codes.map(function(code, i) {
     var c = courseMap[code] || { title: 'Unknown', credits: 3 };
@@ -644,9 +634,10 @@ async function handleDownloadSlip(btnEl) {
   }).join('');
   var totalCredits = codes.reduce(function(s, c) { return s + Number((courseMap[c] || { credits: 3 }).credits || 3); }, 0);
 
+  // FIX: width set to 794px (A4 at 96dpi), no position:relative on outer wrapper
   var html =
-    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;">' + watermark +
-    '<div style="position:relative;z-index:1;">' +
+    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:794px;padding:28px;box-sizing:border-box;background:#fff;">' +
+    watermark +
     '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;"><tr>' + logoCell +
     '<td style="vertical-align:middle;text-align:center;"><div style="font-size:15px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
     '<div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
@@ -670,20 +661,30 @@ async function handleDownloadSlip(btnEl) {
     '<div style="margin-top:35px;padding-top:10px;border-top:1px solid #000;"><table style="width:100%;border-collapse:collapse;"><tr>' +
     '<td style="width:50%;vertical-align:bottom;"><div style="margin-top:45px;border-top:1px solid #000;width:200px;padding-top:5px;"><strong>REGISTRY OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
     '<td style="width:50%;text-align:right;vertical-align:bottom;"><strong>Date Registered:</strong> ' + regDate + '<br><strong>Date Printed:</strong> ' + new Date().toLocaleDateString('en-GB') + '<br><small style="color:#9ca3af;">Generated by PCE Academic System</small></td>' +
-    '</tr></table></div></div></div>';
+    '</tr></table></div></div>';
 
   Swal.close();
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:760px;';
+  // FIX: wrap width matches A4
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;';
   wrap.innerHTML = html;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: [0.4,0.4,0.4,0.4],
+      margin: 0,                        // FIX: zero margin — padding handled inside HTML
       filename: 'RegSlip_' + (student.index_number || email) + '_L' + lvl + '_' + sem + '.pdf',
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      html2canvas: {
+        scale: 1.5,                     // FIX: reduced scale prevents canvas blowout
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,                     // FIX: explicit A4 pixel width
+        windowWidth: 794
+      },
+      jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait', hotfixes: ['px_scaling'] }
+      // FIX: unit:'px' eliminates inch/pixel mismatch
     }).from(wrap.firstElementChild).save();
   } finally { document.body.removeChild(wrap); }
   if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
@@ -701,7 +702,6 @@ async function runFetchResults() {
   var email = userSession.email.toLowerCase().trim();
   var scale = { 'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0 };
 
-  // ── STEP 1: fetch ALL results for this student (no level filter in DB — level may not exist on results table)
   var allResults = await sbFetch(
     'results?email=eq.' + encodeURIComponent(email) + '&select=course_code,grade,semester,academic_year&order=academic_year'
   );
@@ -710,8 +710,6 @@ async function runFetchResults() {
     return;
   }
 
-  // ── STEP 2: fetch ALL course info for ALL result codes in one query
-  // Use courses table as the source of truth for level + semester — not the results rows.
   var allCodes = Array.from(new Set(allResults.map(function(r) { return r.course_code; })));
   var allCourses = await sbFetch(
     'courses?course_code=in.(' + allCodes.map(encodeURIComponent).join(',') + ')&select=course_code,title,credits,level,semester'
@@ -726,18 +724,14 @@ async function runFetchResults() {
     };
   });
 
-  // ── STEP 3: filter results by matching course.level + course.semester
-  // If a course isn't in the courses table yet, keep the row anyway (show code, missing title)
-  // so results are never silently swallowed.
   var normLevel = String(lvl).trim();
   var normSem   = sem.replace(/\s+/g, '').toUpperCase();
 
   var filtered = allResults.filter(function(r) {
     var info = courseMap[r.course_code];
     if (!info) {
-      // Course not in courses table — try matching by semester on the result row itself as fallback
       var rSem = String(r.semester || '').replace(/\s+/g, '').toUpperCase();
-      return rSem === normSem; // include if semester matches; level unknown so we include it
+      return rSem === normSem;
     }
     return info.level === normLevel && info.semester === normSem;
   });
@@ -747,7 +741,6 @@ async function runFetchResults() {
     return;
   }
 
-  // ── STEP 4: build table + compute GPA
   var semPts = 0, semCreds = 0;
   var tableRows = filtered.map(function(r) {
     var info    = courseMap[r.course_code] || { title: r.course_code, credits: 3 };
@@ -765,7 +758,6 @@ async function runFetchResults() {
   }).join('');
   var semGPA = semCreds > 0 ? (semPts / semCreds).toFixed(2) : '0.00';
 
-  // CGPA across all results
   var globalPts = 0, globalCreds = 0;
   allResults.forEach(function(r) {
     var info    = courseMap[r.course_code] || { credits: 3 };
@@ -814,8 +806,9 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
     if (lr.ok) { var lb = await lr.blob(); logoBase64 = await new Promise(function(rs) { var rd = new FileReader(); rd.onload = function() { rs(rd.result); }; rd.onerror = function() { rs(''); }; rd.readAsDataURL(lb); }); }
   } catch(e) {}
 
+  // FIX: logo cell and watermark — watermark uses position:fixed with zero layout impact
   var logoCell  = logoBase64 ? '<td style="width:75px;vertical-align:middle;padding-right:12px;"><img src="' + logoBase64 + '" width="65" height="65" style="display:block;object-fit:contain;"></td>' : '<td style="width:10px;"></td>';
-  var watermark = logoBase64 ? '<img src="' + logoBase64 + '" style="position:absolute;top:200px;left:50%;margin-left:-210px;width:420px;opacity:0.07;z-index:0;pointer-events:none;">' : '';
+  var watermark = logoBase64 ? '<div style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:0;pointer-events:none;"><img src="' + logoBase64 + '" style="width:420px;opacity:0.07;"></div>' : '';
 
   var courseRows = filtered.map(function(r, i) {
     var info = courseMap[r.course_code] || {}, grade = String(r.grade).toUpperCase().trim();
@@ -834,9 +827,10 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
 
   var gpaColor = parseFloat(semGPA) >= 3.5 ? '#166534' : parseFloat(semGPA) >= 2.5 ? '#0284c7' : parseFloat(semGPA) >= 1.5 ? '#d97706' : '#dc2626';
 
+  // FIX: width set to 794px (A4 at 96dpi), no position:relative on outer wrapper
   var html =
-    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;">' + watermark +
-    '<div style="position:relative;z-index:1;">' +
+    '<div style="font-family:Times New Roman,serif;font-size:11px;color:#111;width:794px;padding:28px;box-sizing:border-box;background:#fff;">' +
+    watermark +
     '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;"><tr>' + logoCell +
     '<td style="vertical-align:middle;text-align:center;"><div style="font-size:15px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
     '<div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
@@ -863,20 +857,30 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
     '<div style="margin-top:35px;padding-top:10px;border-top:1px solid #000;"><table style="width:100%;border-collapse:collapse;"><tr>' +
     '<td style="width:50%;vertical-align:bottom;"><div style="margin-top:45px;border-top:1px solid #000;width:200px;padding-top:5px;"><strong>EXAMINATIONS OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
     '<td style="width:50%;text-align:right;vertical-align:bottom;"><strong>Date Printed:</strong> ' + new Date().toLocaleDateString('en-GB') + '<br><small style="color:#9ca3af;">Generated by PCE Academic System</small></td>' +
-    '</tr></table></div></div></div>';
+    '</tr></table></div></div>';
 
   Swal.close();
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:760px;';
+  // FIX: wrap width matches A4
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;';
   wrap.innerHTML = html;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: [0.4,0.4,0.4,0.4],
+      margin: 0,                        // FIX: zero margin — padding handled inside HTML
       filename: 'ResultSlip_' + (student.index_number || email) + '_L' + lvl + '_' + sem + '.pdf',
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      html2canvas: {
+        scale: 1.5,                     // FIX: reduced scale prevents canvas blowout
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,                     // FIX: explicit A4 pixel width
+        windowWidth: 794
+      },
+      jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait', hotfixes: ['px_scaling'] }
+      // FIX: unit:'px' eliminates inch/pixel mismatch
     }).from(wrap.firstElementChild).save();
   } finally { document.body.removeChild(wrap); }
 }
@@ -957,12 +961,12 @@ async function printStudentReceipt() {
   const statusColor = percentage >= 70 ? '#166534' : '#991b1b';
   const statusBg    = percentage >= 70 ? '#dcfce7'  : '#fee2e2';
 
-  // ── Same CORS proxy pattern as finance.html ──
-  const logoBase64   = await stuFetchLogo();
-  const logoCell     = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
-  const watermarkHtml = logoBase64
-    ? `<div style="height:0;overflow:visible;position:relative;z-index:0;pointer-events:none;"><img src="${logoBase64}" style="position:absolute;top:250px;left:50%;margin-left:-220px;width:440px;opacity:0.07;"></div>`
-    : '';
+  // FIX: use stuFetchLogo() helper
+  const logoBase64 = await stuFetchLogo();
+
+  // FIX: logo cell and watermark — watermark uses position:fixed with zero layout impact
+  const logoCell      = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
+  const watermarkHtml = logoBase64 ? `<div style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:0;pointer-events:none;"><img src="${logoBase64}" style="width:440px;opacity:0.07;"></div>` : '';
 
   const payRowsHtml = payRows.map((p, idx) => {
     const amt = Number(p.amount);
@@ -979,10 +983,9 @@ async function printStudentReceipt() {
     ? `<tr style="background:#fff7ed;"><td style="padding:7px 12px;">Carried Over from Previous Year</td><td style="padding:7px 12px;text-align:right;font-weight:bold;color:#c2410c;">GH&#8373; ${carryOver.toFixed(2)}</td></tr>`
     : '';
 
-  // ── Receipt HTML: watermark is height:0 self-contained, no extra wrapper needed ──
-  const receiptHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#ffffff;">
+  // FIX: width set to 794px (A4 at 96dpi), no position:relative on outer wrapper
+  const receiptHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:794px;padding:28px;box-sizing:border-box;background:#ffffff;">
   ${watermarkHtml}
-    <!-- HEADER -->
     <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;">
       <tr>
         ${logoCell}
@@ -992,15 +995,11 @@ async function printStudentReceipt() {
         </td>
       </tr>
     </table>
-
-    <!-- TITLE -->
     <div style="text-align:center;margin-bottom:16px;">
       <div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Official Payment Receipt</div>
       <div style="font-size:11px;color:#555;margin-top:5px;">Academic Year: <strong>${year}</strong></div>
       <div style="font-size:10px;color:#9ca3af;font-style:italic;margin-top:3px;">* Computer generated statement. Not an official receipt without Finance Office stamp.</div>
     </div>
-
-    <!-- STUDENT INFO -->
     <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">
       <tr style="background:#f1f5f9;"><td colspan="4" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Student Information</td></tr>
       <tr>
@@ -1016,8 +1015,6 @@ async function printStudentReceipt() {
         <td style="padding:7px 12px;">${sf.level || 'N/A'}</td>
       </tr>
     </table>
-
-    <!-- FEE SUMMARY -->
     <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">
       <tr style="background:#f1f5f9;"><td colspan="2" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Fee Summary</td></tr>
       <tr><td style="padding:7px 12px;width:65%;">Base Fees for ${year}</td><td style="padding:7px 12px;text-align:right;font-weight:bold;">GH&#8373; ${baseFees.toFixed(2)}</td></tr>
@@ -1027,8 +1024,6 @@ async function printStudentReceipt() {
       <tr><td style="padding:7px 12px;border-top:2px solid #000;">Outstanding Balance</td><td style="padding:7px 12px;text-align:right;font-weight:bold;border-top:2px solid #000;color:${balance > 0 ? '#dc2626' : '#166534'};">GH&#8373; ${balance.toFixed(2)}</td></tr>
       <tr><td colspan="2" style="padding:9px 12px;"><span style="background:${statusBg};color:${statusColor};padding:4px 14px;border-radius:4px;font-weight:bold;font-size:11px;">${statusLabel} (${percentage}%)</span></td></tr>
     </table>
-
-    <!-- PAYMENT HISTORY -->
     <div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;color:#374151;">Payment Transaction History</div>
     <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">
       <thead><tr style="background:#1e3a5f;">
@@ -1040,8 +1035,6 @@ async function printStudentReceipt() {
       </tr></thead>
       <tbody>${payRowsHtml}</tbody>
     </table>
-
-    <!-- FOOTER -->
     <div style="margin-top:40px;padding-top:10px;border-top:1px solid #000;">
       <table style="width:100%;border-collapse:collapse;"><tr>
         <td style="width:50%;vertical-align:bottom;">
@@ -1058,16 +1051,26 @@ async function printStudentReceipt() {
   Swal.close();
 
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:760px;';
+  // FIX: wrap width matches A4
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;';
   wrap.innerHTML = receiptHtml;
   document.body.appendChild(wrap);
   try {
     await html2pdf().set({
-      margin: [0.4, 0.4, 0.4, 0.4],
+      margin: 0,                        // FIX: zero margin — padding handled inside HTML
       filename: `Receipt_${student.index_number || em}_${String(year).replace('/', '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      html2canvas: {
+        scale: 1.5,                     // FIX: reduced scale prevents canvas blowout
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,                     // FIX: explicit A4 pixel width
+        windowWidth: 794
+      },
+      jsPDF: { unit: 'px', format: 'a4', orientation: 'portrait', hotfixes: ['px_scaling'] }
+      // FIX: unit:'px' eliminates inch/pixel mismatch
     }).from(wrap.firstElementChild).save();
   } finally { document.body.removeChild(wrap); }
 }
