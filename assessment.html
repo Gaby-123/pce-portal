@@ -1,0 +1,1060 @@
+<style>
+:root { --pce-blue: #0284c7; --pce-bg: #f8fafc; --sidebar-width: 260px; }
+.assessment-container { display:flex; height:calc(100vh - 60px); background:var(--pce-bg); overflow:hidden; }
+.sidebar { width:var(--sidebar-width); background:white; border-right:1px solid #e2e8f0; display:flex; flex-direction:column; }
+.sidebar-header { padding:20px; border-bottom:1px solid #e2e8f0; background:linear-gradient(135deg,var(--pce-blue) 0%,#0369a1 100%); color:white; }
+.sidebar-header h5 { margin:0; font-size:1.1rem; font-weight:700; }
+.sidebar-menu { flex:1; overflow-y:auto; padding:10px 0; }
+.menu-item { display:flex; align-items:center; padding:12px 20px; color:#475569; cursor:pointer; border-left:3px solid transparent; transition:all 0.2s; text-decoration:none; }
+.menu-item:hover { background:#f1f5f9; color:var(--pce-blue); border-left-color:var(--pce-blue); }
+.menu-item.active { background:#e0f2fe; color:var(--pce-blue); border-left-color:var(--pce-blue); font-weight:600; }
+.menu-item i { margin-right:12px; font-size:1.1rem; width:20px; }
+.main-content { flex:1; overflow-y:auto; padding:25px; }
+.content-section { display:none; animation:fadeIn 0.3s; }
+.content-section.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+.section-header { margin-bottom:25px; padding-bottom:15px; border-bottom:2px solid #e2e8f0; }
+.section-header h4 { color:#0f172a; font-weight:700; margin:0; }
+.stat-card { background:white; border-radius:10px; padding:20px; border:1px solid #e2e8f0; box-shadow:0 2px 4px rgba(0,0,0,.05); margin-bottom:20px; }
+.transcript-card { background:white; border-radius:10px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,.05); }
+.transcript-header { background:linear-gradient(135deg,#0284c7 0%,#0369a1 100%); color:white; padding:20px; }
+.transcript-actions { background:#f8fafc; padding:15px; border-bottom:1px solid #e2e8f0; display:flex; gap:10px; align-items:center; }
+.grade-A { background:#d1fae5; color:#065f46; } .grade-B { background:#dbeafe; color:#1e40af; }
+.grade-C { background:#fef3c7; color:#92400e; } .grade-E,.grade-F { background:#fecaca; color:#991b1b; }
+</style>
+
+<div class="assessment-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h5><i class="bi bi-clipboard-data me-2"></i>Assessment Portal</h5>
+      <p class="mb-0 small opacity-75">Academic Records Management</p>
+    </div>
+    <nav class="sidebar-menu">
+      <a class="menu-item active" data-section="upload-results"><i class="bi bi-cloud-upload"></i><span>Upload Results</span></a>
+      <a class="menu-item" data-section="attendance"><i class="bi bi-journal-check"></i><span>Attendance Sheets</span></a>
+      <a class="menu-item" data-section="templates"><i class="bi bi-download"></i><span>Result Templates</span></a>
+      <a class="menu-item" data-section="broadsheet"><i class="bi bi-grid-3x3-gap"></i><span>Broadsheet</span></a>
+      <a class="menu-item" data-section="resit-filter"><i class="bi bi-funnel"></i><span>Grade Management</span></a>
+      <a class="menu-item" data-section="transcript-lookup"><i class="bi bi-file-earmark-text"></i><span>Transcript Lookup</span></a>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- 1. UPLOAD RESULTS -->
+    <section id="upload-results" class="content-section active">
+      <div class="section-header"><h4><i class="bi bi-cloud-upload me-2"></i>Upload Student Results</h4><p class="text-muted mb-0">Upload graded results via CSV file</p></div>
+      <div class="row"><div class="col-md-6 mx-auto">
+        <div class="stat-card">
+          <div class="d-flex align-items-center mb-3">
+            <div class="me-3"><i class="bi bi-file-earmark-spreadsheet text-primary" style="font-size:2.5rem;"></i></div>
+            <div><h6 class="mb-0 fw-bold">Results Upload</h6><small class="text-muted">Select CSV file with graded results</small></div>
+          </div>
+          <input type="file" id="resFile" class="form-control mb-3" accept=".csv">
+          <button class="btn btn-primary w-100" id="asmPreviewBtn"><i class="bi bi-eye me-2"></i>Preview &amp; Upload</button>
+          <div id="asmStatus" class="mt-3 text-center small" style="display:none;"></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 2. ATTENDANCE -->
+    <section id="attendance" class="content-section">
+      <div class="section-header"><h4><i class="bi bi-journal-check me-2"></i>Attendance Sheets</h4><p class="text-muted mb-0">Generate course registration attendance sheets by level, semester and academic year</p></div>
+      <div class="stat-card mb-4">
+        <h6 class="fw-bold text-uppercase mb-3" style="font-size:.72rem;letter-spacing:1px;color:#64748b;"><i class="bi bi-funnel me-2"></i>Select Parameters</h6>
+        <div class="row g-3">
+          <div class="col-md-3"><label class="form-label fw-bold small">Level <span class="text-danger">*</span></label>
+            <select id="attLevel" class="form-select"><option value="">-- Select Level --</option><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select></div>
+          <div class="col-md-3"><label class="form-label fw-bold small">Semester <span class="text-danger">*</span></label>
+            <select id="attSemester" class="form-select"><option value="">-- Select Semester --</option><option value="SEMESTER1">Semester 1</option><option value="SEMESTER2">Semester 2</option></select></div>
+          <div class="col-md-3"><label class="form-label fw-bold small">Academic Year <span class="text-danger">*</span></label>
+            <select id="attYear" class="form-select"><option value="">-- Loading... --</option></select></div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-dark w-100" id="attCheckBtn"><i class="bi bi-search me-2"></i>Check Availability</button></div>
+        </div>
+        <div id="attInfo" class="alert py-2 px-3 small mt-3 mb-0" style="display:none;"></div>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-6"><div class="stat-card h-100" style="border-left:4px solid #198754;">
+          <h6 class="fw-bold mb-1"><i class="bi bi-check-circle-fill text-success me-2"></i>Registered Students Only</h6>
+          <p class="small text-muted mb-3">Shows only students who completed registration for the selected semester and year. One row per registered course with a signature column.</p>
+          <div class="row g-2">
+            <div class="col-6"><button class="btn btn-success w-100 btn-sm fw-bold" data-att-format="pdf" data-att-type="registered"><i class="bi bi-file-earmark-pdf me-1"></i>PDF (A4)</button></div>
+            <div class="col-6"><button class="btn btn-outline-success w-100 btn-sm fw-bold" data-att-format="csv" data-att-type="registered"><i class="bi bi-filetype-csv me-1"></i>CSV</button></div>
+          </div>
+        </div></div>
+        <div class="col-md-6"><div class="stat-card h-100" style="border-left:4px solid #0d6efd;">
+          <h6 class="fw-bold mb-1"><i class="bi bi-people-fill text-primary me-2"></i>All Students <span class="badge bg-secondary ms-1" style="font-size:.6rem;">Registered + Unregistered</span></h6>
+          <p class="small text-muted mb-3">Lists every student at this level. Unregistered students are highlighted as <span class="text-danger fw-bold">&#10007; NOT REGISTERED</span>.</p>
+          <div class="row g-2">
+            <div class="col-6"><button class="btn btn-primary w-100 btn-sm fw-bold" data-att-format="pdf" data-att-type="all"><i class="bi bi-file-earmark-pdf me-1"></i>PDF (A4)</button></div>
+            <div class="col-6"><button class="btn btn-outline-primary w-100 btn-sm fw-bold" data-att-format="csv" data-att-type="all"><i class="bi bi-filetype-csv me-1"></i>CSV</button></div>
+          </div>
+        </div></div>
+      </div>
+      <div id="attStatus" class="alert small mt-2" style="display:none;"></div>
+      <div class="stat-card mt-4" style="background:#f8fafc;border:1px dashed #cbd5e1;">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div><h6 class="fw-bold mb-1 small text-muted text-uppercase" style="letter-spacing:1px;"><i class="bi bi-archive me-2"></i>Legacy CSV (Level Only)</h6>
+            <p class="small text-muted mb-0">Old attendance CSV with no semester or year filter.</p></div>
+          <div class="d-flex align-items-center gap-2">
+            <select id="asmLvl" class="form-select form-select-sm" style="width:130px;"><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select>
+            <button class="btn btn-outline-secondary btn-sm fw-bold" id="asmLegacyBtn"><i class="bi bi-download me-1"></i>Download CSV</button>
+          </div>
+        </div>
+        <div id="asmDlStatus" class="mt-2 small text-center" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- 3. TEMPLATES -->
+    <section id="templates" class="content-section">
+      <div class="section-header"><h4><i class="bi bi-download me-2"></i>Result Templates</h4><p class="text-muted mb-0">Download templates for result entry</p></div>
+      <div class="row g-4">
+        <div class="col-md-5"><div class="stat-card h-100">
+          <div class="d-flex align-items-center mb-3"><div class="me-3 p-2 rounded" style="background:#f0fdf4;"><i class="bi bi-file-earmark-plus text-success" style="font-size:2rem;"></i></div>
+            <div><h6 class="mb-0 fw-bold">Blank Template</h6><small class="text-muted">Download empty template with correct columns</small></div></div>
+          <p class="small text-muted mb-3">Use this when you want to manually enter all student details. Includes an example row.</p>
+          <div class="alert alert-info py-2 px-3 small mb-3"><strong>Columns:</strong> Email, Name, CourseCode, Grade, Semester, AcademicYear</div>
+          <div class="alert alert-warning py-2 px-3 small mb-3"><i class="bi bi-exclamation-triangle me-1"></i><strong>Important:</strong> Academic Year: <code>2024/2025</code> &mdash; Semester: <code>SEMESTER1</code> or <code>SEMESTER2</code></div>
+          <button class="btn btn-success w-100 fw-bold" id="asmBlankTplBtn"><i class="bi bi-download me-2"></i>Download Blank Template</button>
+        </div></div>
+        <div class="col-md-7"><div class="stat-card h-100">
+          <div class="d-flex align-items-center mb-3"><div class="me-3 p-2 rounded" style="background:#eff6ff;"><i class="bi bi-table text-primary" style="font-size:2rem;"></i></div>
+            <div><h6 class="mb-0 fw-bold">Pre-filled Template</h6><small class="text-muted">Pre-filled with registered students for a specific level &amp; semester</small></div></div>
+          <p class="small text-muted mb-3">Downloads a template containing emails, names and course codes. You only fill in the <strong>Grade</strong> and <strong>Academic Year</strong> columns.</p>
+          <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label small fw-bold">Select Semester <span class="text-danger">*</span></label>
+              <select id="templateSem" class="form-select"><option value="">-- Select Semester --</option><option value="SEMESTER1">Semester 1</option><option value="SEMESTER2">Semester 2</option></select></div>
+            <div class="col-6"><label class="form-label small fw-bold">Select Level <span class="text-danger">*</span></label>
+              <select id="templateLvl" class="form-select"><option value="">-- Select Level --</option><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select></div>
+          </div>
+          <div id="templateStatus" class="small mb-3" style="display:none;"></div>
+          <button class="btn btn-primary w-100 fw-bold btn-lg" id="asmPrefilledTplBtn"><i class="bi bi-download me-2"></i>Generate Pre-filled Template</button>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 4. BROADSHEET -->
+    <section id="broadsheet" class="content-section">
+      <div class="section-header"><h4><i class="bi bi-grid-3x3-gap me-2"></i>Broadsheet Generation</h4><p class="text-muted mb-0">Generate official academic broadsheets &mdash; semester view or full end of programme</p></div>
+      <ul class="nav nav-tabs mb-4">
+        <li class="nav-item"><a class="nav-link active" id="bsTabSem" href="#" data-bs-mode="semester"><i class="bi bi-calendar2-week me-1"></i>Semester Broadsheet</a></li>
+        <li class="nav-item"><a class="nav-link" id="bsTabEOP" href="#" data-bs-mode="eop"><i class="bi bi-mortarboard me-1"></i>End of Programme Broadsheet</a></li>
+      </ul>
+      <div id="bsModeSemester">
+        <div class="row g-4">
+          <div class="col-md-4"><div class="stat-card">
+            <h6 class="fw-bold mb-3"><i class="bi bi-sliders me-2 text-primary"></i>Parameters</h6>
+            <div class="mb-3"><label class="form-label fw-bold small">Level <span class="text-danger">*</span></label>
+              <select id="bsSemLevel" class="form-select"><option value="">-- Select Level --</option><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select></div>
+            <div class="mb-3"><label class="form-label fw-bold small">Semester <span class="text-danger">*</span></label>
+              <select id="bsSemSemester" class="form-select"><option value="">-- Select Semester --</option><option value="SEMESTER1">Semester 1</option><option value="SEMESTER2">Semester 2</option></select></div>
+            <div class="mb-3"><label class="form-label fw-bold small">Academic Year <span class="text-danger">*</span></label>
+              <select id="bsSemYear" class="form-select"><option value="">-- Loading... --</option></select></div>
+            <div class="mb-4"><label class="form-label fw-bold small">Sort By</label>
+              <select id="bsSemSort" class="form-select"><option value="name">Name (A&ndash;Z)</option><option value="index">Index Number (A&ndash;Z)</option><option value="gpa_desc">GPA &mdash; Highest First</option><option value="gpa_asc">GPA &mdash; Lowest First</option></select></div>
+            <button class="btn btn-outline-primary w-100 mb-2" id="bsSemCheckBtn"><i class="bi bi-search me-2"></i>Check Availability</button>
+            <div id="bsSemInfo" style="display:none;" class="alert py-2 px-3 small mt-2 mb-0"></div>
+          </div></div>
+          <div class="col-md-8">
+            <div class="stat-card mb-3"><h6 class="fw-bold mb-1"><i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>CSV (Excel / Sheets)</h6>
+              <p class="small text-muted mb-2">Columns: # &middot; Index &middot; Name &middot; Gender &middot; Program &middot; CR &middot; GP &middot; GPA &middot; FCGPA &middot; Class</p>
+              <button class="btn btn-success fw-bold w-100" id="bsSemCSVBtn"><i class="bi bi-download me-2"></i>Download Semester Broadsheet CSV</button></div>
+            <div class="stat-card"><h6 class="fw-bold mb-1"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDF (Official A3 Landscape)</h6>
+              <p class="small text-muted mb-2">PCE letterhead &middot; colour-coded FCGPA &middot; Class &middot; signature blocks</p>
+              <button class="btn btn-danger fw-bold w-100" id="bsSemPDFBtn"><i class="bi bi-file-pdf me-2"></i>Download Official Semester PDF</button></div>
+            <div id="bsSemStatus" style="display:none;" class="mt-3"></div>
+            <div class="alert alert-light border mt-3 small"><strong><i class="bi bi-info-circle me-1"></i>Column Guide</strong><br>
+              <strong>CR</strong> = Credits &nbsp;|&nbsp; <strong>GP</strong> = Grade Points &nbsp;|&nbsp; <strong>GPA</strong> = Semester GPA &nbsp;|&nbsp; <strong>FCGPA</strong> = Cumulative GPA</div>
+          </div>
+        </div>
+      </div>
+      <div id="bsModeEOP" style="display:none;">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="stat-card">
+              <h6 class="fw-bold mb-3"><i class="bi bi-sliders me-2 text-primary"></i>Parameters</h6>
+              <div class="mb-3"><label class="form-label fw-bold small">Level <span class="text-danger">*</span></label>
+                <select id="bsEOPLevel" class="form-select"><option value="">-- Select Level --</option><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select>
+                <div class="form-text">All results across all semesters will be included.</div></div>
+              <div class="mb-4"><label class="form-label fw-bold small">Sort By</label>
+                <select id="bsEOPSort" class="form-select"><option value="name">Name (A&ndash;Z)</option><option value="index">Index Number (A&ndash;Z)</option><option value="fcgpa_desc">FCGPA &mdash; Highest First</option><option value="fcgpa_asc">FCGPA &mdash; Lowest First</option></select></div>
+              <button class="btn btn-outline-primary w-100 mb-2" id="bsEOPCheckBtn"><i class="bi bi-search me-2"></i>Check Availability</button>
+              <div id="bsEOPInfo" style="display:none;" class="alert py-2 px-3 small mt-2 mb-0"></div>
+            </div>
+            <div class="stat-card mt-3">
+              <h6 class="fw-bold mb-2 small"><i class="bi bi-info-circle me-1 text-info"></i>Column Key</h6>
+              <table class="table table-borderless table-sm small mb-0">
+                <tr><td class="fw-bold py-1">CR</td><td class="py-1">Credits per semester</td></tr>
+                <tr><td class="fw-bold py-1">GP</td><td class="py-1">Grade points per semester</td></tr>
+                <tr><td class="fw-bold py-1">GPA</td><td class="py-1">GPA per semester</td></tr>
+                <tr><td class="fw-bold py-1">NOC</td><td class="py-1">Total courses taken</td></tr>
+                <tr><td class="fw-bold py-1">TCGP</td><td class="py-1">Total cumulative grade points</td></tr>
+                <tr><td class="fw-bold py-1">TCCR</td><td class="py-1">Total cumulative credits</td></tr>
+                <tr><td class="fw-bold text-success py-1">FCGPA</td><td class="py-1">Final cumulative GPA</td></tr>
+                <tr><td class="fw-bold text-danger py-1">Trails</td><td class="py-1">Courses with E or F grade</td></tr>
+                <tr><td class="fw-bold text-warning py-1">ICs</td><td class="py-1">Incomplete courses</td></tr>
+              </table>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="stat-card mb-3"><h6 class="fw-bold mb-1"><i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>CSV (Excel / Sheets)</h6>
+              <p class="small text-muted mb-2">Format: # &middot; Reg No. &middot; Name &middot; Sem1(CR,GP,GPA) &hellip; &middot; NOC &middot; TCGP &middot; TCCR &middot; FCGPA &middot; Class &middot; Trails &middot; ICs</p>
+              <button class="btn btn-success fw-bold w-100" id="bsEOPCSVBtn"><i class="bi bi-download me-2"></i>Download EOP Broadsheet CSV</button></div>
+            <div class="stat-card"><h6 class="fw-bold mb-1"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDF (Official A3 Landscape)</h6>
+              <p class="small text-muted mb-2">All semester columns &middot; FCGPA &middot; Trails &middot; ICs &middot; PCE letterhead &middot; signature blocks</p>
+              <button class="btn btn-danger fw-bold w-100" id="bsEOPPDFBtn"><i class="bi bi-file-pdf me-2"></i>Download Official EOP PDF</button></div>
+            <div id="bsEOPStatus" style="display:none;" class="mt-3"></div>
+            <div class="alert alert-light border mt-3 small">
+              <strong><i class="bi bi-mortarboard me-1"></i>Degree Class Scale (FCGPA)</strong>
+              <div class="row mt-2 g-1 text-center">
+                <div class="col-4"><span class="badge bg-warning text-dark">3.50&ndash;4.00</span><br>First Class</div>
+                <div class="col-4"><span class="badge bg-info text-dark">3.00&ndash;3.49</span><br>2nd Class Upper</div>
+                <div class="col-4"><span class="badge bg-primary">2.50&ndash;2.99</span><br>2nd Class Lower</div>
+                <div class="col-4"><span class="badge bg-secondary">2.00&ndash;2.49</span><br>Third Class</div>
+                <div class="col-4"><span class="badge bg-success">1.00&ndash;1.99</span><br>Pass</div>
+                <div class="col-4"><span class="badge bg-danger">Below 1.00</span><br>Fail</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. GRADE MANAGEMENT -->
+    <section id="resit-filter" class="content-section">
+      <div class="section-header"><h4><i class="bi bi-funnel me-2"></i>Grade Management System</h4><p class="text-muted mb-0">Filter students by grade, level, course, and semester</p></div>
+      <div class="stat-card">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3"><label class="form-label fw-bold small">Grade Filter</label>
+            <select id="resitGradeFilter" class="form-select"><option value="ALL">All Grades</option><option value="E" selected>E (Resit Required)</option><option value="IC">IC (Incomplete)</option><option value="F">F (Fail)</option><option value="D">D</option><option value="D+">D+</option><option value="C">C</option><option value="C+">C+</option><option value="B">B</option><option value="B+">B+</option><option value="A">A</option></select></div>
+          <div class="col-md-3"><label class="form-label fw-bold small">Level Filter</label>
+            <select id="resitLevelFilter" class="form-select"><option value="ALL">All Levels</option><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select></div>
+          <div class="col-md-3"><label class="form-label fw-bold small">Course Filter</label>
+            <select id="resitCourseFilter" class="form-select"><option value="ALL">All Courses</option></select></div>
+          <div class="col-md-3"><label class="form-label fw-bold small">Semester Filter</label>
+            <select id="resitSemesterFilter" class="form-select"><option value="ALL">All Semesters</option><option value="SEMESTER1">Semester 1</option><option value="SEMESTER2">Semester 2</option></select></div>
+        </div>
+        <div class="d-flex gap-2 mb-3">
+          <button class="btn btn-primary flex-fill" id="resitSearchBtn"><i class="bi bi-search me-2"></i>Search Students</button>
+          <button class="btn btn-success" id="resitDownloadBtn"><i class="bi bi-download me-2"></i>Download CSV</button>
+          <button class="btn btn-outline-secondary" id="resitClearBtn"><i class="bi bi-x-circle me-2"></i>Clear</button>
+        </div>
+        <div id="resitResultsArea" style="display:none;">
+          <div class="alert alert-info d-flex justify-content-between align-items-center">
+            <span><strong id="resitCount">0</strong> students found</span>
+            <span class="badge bg-primary" id="resitFilterSummary">Filters Active</span>
+          </div>
+          <div style="max-height:500px;overflow-y:auto;">
+            <table class="table table-sm table-hover table-bordered mb-0">
+              <thead class="table-dark sticky-top"><tr><th>Name</th><th>Index</th><th>Level</th><th>Course</th><th>Grade</th><th>Semester</th><th>Year</th></tr></thead>
+              <tbody id="resitResultsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. TRANSCRIPT LOOKUP -->
+    <section id="transcript-lookup" class="content-section">
+      <div class="section-header"><h4><i class="bi bi-file-earmark-text me-2"></i>Student Transcript Lookup</h4><p class="text-muted mb-0">View and print official academic transcripts</p></div>
+      <div class="transcript-card">
+        <div class="transcript-header">
+          <div class="row align-items-center">
+            <div class="col-md-8"><h5 class="mb-2"><i class="bi bi-search me-2"></i>Search Student</h5><small class="opacity-75">Enter email or index number to view academic record</small></div>
+            <div class="col-md-4 text-end"><button id="printTranscriptBtn" class="btn btn-light btn-lg" style="display:none;"><i class="bi bi-printer-fill me-2"></i>Print PDF</button></div>
+          </div>
+        </div>
+        <div class="transcript-actions">
+          <div class="input-group flex-grow-1">
+            <span class="input-group-text bg-white"><i class="bi bi-person-badge"></i></span>
+            <input type="text" id="transInput" class="form-control" placeholder="Enter student email or index number...">
+            <button class="btn btn-primary px-4" id="transSearchBtn"><i class="bi bi-search me-1"></i> Search</button>
+          </div>
+        </div>
+        <div id="transcriptPreview" class="p-4">
+          <div class="text-center text-muted py-5">
+            <i class="bi bi-file-earmark-text" style="font-size:4rem;opacity:.2;"></i>
+            <p class="mt-3 fw-bold">Student Academic Record</p>
+            <p class="small">Search for a student to view their complete transcript</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- RESULTS PREVIEW MODAL -->
+<div class="modal fade" id="resultsPreviewModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-clipboard-check me-2"></i>Results Upload Preview</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="alert alert-info m-3 mb-0"><strong>Verify grades carefully:</strong> <span id="resultsPreviewCount">0</span> results detected. Review all entries before final submission.</div>
+        <div id="resultsPreviewContent" style="max-height:500px;overflow-y:auto;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success fw-bold px-4" id="asmConfirmUploadBtn"><i class="bi bi-check-circle me-1"></i> Confirm &amp; Submit Results</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// ASSESSMENT PORTAL — All google.script.run replaced with sbFetch
+// ================================================================
+var _asmPending  = null;
+var _asmEmail    = null;
+var _asmGS       = {'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0};
+function _asmGP(g) { return _asmGS[String(g||'').toUpperCase().trim()] || 0; }
+function _asmClass(g) {
+  var n=parseFloat(g);
+  return n>=3.50?'First Class':n>=3.00?'2nd Class Upper':n>=2.50?'2nd Class Lower':n>=2.00?'Third Class':n>=1.00?'Pass':'Fail';
+}
+function _asmFCColor(g) {
+  var n=parseFloat(g);
+  return n>=3.5?'#065f46':n>=3.0?'#1e40af':n>=2.5?'#0369a1':n>=2.0?'#92400e':n>=1.0?'#374151':'#991b1b';
+}
+function _bsMsg(el,type,html){ el.className='alert alert-'+type+' py-2 px-3 small mt-2 mb-0'; el.style.display='block'; el.innerHTML=html; }
+
+async function _asmLogo() {
+  try {
+    var r=await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
+    if(!r.ok) return '';
+    var b=await r.blob();
+    return await new Promise(function(rs){var rd=new FileReader();rd.onload=function(){rs(rd.result);};rd.onerror=function(){rs('');};rd.readAsDataURL(b);});
+  } catch(e){return '';}
+}
+function _asmDlCSV(content,filename){
+  var blob=new Blob([content],{type:'text/csv'});var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+
+// ── Navigation ────────────────────────────────────────────────
+document.querySelectorAll('.menu-item[data-section]').forEach(function(item){
+  item.addEventListener('click',function(){
+    var sid=this.getAttribute('data-section');
+    document.querySelectorAll('.content-section').forEach(function(s){s.classList.remove('active');});
+    var el=document.getElementById(sid); if(el) el.classList.add('active');
+    document.querySelectorAll('.menu-item').forEach(function(m){m.classList.remove('active');});
+    this.classList.add('active');
+    if(sid==='resit-filter')  _asmInitResit();
+    if(sid==='broadsheet')    _asmLoadBsYears();
+    if(sid==='attendance')    _asmLoadAttYears();
+  });
+});
+
+// ── 1. UPLOAD RESULTS ─────────────────────────────────────────
+document.getElementById('asmPreviewBtn').addEventListener('click',function(){_asmPreview();});
+document.getElementById('asmConfirmUploadBtn').addEventListener('click',function(){_asmConfirmUpload();});
+
+function _asmPreview(){
+  var fi=document.getElementById('resFile'),file=fi.files[0];
+  if(!file){Swal.fire({icon:'info',title:'No File',text:'Please select a CSV file.',confirmButtonColor:'#0284c7'});return;}
+  Swal.fire({title:'Reading CSV...',allowOutsideClick:false,didOpen:function(){Swal.showLoading();}});
+  var reader=new FileReader();
+  reader.onload=function(e){
+    Swal.close();
+    var csv=e.target.result,rows=csv.split('\n').filter(function(r){return r.trim();});
+    if(rows.length<2){Swal.fire('Empty File','CSV has no data rows.','error');return;}
+    var headers=rows[0].split(',');
+    var dataRows=rows.slice(1).filter(function(r){var c=r.split(',');return c[2]&&c[2].trim()&&c[3]&&c[3].trim();});
+    if(!dataRows.length){Swal.fire({icon:'warning',title:'No Valid Results',text:'No grades found. Ensure CourseCode (col 3) and Grade (col 4) are filled.',confirmButtonColor:'#f59e0b'});return;}
+    var th='<table class="table table-sm table-hover mb-0"><thead class="table-dark sticky-top"><tr>'+headers.map(function(h){return '<th class="small">'+h.trim()+'</th>';}).join('')+'</tr></thead><tbody>';
+    dataRows.forEach(function(row){
+      var c=row.split(','),g=c[3]?c[3].trim().toUpperCase():'';
+      var gc=g==='A'?'text-success fw-bold':g.startsWith('B')?'text-primary fw-bold':g.startsWith('C')?'text-warning fw-bold':(g==='F'||g==='E')?'text-danger fw-bold':'fw-bold';
+      th+='<tr>'+c.map(function(x,i){return '<td class="small '+(i===3?gc:'')+'">'+(x||'').trim()+'</td>';}).join('')+'</tr>';
+    });
+    th+='</tbody></table>';
+    document.getElementById('resultsPreviewCount').innerText=dataRows.length;
+    document.getElementById('resultsPreviewContent').innerHTML=th;
+    _asmPending=csv;
+    new bootstrap.Modal(document.getElementById('resultsPreviewModal')).show();
+  };
+  reader.readAsText(file);
+}
+
+async function _asmConfirmUpload(){
+  if(!_asmPending) return;
+  var mi=bootstrap.Modal.getInstance(document.getElementById('resultsPreviewModal')); if(mi) mi.hide();
+  Swal.fire({title:'Uploading Results...',html:'<div class="spinner-border text-primary"></div>',allowOutsideClick:false,showConfirmButton:false});
+  var rows=_asmPending.split('\n').filter(function(r){return r.trim();});
+  var recs=rows.slice(1).filter(function(r){var c=r.split(',');return c[2]&&c[2].trim()&&c[3]&&c[3].trim();}).map(function(row){
+    var c=row.split(',');
+    return {email:(c[0]||'').trim().toLowerCase(),course_code:(c[2]||'').trim().toUpperCase(),grade:(c[3]||'').trim().toUpperCase(),semester:(c[4]||'').trim().toUpperCase(),academic_year:(c[5]||'').trim()};
+  }).filter(function(r){return r.email&&r.course_code&&r.grade;});
+  if(!recs.length){Swal.close();Swal.fire({icon:'warning',title:'No Valid Data',text:'No valid result rows found.'});return;}
+  var chunks=[];for(var i=0;i<recs.length;i+=100) chunks.push(recs.slice(i,i+100));
+  var ok=0,fail=0;
+  for(var ci=0;ci<chunks.length;ci++){
+    var res=await sbFetch('results?on_conflict=email,course_code,semester,academic_year',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:chunks[ci]});
+    if(res!==null) ok+=chunks[ci].length; else fail+=chunks[ci].length;
+  }
+  var st=document.getElementById('asmStatus'); Swal.close();
+  if(!fail){
+    st.className='alert alert-success mt-3 small'; st.style.display='block'; st.innerHTML='&#10003; '+ok+' results uploaded successfully!';
+    Swal.fire({icon:'success',title:'Results Uploaded!',text:ok+' results saved.',confirmButtonColor:'#10b981'});
+    document.getElementById('resFile').value=''; _asmPending=null;
+  } else {
+    st.className='alert alert-warning mt-3 small'; st.style.display='block'; st.innerHTML='&#9888; '+ok+' uploaded, '+fail+' failed. Check that the results table has the required unique constraint.';
+    Swal.fire({icon:'warning',title:'Partial Upload',text:ok+' uploaded, '+fail+' failed.'});
+  }
+}
+
+// ── 2. ATTENDANCE ─────────────────────────────────────────────
+async function _asmLoadAttYears(){
+  var sel=document.getElementById('attYear'); if(!sel) return;
+  var rows=await sbFetch('fee_structure?select=academic_year&order=academic_year.desc');
+  var years=[...new Set((rows||[]).map(function(r){return r.academic_year;}).filter(Boolean))];
+  sel.innerHTML=years.length?'<option value="">-- Select Academic Year --</option>'+years.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join(''):'<option value="">-- No years found --</option>';
+}
+function _attP(){return {level:document.getElementById('attLevel').value,sem:document.getElementById('attSemester').value,year:document.getElementById('attYear').value};}
+function _attV(){var p=_attP();if(!p.level||!p.sem||!p.year){Swal.fire({icon:'warning',title:'Missing Fields',text:'Please select Level, Semester and Academic Year.',confirmButtonColor:'#f59e0b'});return false;}return true;}
+
+document.getElementById('attCheckBtn').addEventListener('click',async function(){
+  if(!_attV()) return;
+  var p=_attP(),info=document.getElementById('attInfo');
+  info.className='alert alert-info py-2 px-3 small mt-3 mb-0'; info.style.display='block';
+  info.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Checking...';
+  var rows=await sbFetch('registrations?level=eq.'+encodeURIComponent(p.level)+'&semester=eq.'+encodeURIComponent(p.sem)+'&select=email');
+  var unique=[...new Set((rows||[]).map(function(r){return r.email;}))];
+  info.className='alert alert-'+(unique.length?'success':'warning')+' py-2 px-3 small mt-3 mb-0';
+  info.innerHTML=unique.length?'&#10003; <strong>'+unique.length+'</strong> registered student(s) found for Level '+p.level+' &mdash; '+p.sem+' &mdash; '+p.year+'.'
+    :'&#9888; No registered students found for Level '+p.level+' &mdash; '+p.sem+'.';
+});
+
+document.querySelectorAll('[data-att-format]').forEach(function(btn){
+  btn.addEventListener('click',function(){_asmAttDown(this.getAttribute('data-att-format'),this.getAttribute('data-att-type'));});
+});
+
+document.getElementById('asmLegacyBtn').addEventListener('click',async function(){
+  var lvl=document.getElementById('asmLvl').value,st=document.getElementById('asmDlStatus');
+  st.style.display='block'; st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Generating CSV for Level '+lvl+'...'; st.style.color='blue';
+  var rows=await sbFetch('registrations?level=eq.'+encodeURIComponent(lvl)+'&select=email,course_code&order=email');
+  if(!rows||!rows.length){st.style.color='red';st.innerHTML='&#9888; No registrations found for Level '+lvl;return;}
+  var emails=[...new Set(rows.map(function(r){return r.email;}))];
+  var bioData=await sbFetch('student_bio?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number&order=name');
+  var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b;});
+  var regMap={}; rows.forEach(function(r){if(!regMap[r.email])regMap[r.email]=[];regMap[r.email].push(r.course_code);});
+  var csv=['#,Index No.,Name,Course Codes,Signature'];
+  Object.keys(regMap).forEach(function(email,i){
+    var bio=bioMap[email]||{};
+    csv.push([i+1,bio.index_number||'','"'+(bio.name||bio.email)+'"','"'+(regMap[email]||[]).join('; ')+'"',''].join(','));
+  });
+  _asmDlCSV(csv.join('\n'),'Attendance_Level'+lvl+'.csv');
+  st.style.color='green'; st.innerHTML='&#10003; Attendance sheet downloaded for Level '+lvl;
+});
+
+async function _asmAttDown(format,type){
+  if(!_attV()) return;
+  var p=_attP(),st=document.getElementById('attStatus'),isPDF=(format==='pdf');
+  var semLabel=p.sem==='SEMESTER1'?'Semester 1':'Semester 2';
+  if(isPDF) Swal.fire({title:'Generating PDF…',html:'<div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Formatting A4 PDF…</p>',allowOutsideClick:false,showConfirmButton:false});
+  else{st.className='alert alert-info small mt-2';st.style.display='block';st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Generating CSV…';}
+
+  var regRows=await sbFetch('registrations?level=eq.'+encodeURIComponent(p.level)+'&semester=eq.'+encodeURIComponent(p.sem)+'&select=email,course_code&order=email');
+  var regMap={}; (regRows||[]).forEach(function(r){if(!regMap[r.email])regMap[r.email]=[];regMap[r.email].push(r.course_code);});
+  var regEmails=[...new Set((regRows||[]).map(function(r){return r.email;}))];
+
+  var bioData;
+  if(type==='all') bioData=await sbFetch('student_bio?level=eq.'+encodeURIComponent(p.level)+'&select=email,name,index_number,program,gender&order=name');
+  else if(regEmails.length) bioData=await sbFetch('student_bio?email=in.('+regEmails.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,program,gender&order=name');
+  else bioData=[];
+
+  var students=bioData||[];
+  if(!students.length){
+    if(isPDF) Swal.close();
+    st.className='alert alert-warning small mt-2'; st.style.display='block'; st.innerHTML='&#9888; No students found.'; return;
+  }
+  var allCodes=[...new Set((regRows||[]).map(function(r){return r.course_code;}))];
+  var crsData=allCodes.length?await sbFetch('courses?course_code=in.('+allCodes.map(encodeURIComponent).join(',')+')'+'&select=course_code,title'):[];
+  var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c.title;});
+
+  if(format==='csv'){
+    var csv=['#,Index No.,Name,Program,Gender,Registered Courses,Signature'];
+    students.forEach(function(s,i){
+      var codes=regMap[s.email]||[],notR=(type==='all'&&!codes.length);
+      var crs=codes.length?codes.map(function(c){return crsMap[c]||c;}).join('; '):(notR?'NOT REGISTERED':'');
+      csv.push([i+1,s.index_number||'','"'+(s.name||'')+'"','"'+(s.program||'')+'"',s.gender||'','"'+crs+'"',''].join(','));
+    });
+    _asmDlCSV(csv.join('\n'),'Attendance_L'+p.level+'_'+p.sem+'_'+p.year+'.csv');
+    st.className='alert alert-success small mt-2'; st.style.display='block'; st.innerHTML='&#10003; Downloaded! '+students.length+' students.';
+  } else {
+    var logo=await _asmLogo();
+    var lc=logo?'<td style="width:80px;vertical-align:middle;"><img src="'+logo+'" width="65" height="65" style="display:block;object-fit:contain;"></td>':'<td style="width:10px;"></td>';
+    var trs=students.map(function(s,i){
+      var codes=regMap[s.email]||[],notR=(type==='all'&&!codes.length);
+      var crs=codes.length?codes.map(function(c){return crsMap[c]||c;}).join('<br>'):'';
+      return '<tr style="background:'+(i%2===0?'#f9fafb':'#fff')+';">' +
+        '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+(i+1)+'</td>' +
+        '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-family:monospace;">'+(s.index_number||'')+'</td>' +
+        '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-weight:bold;">'+(s.name||'').toUpperCase()+'</td>' +
+        '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-size:9px;">'+(s.program||'')+'</td>' +
+        '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-size:9px;'+(notR?'color:#dc2626;font-weight:bold;':'')+'">'+(notR?'&#10007; NOT REGISTERED':crs)+'</td>' +
+        '<td style="padding:5px 8px;border:1px solid #e5e7eb;width:70px;"></td></tr>';
+    }).join('');
+    var pdfH='<div style="font-family:Times New Roman,serif;font-size:11px;color:#000;width:740px;padding:20px;box-sizing:border-box;background:#fff;">' +
+      '<table style="width:100%;border-bottom:2px solid #000;margin-bottom:12px;border-collapse:collapse;"><tr>'+lc+
+      '<td style="text-align:center;vertical-align:middle;"><div style="font-size:16px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
+      '<div style="font-size:10px;color:#555;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
+      '<div style="text-align:center;margin-bottom:14px;">' +
+      '<div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Attendance Sheet &mdash; '+(type==='registered'?'Registered Students':'All Students')+'</div>' +
+      '<div style="font-size:11px;color:#555;margin-top:4px;">Level '+p.level+' &mdash; '+semLabel+' &mdash; '+p.year+' &nbsp;|&nbsp; Total: '+students.length+'</div></div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:10px;"><thead><tr style="background:#1e3a5f;">' +
+      '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;width:35px;">#</th>' +
+      '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;width:110px;">Index No.</th>' +
+      '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Name</th>' +
+      '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;width:120px;">Program</th>' +
+      '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Courses</th>' +
+      '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;width:70px;">Signature</th>' +
+      '</tr></thead><tbody>'+trs+'</tbody></table>' +
+      '<div style="margin-top:25px;padding-top:8px;border-top:1px solid #000;"><table style="width:100%;border-collapse:collapse;"><tr>' +
+      '<td style="width:50%;"><div style="margin-top:35px;border-top:1px solid #000;width:180px;padding-top:4px;font-size:11px;"><strong>PREPARED BY</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
+      '<td style="width:50%;text-align:right;font-size:10px;vertical-align:bottom;"><strong>Date Printed:</strong> '+new Date().toLocaleDateString('en-GB')+'<br><small style="color:#9ca3af;">Generated by PCE Academic System</small></td>' +
+      '</tr></table></div></div>';
+    Swal.close();
+    var wrap=document.createElement('div'); wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;width:780px;';
+    wrap.innerHTML=pdfH; document.body.appendChild(wrap);
+    try{await html2pdf().set({margin:0,filename:'Attendance_L'+p.level+'_'+p.sem+'_'+p.year+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'},jsPDF:{unit:'in',format:'a4',orientation:'portrait'}}).from(wrap.firstElementChild).save();}
+    finally{document.body.removeChild(wrap);}
+    st.className='alert alert-success small mt-2'; st.style.display='block'; st.innerHTML='&#10003; PDF Downloaded! '+students.length+' students.';
+  }
+}
+
+// ── 3. TEMPLATES ──────────────────────────────────────────────
+document.getElementById('asmBlankTplBtn').addEventListener('click',function(){
+  _asmDlCSV('Email,Name,CourseCode,Grade,Semester,AcademicYear\nexample@student.edu,John Doe,EDUC101,B+,SEMESTER1,2024/2025\n','Result_Upload_Template_BLANK.csv');
+  Swal.fire({toast:true,position:'top-end',icon:'success',title:'Blank template downloaded!',showConfirmButton:false,timer:3000});
+});
+
+document.getElementById('asmPrefilledTplBtn').addEventListener('click',async function(){
+  var sem=document.getElementById('templateSem').value,lvl=document.getElementById('templateLvl').value;
+  var st=document.getElementById('templateStatus');
+  if(!sem){Swal.fire({icon:'warning',title:'Select Semester',confirmButtonColor:'#f59e0b'});return;}
+  if(!lvl){Swal.fire({icon:'warning',title:'Select Level',confirmButtonColor:'#f59e0b'});return;}
+  st.style.display='block'; st.className='alert alert-info py-2 px-3 small';
+  st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Generating template for Level '+lvl+' &mdash; '+sem+'...';
+  var [regRows,crsData]=await Promise.all([
+    sbFetch('registrations?level=eq.'+encodeURIComponent(lvl)+'&semester=eq.'+encodeURIComponent(sem)+'&select=email,course_code&order=email,course_code'),
+    sbFetch('courses?level=eq.'+encodeURIComponent(lvl)+'&semester=eq.'+encodeURIComponent(sem)+'&select=course_code,title')
+  ]);
+  if(!regRows||!regRows.length){
+    st.className='alert alert-warning py-2 px-3 small'; st.innerHTML='&#9888; No registered students found for Level '+lvl+' '+sem+'.';
+    Swal.fire({icon:'warning',title:'No Students Found',html:'No students registered for <strong>Level '+lvl+' '+sem+'</strong>.',confirmButtonColor:'#f59e0b'}); return;
+  }
+  var emails=[...new Set(regRows.map(function(r){return r.email;}))];
+  var bioData=await sbFetch('student_bio?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,name');
+  var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b.name||'';});
+  var csv=['Email,Name,CourseCode,Grade,Semester,AcademicYear'];
+  regRows.forEach(function(r){csv.push([r.email,'"'+(bioMap[r.email]||'')+'"',r.course_code,'',sem,''].join(','));});
+  _asmDlCSV(csv.join('\n'),'Result_Template_'+sem+'_Level'+lvl+'.csv');
+  st.className='alert alert-success py-2 px-3 small'; st.innerHTML='&#10003; Template downloaded! Fill in Grade and Academic Year then upload.';
+  Swal.fire({toast:true,position:'top-end',icon:'success',title:'Template ready &mdash; fill in grades then upload',showConfirmButton:false,timer:3000});
+});
+
+// ── 4. BROADSHEET ─────────────────────────────────────────────
+async function _asmLoadBsYears(){
+  var sel=document.getElementById('bsSemYear'); if(!sel) return;
+  var rows=await sbFetch('results?select=academic_year&order=academic_year.desc');
+  var years=[...new Set((rows||[]).map(function(r){return r.academic_year;}).filter(Boolean))];
+  sel.innerHTML=years.length?'<option value="">-- Select Academic Year --</option>'+years.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join(''):'<option value="">-- No results uploaded yet --</option>';
+}
+
+document.querySelectorAll('[data-bs-mode]').forEach(function(tab){
+  tab.addEventListener('click',function(e){
+    e.preventDefault(); var mode=this.getAttribute('data-bs-mode');
+    document.getElementById('bsModeSemester').style.display=mode==='semester'?'block':'none';
+    document.getElementById('bsModeEOP').style.display=mode==='eop'?'block':'none';
+    document.getElementById('bsTabSem').classList.toggle('active',mode==='semester');
+    document.getElementById('bsTabEOP').classList.toggle('active',mode==='eop');
+  });
+});
+
+async function _asmBuildSem(level,sem,year){
+  var results=await sbFetch('results?semester=eq.'+encodeURIComponent(sem)+'&academic_year=eq.'+encodeURIComponent(year)+'&select=email,course_code,grade');
+  if(!results||!results.length) return null;
+  var emails=[...new Set(results.map(function(r){return r.email;}))];
+  var allCodes=[...new Set(results.map(function(r){return r.course_code;}))];
+  var [bioData,crsData,allRes]=await Promise.all([
+    sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,program,gender'),
+    sbFetch('courses?course_code=in.('+allCodes.map(encodeURIComponent).join(',')+')'+'&select=course_code,credits'),
+    sbFetch('results?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,course_code,grade')
+  ]);
+  var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b;});
+  var crMap={}; (crsData||[]).forEach(function(c){crMap[c.course_code]=Number(c.credits)||3;});
+  var semMap={}; results.forEach(function(r){if(!semMap[r.email])semMap[r.email]=[];semMap[r.email].push(r);});
+  var allMap={}; (allRes||[]).forEach(function(r){if(!allMap[r.email])allMap[r.email]=[];allMap[r.email].push(r);});
+  var students=Object.keys(bioMap).map(function(email){
+    var bio=bioMap[email],sR=semMap[email]||[],aR=allMap[email]||[];
+    var sCR=sR.reduce(function(s,r){return s+(crMap[r.course_code]||3);},0);
+    var sGP=sR.reduce(function(s,r){return s+_asmGP(r.grade)*(crMap[r.course_code]||3);},0);
+    var sGPA=sCR>0?(sGP/sCR).toFixed(2):'0.00';
+    var aCR=aR.reduce(function(s,r){return s+(crMap[r.course_code]||3);},0);
+    var aGP=aR.reduce(function(s,r){return s+_asmGP(r.grade)*(crMap[r.course_code]||3);},0);
+    var fcgpa=aCR>0?(aGP/aCR).toFixed(2):'0.00';
+    return {email:email,bio:bio,sCR:sCR,sGP:sGP.toFixed(2),sGPA:sGPA,fcgpa:fcgpa,cls:_asmClass(fcgpa)};
+  });
+  return {students:students,level:level,sem:sem,year:year};
+}
+
+async function _asmBuildEOP(level){
+  var bioData=await sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&select=email,name,index_number,program,gender&order=name');
+  if(!bioData||!bioData.length) return null;
+  var emails=bioData.map(function(b){return b.email;}); var bioMap={};
+  bioData.forEach(function(b){bioMap[b.email]=b;});
+  var [allRes,crsData]=await Promise.all([
+    sbFetch('results?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,course_code,grade,semester,academic_year&order=academic_year,semester'),
+    sbFetch('courses?select=course_code,credits')
+  ]);
+  var crMap={}; (crsData||[]).forEach(function(c){crMap[c.course_code]=Number(c.credits)||3;});
+  var resByEmail={}; (allRes||[]).forEach(function(r){if(!resByEmail[r.email])resByEmail[r.email]=[];resByEmail[r.email].push(r);});
+  var students=emails.map(function(email){
+    var bio=bioMap[email],myRows=resByEmail[email]||[];
+    var groups={}; myRows.forEach(function(r){
+      var key=r.academic_year+'|'+r.semester;
+      if(!groups[key])groups[key]={year:r.academic_year,sem:r.semester,cr:0,gp:0};
+      var cr=crMap[r.course_code]||3; groups[key].cr+=cr; groups[key].gp+=_asmGP(r.grade)*cr;
+    });
+    var sortedSems=Object.values(groups).sort(function(a,b){return a.year!==b.year?a.year.localeCompare(b.year):a.sem.localeCompare(b.sem);});
+    var semStats=sortedSems.map(function(g){return {label:g.year+'\n'+(g.sem==='SEMESTER1'?'Sem 1':'Sem 2'),cr:g.cr,gp:g.gp.toFixed(2),gpa:g.cr>0?(g.gp/g.cr).toFixed(2):'0.00'};});
+    var runCR=0,runGP=0; semStats.forEach(function(s){runCR+=Number(s.cr);runGP+=Number(s.gp);});
+    var fcgpa=runCR>0?(runGP/runCR).toFixed(2):'0.00';
+    var trails=myRows.filter(function(r){var g=String(r.grade||'').toUpperCase();return g==='E'||g==='F';}).length;
+    var ics=myRows.filter(function(r){return String(r.grade||'').toUpperCase()==='IC';}).length;
+    return {email:email,bio:bio,semStats:semStats,noc:myRows.length,tcgp:runGP.toFixed(2),tccr:runCR,fcgpa:fcgpa,cls:_asmClass(fcgpa),trails:trails,ics:ics};
+  });
+  return {students:students,level:level};
+}
+
+function _sortStudents(students,sort){
+  if(sort==='name')      students.sort(function(a,b){return (a.bio.name||'').localeCompare(b.bio.name||'');});
+  if(sort==='index')     students.sort(function(a,b){return (a.bio.index_number||'').localeCompare(b.bio.index_number||'');});
+  if(sort==='gpa_desc'||sort==='fcgpa_desc') students.sort(function(a,b){return parseFloat(b.fcgpa)-parseFloat(a.fcgpa);});
+  if(sort==='gpa_asc' ||sort==='fcgpa_asc')  students.sort(function(a,b){return parseFloat(a.fcgpa)-parseFloat(b.fcgpa);});
+  return students;
+}
+
+document.getElementById('bsSemCheckBtn').addEventListener('click',async function(){
+  var level=document.getElementById('bsSemLevel').value,sem=document.getElementById('bsSemSemester').value,year=document.getElementById('bsSemYear').value,info=document.getElementById('bsSemInfo');
+  if(!level||!sem||!year){_bsMsg(info,'warning','&#9888; Please select Level, Semester and Academic Year.');return;}
+  _bsMsg(info,'info','<div class="spinner-border spinner-border-sm me-2"></div>Checking...');
+  var rows=await sbFetch('results?semester=eq.'+encodeURIComponent(sem)+'&academic_year=eq.'+encodeURIComponent(year)+'&select=email');
+  var unique=[...new Set((rows||[]).map(function(r){return r.email;}))];
+  _bsMsg(info,unique.length?'success':'warning',unique.length?'&#10003; <strong>'+unique.length+'</strong> students ready for Level '+level+' &mdash; '+sem+' &mdash; '+year:'&#9888; No results found for that combination.');
+});
+
+document.getElementById('bsEOPCheckBtn').addEventListener('click',async function(){
+  var level=document.getElementById('bsEOPLevel').value,info=document.getElementById('bsEOPInfo');
+  if(!level){_bsMsg(info,'warning','&#9888; Please select a Level.');return;}
+  _bsMsg(info,'info','<div class="spinner-border spinner-border-sm me-2"></div>Checking...');
+  var rows=await sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&select=email');
+  _bsMsg(info,(rows&&rows.length)?'success':'warning',(rows&&rows.length)?'&#10003; <strong>'+rows.length+'</strong> students found for Level '+level:'&#9888; No students found for Level '+level+'.');
+});
+
+document.getElementById('bsSemCSVBtn').addEventListener('click',async function(){
+  var level=document.getElementById('bsSemLevel').value,sem=document.getElementById('bsSemSemester').value,year=document.getElementById('bsSemYear').value,sort=document.getElementById('bsSemSort').value;
+  if(!level||!sem||!year){Swal.fire({icon:'warning',title:'Missing Fields',text:'Please select Level, Semester and Academic Year.',confirmButtonColor:'#f59e0b'});return;}
+  var st=document.getElementById('bsSemStatus'); st.style.display='block'; st.className='alert alert-info small mt-3'; st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Generating CSV...';
+  var data=await _asmBuildSem(level,sem,year);
+  if(!data||!data.students.length){st.className='alert alert-warning small mt-3';st.innerHTML='&#9888; No data found.';return;}
+  _sortStudents(data.students,sort);
+  var csv=['#,Index No.,Name,Gender,Program,CR,GP,GPA,FCGPA,Class'];
+  data.students.forEach(function(s,i){csv.push([i+1,s.bio.index_number||'','"'+(s.bio.name||'')+'"',s.bio.gender||'','"'+(s.bio.program||'')+'"',s.sCR,s.sGP,s.sGPA,s.fcgpa,s.cls].join(','));});
+  _asmDlCSV(csv.join('\n'),'Broadsheet_L'+level+'_'+sem+'_'+year+'.csv');
+  st.className='alert alert-success small mt-3'; st.innerHTML='&#10003; Downloaded! '+data.students.length+' students.';
+  Swal.fire({toast:true,position:'top-end',icon:'success',title:'Downloaded!',showConfirmButton:false,timer:3000});
+});
+
+document.getElementById('bsSemPDFBtn').addEventListener('click',async function(){
+  var level=document.getElementById('bsSemLevel').value,sem=document.getElementById('bsSemSemester').value,year=document.getElementById('bsSemYear').value,sort=document.getElementById('bsSemSort').value;
+  if(!level||!sem||!year){Swal.fire({icon:'warning',title:'Missing Fields',text:'Please select Level, Semester and Academic Year.',confirmButtonColor:'#f59e0b'});return;}
+  var semLabel=sem==='SEMESTER1'?'Semester 1':'Semester 2';
+  Swal.fire({title:'Generating Broadsheet PDF…',html:'<div class="spinner-border text-danger mb-3" style="width:3rem;height:3rem;"></div><p class="mb-1"><strong>Level '+level+' — '+semLabel+'</strong></p><p class="small text-muted">Formatting A3 landscape PDF… may take 20–35 seconds</p><div class="progress mt-3"><div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" style="width:100%"></div></div>',allowOutsideClick:false,showConfirmButton:false});
+  var data=await _asmBuildSem(level,sem,year);
+  if(!data||!data.students.length){Swal.fire({icon:'warning',title:'No Data',text:'No student data found.'});return;}
+  _sortStudents(data.students,sort);
+  var logo=await _asmLogo();
+  var lc=logo?'<td style="width:80px;vertical-align:middle;"><img src="'+logo+'" width="65" height="65" style="display:block;object-fit:contain;"></td>':'<td style="width:10px;"></td>';
+  var rows=data.students.map(function(s,i){
+    return '<tr style="background:'+(i%2===0?'#f9fafb':'#fff')+';">' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+(i+1)+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-family:monospace;font-size:10px;">'+(s.bio.index_number||'')+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-weight:bold;">'+(s.bio.name||'').toUpperCase()+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+(s.bio.gender||'')+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-size:10px;">'+(s.bio.program||'')+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+s.sCR+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+s.sGP+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;">'+s.sGPA+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;color:'+_asmFCColor(s.fcgpa)+';">'+s.fcgpa+'</td>' +
+      '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-size:10px;">'+s.cls+'</td></tr>';
+  }).join('');
+  var pdfH='<div style="font-family:Times New Roman,serif;font-size:11px;color:#000;width:1060px;padding:20px;box-sizing:border-box;background:#fff;">' +
+    '<table style="width:100%;border-bottom:2px solid #000;margin-bottom:12px;border-collapse:collapse;"><tr>'+lc+
+    '<td style="text-align:center;vertical-align:middle;"><div style="font-size:18px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
+    '<div style="font-size:10px;color:#555;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
+    '<div style="text-align:center;margin-bottom:12px;"><div style="font-size:14px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Academic Broadsheet &mdash; Level '+level+' &mdash; '+semLabel+' &mdash; '+year+'</div>' +
+    '<div style="font-size:10px;color:#555;margin-top:4px;">Total Students: '+data.students.length+'</div></div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:10px;"><thead><tr style="background:#1e3a5f;">' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;width:35px;">#</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Index No.</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Name</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">Sex</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Program</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">CR</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">GP</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">GPA</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">FCGPA</th>' +
+    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Class</th>' +
+    '</tr></thead><tbody>'+rows+'</tbody></table>' +
+    '<div style="margin-top:35px;"><table style="width:100%;border-collapse:collapse;"><tr>' +
+    '<td style="width:45%;"><div style="margin-top:35px;border-top:1px solid #000;width:220px;padding-top:4px;font-size:11px;"><strong>EXAMINATIONS OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
+    '<td style="width:10%;"></td>' +
+    '<td style="width:45%;"><div style="margin-top:35px;border-top:1px solid #000;width:220px;padding-top:4px;font-size:11px;"><strong>COLLEGE REGISTRAR</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
+    '</tr></table></div></div>';
+  Swal.close();
+  var wrap=document.createElement('div'); wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1100px;'; wrap.innerHTML=pdfH; document.body.appendChild(wrap);
+  var st=document.getElementById('bsSemStatus');
+  try{await html2pdf().set({margin:0,filename:'Broadsheet_L'+level+'_'+sem+'_'+year+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a3',orientation:'landscape'}}).from(wrap.firstElementChild).save();}
+  finally{document.body.removeChild(wrap);}
+  st.style.display='block'; st.className='alert alert-success small mt-3'; st.innerHTML='&#10003; PDF Downloaded! '+data.students.length+' students.';
+});
+
+document.getElementById('bsEOPCSVBtn').addEventListener('click',async function(){
+  var level=document.getElementById('bsEOPLevel').value,sort=document.getElementById('bsEOPSort').value;
+  if(!level){Swal.fire({icon:'warning',title:'Select Level',confirmButtonColor:'#f59e0b'});return;}
+  var st=document.getElementById('bsEOPStatus'); st.style.display='block'; st.className='alert alert-info small mt-3'; st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Generating EOP CSV...';
+  var data=await _asmBuildEOP(level);
+  if(!data||!data.students.length){st.className='alert alert-warning small mt-3';st.innerHTML='&#9888; No data found.';return;}
+  _sortStudents(data.students,sort);
+  var maxSems=data.students.reduce(function(m,s){return Math.max(m,s.semStats.length);},0);
+  var semHdrs=[]; for(var i=1;i<=maxSems;i++) semHdrs.push('Sem'+i+'_CR,Sem'+i+'_GP,Sem'+i+'_GPA');
+  var csv=['#,Index No.,Name,Gender,Program,'+semHdrs.join(',')+',NOC,TCGP,TCCR,FCGPA,Class,Trails,ICs'];
+  data.students.forEach(function(s,i){
+    var cols=[];
+    for(var j=0;j<maxSems;j++){var sg=s.semStats[j];cols.push(sg?sg.cr+','+sg.gp+','+sg.gpa:',,');}
+    csv.push([i+1,s.bio.index_number||'','"'+(s.bio.name||'')+'"',s.bio.gender||'','"'+(s.bio.program||'')+'"',cols.join(','),s.noc,s.tcgp,s.tccr,s.fcgpa,s.cls,s.trails,s.ics].join(','));
+  });
+  _asmDlCSV(csv.join('\n'),'EOP_Broadsheet_L'+level+'.csv');
+  st.className='alert alert-success small mt-3'; st.innerHTML='&#10003; Downloaded! '+data.students.length+' students.';
+  Swal.fire({toast:true,position:'top-end',icon:'success',title:'Downloaded!',showConfirmButton:false,timer:3000});
+});
+
+document.getElementById('bsEOPPDFBtn').addEventListener('click',async function(){
+  var level=document.getElementById('bsEOPLevel').value,sort=document.getElementById('bsEOPSort').value;
+  if(!level){Swal.fire({icon:'warning',title:'Select Level',confirmButtonColor:'#f59e0b'});return;}
+  Swal.fire({title:'Generating EOP PDF…',html:'<div class="spinner-border text-danger mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Compiling all semesters… may take 20–30s</p>',allowOutsideClick:false,showConfirmButton:false});
+  var data=await _asmBuildEOP(level);
+  if(!data||!data.students.length){Swal.fire({icon:'warning',title:'No Data',text:'No students found for Level '+level+'.'});return;}
+  _sortStudents(data.students,sort);
+  var maxSems=data.students.reduce(function(m,s){return Math.max(m,s.semStats.length);},0);
+  var logo=await _asmLogo();
+  var lc=logo?'<td style="width:80px;vertical-align:middle;"><img src="'+logo+'" width="65" height="65" style="display:block;object-fit:contain;"></td>':'<td style="width:10px;"></td>';
+  var semThs='',subThs='';
+  for(var i=1;i<=maxSems;i++){semThs+='<th style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;" colspan="3">Sem '+i+'</th>';}
+  for(var i=1;i<=maxSems;i++){subThs+='<th style="padding:4px 6px;color:#cbd5e1;border:1px solid #e5e7eb;text-align:center;font-size:9px;">CR</th><th style="padding:4px 6px;color:#cbd5e1;border:1px solid #e5e7eb;text-align:center;font-size:9px;">GP</th><th style="padding:4px 6px;color:#cbd5e1;border:1px solid #e5e7eb;text-align:center;font-size:9px;">GPA</th>';}
+  var trs=data.students.map(function(s,i){
+    var cols='';
+    for(var j=0;j<maxSems;j++){var sg=s.semStats[j];
+      cols+=sg?'<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+sg.cr+'</td><td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+sg.gp+'</td><td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;">'+sg.gpa+'</td>'
+        :'<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#d1d5db;">—</td><td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#d1d5db;">—</td><td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#d1d5db;">—</td>';
+    }
+    return '<tr style="background:'+(i%2===0?'#f9fafb':'#fff')+';">' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+(i+1)+'</td>' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;font-family:monospace;font-size:9px;">'+(s.bio.index_number||'')+'</td>' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;font-weight:bold;font-size:9px;">'+(s.bio.name||'').toUpperCase()+'</td>' +
+      cols +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+s.noc+'</td>' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+s.tcgp+'</td>' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+s.tccr+'</td>' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;color:'+_asmFCColor(s.fcgpa)+';">'+s.fcgpa+'</td>' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;font-size:9px;">'+s.cls+'</td>' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:'+(s.trails>0?'#dc2626':'#166534')+';font-weight:bold;">'+s.trails+'</td>' +
+      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:'+(s.ics>0?'#d97706':'#166534')+';font-weight:bold;">'+s.ics+'</td></tr>';
+  }).join('');
+  var pdfH='<div style="font-family:Times New Roman,serif;font-size:10px;color:#000;padding:15px;box-sizing:border-box;background:#fff;">' +
+    '<table style="width:100%;border-bottom:2px solid #000;margin-bottom:12px;border-collapse:collapse;"><tr>'+lc+
+    '<td style="text-align:center;vertical-align:middle;"><div style="font-size:16px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
+    '<div style="font-size:9px;color:#555;">P.O. Box 27, Akropong-Akuapem | www.pce.edu.gh</div></td></tr></table>' +
+    '<div style="text-align:center;margin-bottom:10px;"><div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">End of Programme Broadsheet &mdash; Level '+level+'</div>' +
+    '<div style="font-size:9px;color:#555;margin-top:3px;">Total Students: '+data.students.length+' &nbsp;|&nbsp; Date: '+new Date().toLocaleDateString('en-GB')+'</div></div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:9px;"><thead>' +
+    '<tr style="background:#1e3a5f;">' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">#</th>' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;">Index</th>' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;">Name</th>' +
+    semThs +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">NOC</th>' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">TCGP</th>' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">TCCR</th>' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">FCGPA</th>' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;">Class</th>' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">Trails</th>' +
+    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">ICs</th>' +
+    '</tr><tr style="background:#1e3a5f;">'+subThs+'</tr></thead>' +
+    '<tbody>'+trs+'</tbody></table>' +
+    '<div style="margin-top:30px;"><table style="width:100%;border-collapse:collapse;"><tr>' +
+    '<td style="width:45%;"><div style="margin-top:35px;border-top:1px solid #000;width:220px;padding-top:4px;font-size:11px;"><strong>EXAMINATIONS OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
+    '<td style="width:10%;"></td>' +
+    '<td style="width:45%;"><div style="margin-top:35px;border-top:1px solid #000;width:220px;padding-top:4px;font-size:11px;"><strong>COLLEGE REGISTRAR</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
+    '</tr></table></div></div>';
+  Swal.close();
+  var wrap=document.createElement('div'); wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1400px;'; wrap.innerHTML=pdfH; document.body.appendChild(wrap);
+  var st=document.getElementById('bsEOPStatus');
+  try{await html2pdf().set({margin:0,filename:'EOP_Broadsheet_L'+level+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a3',orientation:'landscape'}}).from(wrap.firstElementChild).save();}
+  finally{document.body.removeChild(wrap);}
+  st.style.display='block'; st.className='alert alert-success small mt-3'; st.innerHTML='&#10003; EOP PDF Downloaded! '+data.students.length+' students.';
+});
+
+// ── 5. GRADE MANAGEMENT ───────────────────────────────────────
+async function _asmInitResit(){
+  var sel=document.getElementById('resitCourseFilter');
+  if(!sel||sel.options.length>1) return;
+  var courses=await sbFetch('courses?select=course_code,title&order=course_code');
+  (courses||[]).forEach(function(c){var o=document.createElement('option');o.value=c.course_code;o.text=c.course_code+' - '+c.title;sel.add(o);});
+}
+
+document.getElementById('resitSearchBtn').addEventListener('click',async function(){
+  var grade=document.getElementById('resitGradeFilter').value,level=document.getElementById('resitLevelFilter').value;
+  var course=document.getElementById('resitCourseFilter').value,semester=document.getElementById('resitSemesterFilter').value;
+  var area=document.getElementById('resitResultsArea'),tbody=document.getElementById('resitResultsTable');
+  var countEl=document.getElementById('resitCount'),summary=document.getElementById('resitFilterSummary');
+  var filters=[];
+  if(grade!=='ALL')    filters.push('Grade: '+grade);
+  if(level!=='ALL')    filters.push('Level: '+level);
+  if(course!=='ALL')   filters.push('Course: '+course);
+  if(semester!=='ALL') filters.push('Semester: '+semester);
+  summary.innerText=filters.length?filters.join(' | '):'No Filters';
+  area.style.display='block';
+  tbody.innerHTML='<tr><td colspan="7" class="text-center p-5"><div class="spinner-border text-primary mb-3" style="width:2.5rem;height:2.5rem;"></div><p class="fw-bold">Scanning Database...</p></td></tr>';
+  var q='results?select=email,course_code,grade,semester,academic_year';
+  if(grade!=='ALL')    q+='&grade=eq.'+encodeURIComponent(grade);
+  if(semester!=='ALL') q+='&semester=eq.'+encodeURIComponent(semester);
+  if(course!=='ALL')   q+='&course_code=eq.'+encodeURIComponent(course);
+  q+='&order=email';
+  var results=await sbFetch(q);
+  if(!results||!results.length){tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted p-5"><p class="fw-bold">No Students Match Filters</p></td></tr>';countEl.innerText=0;return;}
+  var emails=[...new Set(results.map(function(r){return r.email;}))];
+  var [bioData,crsData]=await Promise.all([
+    sbFetch('student_bio?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,level'),
+    sbFetch('courses?select=course_code,title,level')
+  ]);
+  var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b;});
+  var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c;});
+  var filtered=results.filter(function(r){
+    if(level==='ALL') return true;
+    var bio=bioMap[r.email],crs=crsMap[r.course_code];
+    return (bio&&String(bio.level||'')=== String(level))||(crs&&String(crs.level||'')=== String(level));
+  });
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted p-5"><p class="fw-bold">No Students Match Filters</p></td></tr>';countEl.innerText=0;return;}
+  var html='';
+  filtered.forEach(function(r){
+    var bio=bioMap[r.email]||{},crs=crsMap[r.course_code]||{},g=r.grade||'';
+    var gc=g==='A'?'bg-success text-white':(g==='B+'||g==='B')?'bg-info text-white':(g==='C+'||g==='C')?'bg-warning text-dark':(g==='E'||g==='F')?'bg-danger text-white':g==='IC'?'bg-secondary text-white':'bg-light text-dark border';
+    html+='<tr>' +
+      '<td><strong>'+(bio.name||r.email)+'</strong><br><small class="text-muted">'+r.email+'</small></td>' +
+      '<td><code>'+(bio.index_number||'—')+'</code></td>' +
+      '<td><span class="badge bg-secondary">'+(bio.level||crs.level||'—')+'</span></td>' +
+      '<td><small><strong>'+r.course_code+'</strong><br>'+(crs.title||'')+'</small></td>' +
+      '<td class="text-center"><span class="badge '+gc+'">'+g+'</span></td>' +
+      '<td>'+r.semester+'</td>' +
+      '<td><small>'+(r.academic_year||'')+'</small></td></tr>';
+  });
+  tbody.innerHTML=html; countEl.innerText=filtered.length;
+  Swal.fire({toast:true,position:'top-end',icon:'success',title:'Found '+filtered.length+' result(s)',showConfirmButton:false,timer:2000});
+});
+
+document.getElementById('resitDownloadBtn').addEventListener('click',async function(){
+  var grade=document.getElementById('resitGradeFilter').value,level=document.getElementById('resitLevelFilter').value;
+  var course=document.getElementById('resitCourseFilter').value,semester=document.getElementById('resitSemesterFilter').value;
+  Swal.fire({title:'Generating Report...',allowOutsideClick:false,didOpen:function(){Swal.showLoading();}});
+  var q='results?select=email,course_code,grade,semester,academic_year';
+  if(grade!=='ALL')    q+='&grade=eq.'+encodeURIComponent(grade);
+  if(semester!=='ALL') q+='&semester=eq.'+encodeURIComponent(semester);
+  if(course!=='ALL')   q+='&course_code=eq.'+encodeURIComponent(course);
+  var results=await sbFetch(q);
+  if(!results||!results.length){Swal.fire({icon:'warning',title:'No Data',text:'No students match the selected filters.',confirmButtonColor:'#f59e0b'});return;}
+  var emails=[...new Set(results.map(function(r){return r.email;}))];
+  var [bioData,crsData]=await Promise.all([
+    sbFetch('student_bio?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,level'),
+    sbFetch('courses?select=course_code,title,level')
+  ]);
+  var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b;});
+  var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c;});
+  var filtered=results.filter(function(r){
+    if(level==='ALL') return true;
+    var bio=bioMap[r.email],crs=crsMap[r.course_code];
+    return (bio&&String(bio.level||'')=== String(level))||(crs&&String(crs.level||'')=== String(level));
+  });
+  if(!filtered.length){Swal.fire({icon:'warning',title:'No Data After Level Filter',confirmButtonColor:'#f59e0b'});return;}
+  var csv=['Email,Name,Index No.,Level,Course Code,Course Title,Grade,Semester,Academic Year'];
+  filtered.forEach(function(r){
+    var bio=bioMap[r.email]||{},crs=crsMap[r.course_code]||{};
+    csv.push([r.email,'"'+(bio.name||'')+'"',bio.index_number||'',bio.level||crs.level||'',r.course_code,'"'+(crs.title||'')+'"',r.grade,r.semester,r.academic_year||''].join(','));
+  });
+  var fname='Resit_Report'+(grade!=='ALL'?'_Grade_'+grade:'')+(level!=='ALL'?'_Level_'+level:'')+(semester!=='ALL'?'_'+semester:'')+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  _asmDlCSV(csv.join('\n'),fname);
+  Swal.fire({toast:true,position:'top-end',icon:'success',title:'Report Downloaded',showConfirmButton:false,timer:3000});
+});
+
+document.getElementById('resitClearBtn').addEventListener('click',function(){
+  document.getElementById('resitGradeFilter').value='E';
+  document.getElementById('resitLevelFilter').value='ALL';
+  document.getElementById('resitCourseFilter').value='ALL';
+  document.getElementById('resitSemesterFilter').value='ALL';
+  document.getElementById('resitResultsArea').style.display='none';
+  Swal.fire({toast:true,position:'top-end',icon:'info',title:'Filters Cleared',showConfirmButton:false,timer:2000});
+});
+
+// ── 6. TRANSCRIPT LOOKUP ──────────────────────────────────────
+document.getElementById('transSearchBtn').addEventListener('click',function(){_asmTransSearch();});
+document.getElementById('transInput').addEventListener('keydown',function(e){if(e.key==='Enter')_asmTransSearch();});
+document.getElementById('printTranscriptBtn').addEventListener('click',function(){_asmPrintTrans();});
+
+async function _asmTransSearch(){
+  var q=document.getElementById('transInput').value.trim();
+  var area=document.getElementById('transcriptPreview'),btn=document.getElementById('printTranscriptBtn');
+  if(!q){Swal.fire({icon:'info',title:'Enter Search',text:'Please enter a student email or index number.'});return;}
+  area.innerHTML='<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-3">Compiling Academic Record...</p></div>';
+  btn.style.display='none'; _asmEmail=null;
+  var bioRows=q.includes('@')?await sbFetch('student_bio?email=eq.'+encodeURIComponent(q.toLowerCase())+'&select=*&limit=1'):await sbFetch('student_bio?index_number=eq.'+encodeURIComponent(q)+'&select=*&limit=1');
+  if(!bioRows||!bioRows.length){area.innerHTML='<div class="alert alert-warning m-4">No student found for "<strong>'+q+'</strong>". Check the email or index number.</div>';return;}
+  var profile=bioRows[0]; _asmEmail=profile.email;
+  var [results,crsData]=await Promise.all([
+    sbFetch('results?email=eq.'+encodeURIComponent(profile.email)+'&select=course_code,grade,semester,academic_year&order=academic_year,semester'),
+    sbFetch('courses?select=course_code,title,credits,level,semester')
+  ]);
+  if(!results||!results.length){area.innerHTML='<div class="alert alert-warning m-4">No academic results on record for this student yet.</div>';btn.style.display='none';return;}
+  var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c;});
+  var grouped={},runPts=0,runCreds=0;
+  results.forEach(function(r){
+    var key=(r.academic_year||'N/A')+'|'+(r.semester||'');
+    var info=crsMap[r.course_code]||{credits:3,level:'—'};
+    if(!grouped[key])grouped[key]={year:r.academic_year||'N/A',sem:r.semester||'',level:info.level||'—',courses:[],pts:0,creds:0};
+    var gp=_asmGP(r.grade)*(Number(info.credits)||3);
+    grouped[key].courses.push({code:r.course_code,title:info.title||r.course_code,credits:info.credits||3,grade:r.grade||'—'});
+    grouped[key].pts+=gp; grouped[key].creds+=Number(info.credits)||3;
+    runPts+=gp; runCreds+=Number(info.credits)||3;
+  });
+  var finalCGPA=runCreds>0?(runPts/runCreds).toFixed(2):'0.00';
+  var sortedKeys=Object.keys(grouped).sort(function(a,b){var ga=grouped[a],gb=grouped[b];return ga.year!==gb.year?ga.year.localeCompare(gb.year):ga.sem.localeCompare(gb.sem);});
+  var rGP=0,rCR=0;
+  var secs=sortedKeys.map(function(key){
+    var g=grouped[key]; rGP+=g.pts; rCR+=g.creds;
+    var gpa=g.creds>0?(g.pts/g.creds).toFixed(2):'0.00';
+    var cgpa=rCR>0?(rGP/rCR).toFixed(2):'0.00';
+    var sl=g.sem==='SEMESTER1'?'Semester 1':'Semester 2';
+    var rows=g.courses.map(function(c){return '<tr><td>'+c.code+'</td><td>'+c.title+'</td><td class="text-center">'+c.credits+'</td><td class="text-center fw-bold">'+c.grade+'</td></tr>';}).join('');
+    return '<div class="mt-4 p-3 border rounded bg-light"><h6 class="fw-bold text-primary">'+g.year+' - LEVEL '+g.level+' '+sl+'</h6>' +
+      '<table class="table table-sm bg-white border small mb-1"><thead class="table-light"><tr><th>Code</th><th>Title</th><th>Cr</th><th>Grade</th></tr></thead><tbody>'+rows+'</tbody></table>' +
+      '<div class="text-end small"><b>GPA: '+gpa+'</b> &nbsp;|&nbsp; <b>Cumulative: '+cgpa+'</b></div></div>';
+  }).join('');
+  area.innerHTML='<div class="mt-3 p-4 border rounded bg-white shadow-sm">' +
+    '<div class="d-flex justify-content-between align-items-center mb-3">' +
+    '<div><h5 class="mb-0 text-uppercase">'+(profile.name||'')+'</h5><small class="text-muted">Index: '+(profile.index_number||'—')+' | Program: '+(profile.program||'—')+'</small></div>' +
+    '<span class="badge bg-primary fs-6">FINAL CGPA: '+finalCGPA+'</span></div>'+secs+'</div>';
+  btn.style.display='block';
+}
+
+async function _asmPrintTrans(){
+  var email=_asmEmail||document.getElementById('transInput').value.trim();
+  if(!email){Swal.fire({icon:'info',title:'Search First',text:'Please search for a student before printing.'});return;}
+  Swal.fire({title:'Generating Official Transcript',html:'<div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Compiling academic records…<br>This may take 15–20 seconds</p>',allowOutsideClick:false,showConfirmButton:false});
+  var [bioRows,results,crsData]=await Promise.all([
+    sbFetch('student_bio?email=eq.'+encodeURIComponent(email.toLowerCase())+'&select=*&limit=1'),
+    sbFetch('results?email=eq.'+encodeURIComponent(email.toLowerCase())+'&select=course_code,grade,semester,academic_year&order=academic_year,semester'),
+    sbFetch('courses?select=course_code,title,credits,level,semester')
+  ]);
+  if(!bioRows||!bioRows.length||!results||!results.length){Swal.fire({icon:'error',title:'Cannot Generate Transcript',text:'No academic records found.',confirmButtonColor:'#dc2626'});return;}
+  var student=bioRows[0];
+  var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c;});
+  var logo=await _asmLogo();
+  var lc=logo?'<td style="width:80px;vertical-align:middle;"><img src="'+logo+'" width="70" style="display:block;"></td>':'<td style="width:10px;"></td>';
+  var wm=logo?'<img src="'+logo+'" style="position:absolute;top:200px;left:50%;margin-left:-210px;width:420px;opacity:0.07;z-index:0;pointer-events:none;">':'';
+  var grouped={},gPts=0,gCreds=0;
+  results.forEach(function(r){
+    var info=crsMap[r.course_code]||{credits:3,level:'—',title:r.course_code};
+    var key=(r.academic_year||'N/A')+'|'+(r.semester||'');
+    if(!grouped[key])grouped[key]={year:r.academic_year||'N/A',sem:r.semester||'',level:info.level||'—',courses:[],pts:0,creds:0};
+    var creds=Number(info.credits)||3,gp=_asmGP(r.grade)*creds;
+    grouped[key].courses.push({code:r.course_code,title:info.title,credits:creds,grade:r.grade||'—'});
+    grouped[key].pts+=gp; grouped[key].creds+=creds; gPts+=gp; gCreds+=creds;
+  });
+  var fcgpa=gCreds>0?(gPts/gCreds).toFixed(2):'0.00', classD=_asmClass(fcgpa);
+  var sortedKeys=Object.keys(grouped).sort(function(a,b){var ga=grouped[a],gb=grouped[b];return ga.year!==gb.year?ga.year.localeCompare(gb.year):ga.sem.localeCompare(gb.sem);});
+  var rGP=0,rCR=0;
+  var dynContent=sortedKeys.map(function(key){
+    var g=grouped[key]; rGP+=g.pts; rCR+=g.creds;
+    var semGPA=g.creds>0?(g.pts/g.creds).toFixed(2):'0.00';
+    var curCGPA=rCR>0?(rGP/rCR).toFixed(2):'0.00';
+    var sl=g.sem==='SEMESTER1'?'SEMESTER 1':'SEMESTER 2';
+    g.courses.sort(function(a,b){return a.code.localeCompare(b.code);});
+    var rows=g.courses.map(function(c){
+      var gp=(_asmGP(c.grade)*c.credits).toFixed(2);
+      return '<tr><td style="padding:5px;border-bottom:1px solid #eee;">'+c.code+'</td>' +
+        '<td style="padding:5px;border-bottom:1px solid #eee;">'+String(c.title||'').toUpperCase()+'</td>' +
+        '<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;">'+c.credits+'</td>' +
+        '<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;font-weight:bold;">'+c.grade+'</td>' +
+        '<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;">'+gp+'</td></tr>';
+    }).join('');
+    return '<div style="margin-top:20px;page-break-inside:avoid;">' +
+      '<div style="font-weight:bold;font-size:11px;margin-bottom:5px;border-bottom:1px solid #000;background:rgba(255,255,255,0.8);">'+g.year+' ACADEMIC YEAR, '+sl+' (LEVEL '+g.level+')</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:10px;"><thead><tr style="border-bottom:2px solid #333;background:#f2f2f2;">' +
+      '<th style="text-align:left;padding:5px;">CODE</th><th style="text-align:left;padding:5px;">TITLE</th>' +
+      '<th style="text-align:center;padding:5px;">CREDIT</th><th style="text-align:center;padding:5px;">GRADE</th><th style="text-align:center;padding:5px;">GP</th>' +
+      '</tr></thead><tbody>'+rows+'</tbody></table>' +
+      '<div style="margin-top:5px;font-size:10px;font-weight:bold;padding:5px;border:1px solid #eee;background:rgba(255,255,255,0.9);">' +
+      '<span>TCR: '+g.creds+' &nbsp;&nbsp; TGP: '+g.pts.toFixed(2)+' &nbsp;&nbsp; SGPA: '+semGPA+'</span>' +
+      '<span style="float:right;">CCR: '+rCR+' &nbsp;&nbsp; CGV: '+rGP.toFixed(2)+' &nbsp;&nbsp; CGPA: '+curCGPA+'</span></div></div>';
+  }).join('');
+  var pdfH='<div style="font-family:Times New Roman,serif;font-size:11px;color:#000;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;">'+wm+
+    '<div style="position:relative;z-index:1;">' +
+    '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;border-collapse:collapse;"><tr>'+lc+
+    '<td style="vertical-align:middle;"><div style="font-size:18px;font-weight:bold;text-align:center;text-transform:uppercase;">PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM</div>' +
+    '<div style="text-align:center;font-size:10px;margin-top:2px;">P. O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | Website: www.pce.edu.gh</div></td></tr></table>' +
+    '<div style="text-align:center;font-size:14px;font-weight:bold;text-decoration:underline;margin-bottom:15px;text-transform:uppercase;">OFFICIAL ACADEMIC TRANSCRIPT</div>' +
+    '<div style="color:red;text-align:center;font-weight:bold;font-size:9px;margin-bottom:10px;">A BLACK AND WHITE DOCUMENT IS NOT OFFICIAL</div>' +
+    '<table style="width:100%;margin-bottom:15px;border-collapse:collapse;"><tr>' +
+    '<td style="width:60%;"><div><strong>NAME:</strong> '+String(student.name||'').toUpperCase()+'</div>' +
+    '<div><strong>INDEX NUMBER:</strong> '+(student.index_number||'')+'</div>' +
+    '<div><strong>PROGRAM:</strong> '+String(student.program||'').toUpperCase()+'</div></td>' +
+    '<td style="width:40%;"><div><strong>LEVEL:</strong> '+(student.level||'N/A')+'</div>' +
+    '<div><strong>DATE OF BIRTH:</strong> '+(student.dob||'N/A')+'</div>' +
+    '<div><strong>GENDER:</strong> '+(student.gender||'N/A')+'</div></td></tr></table>' +
+    dynContent +
+    '<div style="margin-top:30px;display:inline-block;border:1px solid #000;padding:5px 10px;font-weight:bold;">CLASS DESIGNATION: '+classD+'</div>' +
+    '<div style="margin-top:40px;page-break-inside:avoid;"><table style="width:100%;font-size:11px;"><tr>' +
+    '<td style="width:50%;border-top:1px solid #000;padding-top:5px;"><strong>COLLEGE REGISTRAR</strong><br>(Signature &amp; Official Stamp)</td>' +
+    '<td style="width:10%;"></td>' +
+    '<td style="width:40%;border-top:1px solid #000;padding-top:5px;text-align:center;"><strong>DATE OF ISSUE</strong><br>'+new Date().toLocaleDateString('en-GB')+'</td>' +
+    '</tr></table></div>' +
+    '<div style="page-break-before:always;"></div>' +
+    '<div style="text-align:center;font-weight:bold;text-decoration:underline;margin-bottom:20px;">GRADING SCHEME</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:10px;text-align:center;"><tr style="background:#eee;">' +
+    '<th style="border:1px solid #000;padding:5px;">GRADE</th><th style="border:1px solid #000;padding:5px;">SCORE</th><th style="border:1px solid #000;padding:5px;">GP</th>' +
+    '<th style="border:1px solid #000;padding:5px;">REMARKS</th><th style="border:1px solid #000;padding:5px;">CGPA RANGE</th><th style="border:1px solid #000;padding:5px;">CLASS</th></tr>' +
+    '<tr><td style="border:1px solid #000;">A</td><td style="border:1px solid #000;">80-100</td><td style="border:1px solid #000;">4.0</td><td style="border:1px solid #000;">Excellent</td><td style="border:1px solid #000;">3.50-4.00</td><td style="border:1px solid #000;">First Class</td></tr>' +
+    '<tr><td style="border:1px solid #000;">B+</td><td style="border:1px solid #000;">75-79</td><td style="border:1px solid #000;">3.5</td><td style="border:1px solid #000;">Very Good</td><td style="border:1px solid #000;">3.00-3.49</td><td style="border:1px solid #000;">Second Class Upper</td></tr>' +
+    '<tr><td style="border:1px solid #000;">B</td><td style="border:1px solid #000;">70-74</td><td style="border:1px solid #000;">3.0</td><td style="border:1px solid #000;">Good</td><td style="border:1px solid #000;">2.50-2.99</td><td style="border:1px solid #000;">Second Class Lower</td></tr>' +
+    '<tr><td style="border:1px solid #000;">C+</td><td style="border:1px solid #000;">65-69</td><td style="border:1px solid #000;">2.5</td><td style="border:1px solid #000;">Very Fair</td><td style="border:1px solid #000;">2.00-2.49</td><td style="border:1px solid #000;">Third Class</td></tr>' +
+    '<tr><td style="border:1px solid #000;">C</td><td style="border:1px solid #000;">60-64</td><td style="border:1px solid #000;">2.0</td><td style="border:1px solid #000;">Fair</td><td style="border:1px solid #000;">1.00-1.99</td><td style="border:1px solid #000;">Pass</td></tr>' +
+    '<tr><td style="border:1px solid #000;">D+</td><td style="border:1px solid #000;">55-59</td><td style="border:1px solid #000;">1.5</td><td style="border:1px solid #000;">Satisfactory</td><td style="border:1px solid #000;">Below 1.00</td><td style="border:1px solid #000;">Fail</td></tr>' +
+    '<tr><td style="border:1px solid #000;">E</td><td style="border:1px solid #000;">0-49</td><td style="border:1px solid #000;">0.0</td><td style="border:1px solid #000;">Fail</td><td style="border:1px solid #000;"></td><td style="border:1px solid #000;"></td></tr>' +
+    '</table></div></div>';
+  Swal.close();
+  var wrap=document.createElement('div'); wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;width:760px;'; wrap.innerHTML=pdfH; document.body.appendChild(wrap);
+  try{await html2pdf().set({margin:[0.4,0.4,0.4,0.4],filename:'Transcript_'+(student.index_number||email)+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'},jsPDF:{unit:'in',format:'a4',orientation:'portrait'}}).from(wrap.firstElementChild).save();}
+  finally{document.body.removeChild(wrap);}
+  Swal.fire({icon:'success',title:'Transcript Generated!',text:'Official transcript downloaded.',timer:3000,showConfirmButton:false});
+}
+
+// ── Init ──────────────────────────────────────────────────────
+_asmLoadAttYears();
+</script>
