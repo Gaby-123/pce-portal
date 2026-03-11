@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCE Portal — Set Your Password</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:wght@600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      background: #0a1628;
+    }
+
+    /* ── LEFT PANEL ── */
+    .rp-left {
+      width: 46%;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .rp-left-bg {
+      position: absolute; inset: 0;
+      background: linear-gradient(160deg, #0f2645 0%, #1e3a5f 40%, #0d4a7a 70%, #0a2040 100%);
+    }
+    /* Geometric decoration */
+    .rp-left-bg::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 30% 60%, rgba(2, 132, 199, 0.25) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 75% 20%, rgba(14, 165, 233, 0.15) 0%, transparent 60%);
+    }
+    .rp-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+    .rp-left-content {
+      position: relative; z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 50px;
+    }
+    .rp-lock-icon {
+      width: 80px; height: 80px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 22px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 36px;
+      backdrop-filter: blur(10px);
+    }
+    .rp-lock-icon i { font-size: 2.2rem; color: #7dd3fc; }
+    .rp-left-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.4rem;
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 18px;
+    }
+    .rp-left-title span { color: #7dd3fc; }
+    .rp-left-sub {
+      color: rgba(255,255,255,0.55);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      max-width: 340px;
+      margin-bottom: 48px;
+    }
+    .rp-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .rp-step {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .rp-step-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: rgba(125, 211, 252, 0.12);
+      border: 1px solid rgba(125, 211, 252, 0.3);
+      color: #7dd3fc;
+      font-size: 0.78rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .rp-step-txt {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+    .rp-step-txt strong { color: rgba(255,255,255,0.85); }
+    .rp-left-footer {
+      position: absolute;
+      bottom: 28px; left: 50px;
+      color: rgba(255,255,255,0.25);
+      font-size: 0.75rem;
+    }
+    /* Floating orbs */
+    .rp-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(60px);
+      pointer-events: none;
+    }
+    .rp-orb-1 { width: 280px; height: 280px; background: rgba(2,132,199,0.18); top: -80px; right: -80px; }
+    .rp-orb-2 { width: 200px; height: 200px; background: rgba(14,165,233,0.12); bottom: 40px; left: -60px; }
+
+    /* ── RIGHT PANEL ── */
+    .rp-right {
+      flex: 1;
+      height: 100vh;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 50px;
+      overflow-y: auto;
+    }
+    .rp-form-wrap {
+      width: 100%;
+      max-width: 420px;
+    }
+    .rp-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+    .rp-logo img { width: 44px; height: 44px; object-fit: contain; }
+    .rp-logo-text { font-size: 0.82rem; color: #64748b; line-height: 1.3; }
+    .rp-logo-text strong { display: block; font-size: 0.9rem; color: #1e293b; font-weight: 600; }
+
+    .rp-form-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.85rem;
+      color: #0f172a;
+      margin-bottom: 6px;
+      line-height: 1.2;
+    }
+    .rp-form-sub {
+      font-size: 0.88rem;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+
+    /* Field */
+    .rp-field { margin-bottom: 20px; }
+    .rp-field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 7px;
+    }
+    .rp-input-wrap {
+      position: relative;
+    }
+    .rp-input-wrap input {
+      width: 100%;
+      padding: 13px 48px 13px 16px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      color: #1e293b;
+      background: #f8fafc;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      outline: none;
+    }
+    .rp-input-wrap input:focus {
+      border-color: #0284c7;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(2,132,199,0.1);
+    }
+    .rp-input-wrap input.is-valid  { border-color: #10b981; background: #fff; }
+    .rp-input-wrap input.is-invalid{ border-color: #f43f5e; background: #fff; }
+    .rp-eye-btn {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      color: #94a3b8; font-size: 1rem; padding: 0; line-height: 1;
+      transition: color 0.15s;
+    }
+    .rp-eye-btn:hover { color: #475569; }
+
+    /* Strength meter */
+    .rp-strength-wrap { margin-top: 10px; }
+    .rp-strength-bars {
+      display: flex; gap: 4px; margin-bottom: 5px;
+    }
+    .rp-strength-bar {
+      height: 4px; flex: 1; border-radius: 4px;
+      background: #e2e8f0;
+      transition: background 0.3s;
+    }
+    .strength-0 .rp-strength-bar                                       { background: #e2e8f0; }
+    .strength-1 .rp-strength-bar:nth-child(1)                          { background: #f43f5e; }
+    .strength-2 .rp-strength-bar:nth-child(-n+2)                       { background: #f97316; }
+    .strength-3 .rp-strength-bar:nth-child(-n+3)                       { background: #eab308; }
+    .strength-4 .rp-strength-bar                                        { background: #10b981; }
+    .rp-strength-label {
+      font-size: 0.75rem; font-weight: 600;
+      transition: color 0.3s;
+    }
+    .strength-0 .rp-strength-label { color: #cbd5e1; }
+    .strength-1 .rp-strength-label { color: #f43f5e; }
+    .strength-2 .rp-strength-label { color: #f97316; }
+    .strength-3 .rp-strength-label { color: #eab308; }
+    .strength-4 .rp-strength-label { color: #10b981; }
+
+    /* Requirements */
+    .rp-reqs {
+      margin-top: 14px;
+      padding: 14px 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+    }
+    .rp-reqs-title { font-size: 0.74rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 9px; }
+    .rp-req {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; color: #94a3b8;
+      margin-bottom: 6px;
+      transition: color 0.2s;
+    }
+    .rp-req:last-child { margin-bottom: 0; }
+    .rp-req i { font-size: 0.85rem; transition: color 0.2s; }
+    .rp-req.met { color: #10b981; }
+    .rp-req.met i::before { content: '\f26b'; } /* bi-check-circle-fill */
+    .rp-req:not(.met) i { color: #cbd5e1; }
+
+    /* Match indicator */
+    .rp-match-msg {
+      font-size: 0.78rem; margin-top: 7px; min-height: 18px;
+      transition: color 0.2s;
+    }
+    .rp-match-msg.ok    { color: #10b981; }
+    .rp-match-msg.fail  { color: #f43f5e; }
+
+    /* Submit button */
+    .rp-submit {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0284c7 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-top: 24px;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+    }
+    .rp-submit:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(2, 132, 199, 0.4); }
+    .rp-submit:active:not(:disabled) { transform: translateY(0); }
+    .rp-submit:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .rp-submit .spinner-border { width: 1.1rem; height: 1.1rem; border-width: 0.15em; display: none; }
+    .rp-submit.loading .rp-btn-icon,
+    .rp-submit.loading .rp-btn-text { opacity: 0; position: absolute; }
+    .rp-submit.loading .spinner-border { display: inline-block; position: static; }
+
+    /* Security badge */
+    .rp-security-note {
+      display: flex; align-items: center; justify-content: center;
+      gap: 7px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 18px;
+    }
+    .rp-security-note i { color: #10b981; font-size: 0.85rem; }
+
+    /* Back link */
+    .rp-back {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .rp-back a {
+      font-size: 0.83rem;
+      color: #64748b;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 5px;
+      transition: color 0.2s;
+    }
+    .rp-back a:hover { color: #0284c7; }
+
+    /* Progress bar at top */
+    .rp-progress-bar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #1e3a5f, #0284c7, #7dd3fc);
+      width: 0%;
+      transition: width 0.4s ease;
+      z-index: 9999;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .rp-left { display: none; }
+      .rp-right { padding: 30px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="rp-progress-bar" id="rpProgressBar"></div>
+
+<!-- LEFT PANEL -->
+<div class="rp-left">
+  <div class="rp-left-bg"></div>
+  <div class="rp-grid"></div>
+  <div class="rp-orb rp-orb-1"></div>
+  <div class="rp-orb rp-orb-2"></div>
+  <div class="rp-left-content">
+    <div class="rp-lock-icon">
+      <i class="bi bi-shield-lock-fill"></i>
+    </div>
+    <h1 class="rp-left-title">Secure your<br><span>account</span> now.</h1>
+    <p class="rp-left-sub">
+      This is your first sign-in. For your security, please create a strong, unique password before continuing.
+    </p>
+    <div class="rp-steps">
+      <div class="rp-step">
+        <div class="rp-step-num">1</div>
+        <div class="rp-step-txt"><strong>Choose a strong password</strong> — mix uppercase, numbers and symbols</div>
+      </div>
+      <div class="rp-step">
+        <div class="rp-step-num">2</div>
+        <div class="rp-step-txt"><strong>Confirm it</strong> — type it again to avoid typos</div>
+      </div>
+      <div class="rp-step">
+        <div class="rp-step-num">3</div>
+        <div class="rp-step-txt"><strong>Done!</strong> — you'll be taken straight to your dashboard</div>
+      </div>
+    </div>
+  </div>
+  <div class="rp-left-footer">© 2025 Presbyterian College of Education · Akropong-Akuapem</div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="rp-right">
+  <div class="rp-form-wrap">
+
+    <!-- Logo -->
+    <div class="rp-logo">
+      <img src="https://pce.edu.gh/newimg/logo.png" alt="PCE Logo" onerror="this.style.display='none'">
+      <div class="rp-logo-text">
+        <strong>Presbyterian College of Education</strong>
+        Academic Management Portal
+      </div>
+    </div>
+
+    <h2 class="rp-form-title">Set your password</h2>
+    <p class="rp-form-sub">Welcome! Create a secure password to protect your account.</p>
+
+    <!-- New Password -->
+    <div class="rp-field">
+      <label for="newPass">New Password</label>
+      <div class="rp-input-wrap">
+        <input type="password" id="newPass" placeholder="Enter a strong password" autocomplete="new-password">
+        <button class="rp-eye-btn" type="button" onclick="rpToggle('newPass', this)" tabindex="-1">
+          <i class="bi bi-eye"></i>
+        </button>
+      </div>
+      <!-- Strength meter -->
+      <div class="rp-strength-wrap" id="rpStrengthWrap">
+        <div class="rp-strength-bars strength-0" id="rpStrengthBars">
+          <div class="rp-strength-bar"></div>
+          <div class="rp-strength-bar"></div>
+          <div class="rp-strength-bar"></div>
+          <div class="rp-strength-bar"></div>
+        </div>
+        <span class="rp-strength-label strength-0" id="rpStrengthLabel">Enter a password</span>
+      </div>
+    </div>
+
+    <!-- Requirements -->
+    <div class="rp-reqs">
+      <div class="rp-reqs-title">Password Requirements</div>
+      <div class="rp-req" id="req-length"><i class="bi bi-circle"></i> At least 8 characters</div>
+      <div class="rp-req" id="req-upper"><i class="bi bi-circle"></i> One uppercase letter (A–Z)</div>
+      <div class="rp-req" id="req-lower"><i class="bi bi-circle"></i> One lowercase letter (a–z)</div>
+      <div class="rp-req" id="req-number"><i class="bi bi-circle"></i> One number (0–9)</div>
+      <div class="rp-req" id="req-special"><i class="bi bi-circle"></i> One special character (!@#$…)</div>
+    </div>
+
+    <!-- Confirm Password -->
+    <div class="rp-field" style="margin-top:20px;">
+      <label for="confirmPass">Confirm Password</label>
+      <div class="rp-input-wrap">
+        <input type="password" id="confirmPass" placeholder="Re-enter your password" autocomplete="new-password">
+        <button class="rp-eye-btn" type="button" onclick="rpToggle('confirmPass', this)" tabindex="-1">
+          <i class="bi bi-eye"></i>
+        </button>
+      </div>
+      <div class="rp-match-msg" id="rpMatchMsg"></div>
+    </div>
+
+    <!-- Submit -->
+    <button class="rp-submit" id="resetBtn" onclick="confirmReset()">
+      <i class="bi bi-shield-check rp-btn-icon"></i>
+      <span class="rp-btn-text">Activate Account &amp; Continue</span>
+      <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+    </button>
+
+    <!-- Security note -->
+    <div class="rp-security-note">
+      <i class="bi bi-lock-fill"></i>
+      Your password is encrypted and never stored in plain text.
+    </div>
+
+    <!-- Back -->
+    <div class="rp-back">
+      <a href="index.html"><i class="bi bi-arrow-left"></i> Back to Sign In</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ilgfjyokqyoonteqzgbx.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsZ2ZqeW9rcXlvb250ZXF6Z2J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDc2NTgsImV4cCI6MjA4Nzc4MzY1OH0.ZWjz-J9J09QjVKFylOIjgXg5ey4Z6rvKU29AM3CQoTQ';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ── Redirect if not first login ───────────────────────────
+  (function() {
+    var session = JSON.parse(sessionStorage.getItem('pce_session') || 'null');
+    if (!session) { window.location.href = 'index.html'; return; }
+    if (!session.isFirstLogin) { window.location.href = 'dashboard.html'; return; }
+  })();
+
+  // ── Toggle password visibility ────────────────────────────
+  function rpToggle(inputId, btn) {
+    var inp  = document.getElementById(inputId);
+    var icon = btn.querySelector('i');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      icon.className = 'bi bi-eye-slash';
+    } else {
+      inp.type = 'password';
+      icon.className = 'bi bi-eye';
+    }
+  }
+
+  // ── Strength check ────────────────────────────────────────
+  var strengthLabels  = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+  var strengthClasses = ['strength-0', 'strength-1', 'strength-2', 'strength-3', 'strength-4'];
+
+  function rpCheckStrength(p) {
+    var score = 0;
+    var reqs  = {
+      length:  p.length >= 8,
+      upper:   /[A-Z]/.test(p),
+      lower:   /[a-z]/.test(p),
+      number:  /[0-9]/.test(p),
+      special: /[^A-Za-z0-9]/.test(p)
+    };
+    if (reqs.length)  score++;
+    if (reqs.upper)   score++;
+    if (reqs.lower)   score++;
+    if (reqs.number)  score++;
+    if (reqs.special) score = Math.min(4, score);
+    return { score: p.length === 0 ? 0 : Math.max(1, score), reqs };
+  }
+
+  document.getElementById('newPass').addEventListener('input', function() {
+    var p      = this.value;
+    var result = rpCheckStrength(p);
+    var bars   = document.getElementById('rpStrengthBars');
+    var label  = document.getElementById('rpStrengthLabel');
+
+    // Update bars
+    bars.className = 'rp-strength-bars ' + (p.length === 0 ? 'strength-0' : strengthClasses[result.score]);
+    label.className = 'rp-strength-label ' + (p.length === 0 ? 'strength-0' : strengthClasses[result.score]);
+    label.textContent = p.length === 0 ? 'Enter a password' : strengthLabels[result.score];
+
+    // Update requirements
+    Object.keys(result.reqs).forEach(function(key) {
+      var el = document.getElementById('req-' + key);
+      if (!el) return;
+      if (result.reqs[key]) {
+        el.classList.add('met');
+        el.querySelector('i').className = 'bi bi-check-circle-fill';
+      } else {
+        el.classList.remove('met');
+        el.querySelector('i').className = 'bi bi-circle';
+      }
+    });
+
+    // Input state
+    this.classList.remove('is-valid', 'is-invalid');
+    if (p.length > 0) this.classList.add(result.score >= 3 ? 'is-valid' : 'is-invalid');
+
+    // Progress bar
+    document.getElementById('rpProgressBar').style.width = (result.score * 25) + '%';
+
+    // Re-check confirm
+    rpCheckMatch();
+  });
+
+  document.getElementById('confirmPass').addEventListener('input', rpCheckMatch);
+
+  function rpCheckMatch() {
+    var p1  = document.getElementById('newPass').value;
+    var p2  = document.getElementById('confirmPass').value;
+    var msg = document.getElementById('rpMatchMsg');
+    var inp = document.getElementById('confirmPass');
+    inp.classList.remove('is-valid', 'is-invalid');
+    if (!p2) { msg.textContent = ''; return; }
+    if (p1 === p2) {
+      msg.textContent = '✓ Passwords match';
+      msg.className   = 'rp-match-msg ok';
+      inp.classList.add('is-valid');
+    } else {
+      msg.textContent = '✗ Passwords do not match';
+      msg.className   = 'rp-match-msg fail';
+      inp.classList.add('is-invalid');
+    }
+  }
+
+  // ── SHA-256 — matches index.html hashPassword exactly ─────
+  async function hashPassword(password) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+    return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2,'0'); }).join('');
+  }
+
+  // ── Confirm reset ─────────────────────────────────────────
+  async function confirmReset() {
+    var p1  = document.getElementById('newPass').value;
+    var p2  = document.getElementById('confirmPass').value;
+    var btn = document.getElementById('resetBtn');
+
+    if (!p1 || !p2) {
+      Swal.fire({ icon: 'info', title: 'Please fill both fields.', confirmButtonColor: '#0284c7' }); return;
+    }
+    if (p1 !== p2) {
+      Swal.fire({ icon: 'warning', title: 'Passwords do not match', text: 'Please re-enter your password.', confirmButtonColor: '#0284c7' }); return;
+    }
+    if (p1.length < 8) {
+      Swal.fire({ icon: 'warning', title: 'Password too short', text: 'Your password must be at least 8 characters.', confirmButtonColor: '#f59e0b' }); return;
+    }
+    var result = rpCheckStrength(p1);
+    if (result.score < 2) {
+      Swal.fire({ icon: 'warning', title: 'Password too weak', text: 'Please add uppercase letters, numbers, or special characters.', confirmButtonColor: '#f59e0b' }); return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+
+    try {
+      var session = JSON.parse(sessionStorage.getItem('pce_session') || 'null');
+      if (!session || !session.email) {
+        Swal.fire({ icon: 'error', title: 'Session expired', text: 'Please sign in again.', confirmButtonColor: '#dc2626' });
+        setTimeout(function() { window.location.href = 'index.html'; }, 2000);
+        return;
+      }
+
+      var hashed = await hashPassword(p1);
+      var { error } = await db.from('users')
+        .update({ password: hashed, is_first_login: false })
+        .eq('email', session.email);
+
+      if (error) throw new Error(error.message);
+
+      // Update session
+      session.isFirstLogin = false;
+      sessionStorage.setItem('pce_session', JSON.stringify(session));
+
+      // Progress bar to 100%
+      document.getElementById('rpProgressBar').style.width = '100%';
+      document.getElementById('rpProgressBar').style.background = '#10b981';
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Password Set!',
+        html: '<p style="font-size:0.95rem;color:#475569;">Your account is now secure.<br>Taking you to your dashboard&#8230;</p>',
+        timer: 2200,
+        showConfirmButton: false,
+        timerProgressBar: true,
+        backdrop: 'rgba(14,30,63,0.55)'
+      });
+
+      window.location.href = 'dashboard.html';
+
+    } catch(e) {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      Swal.fire({ icon: 'error', title: 'Update Failed', text: e.message || 'Please try again.', confirmButtonColor: '#dc2626' });
+    }
+  }
+
+  // ── Enter key support ─────────────────────────────────────
+  document.getElementById('newPass').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('confirmPass').focus();
+  });
+  document.getElementById('confirmPass').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmReset();
+  });
+</script>
+</body>
+</html>
