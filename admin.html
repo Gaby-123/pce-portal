@@ -235,6 +235,32 @@
     position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
     color: #475569; font-size: 0.9rem;
   }
+
+  /* Custom toggle switch — visible on dark bg */
+  .adm-toggle-wrap {
+    display: flex; align-items: center; gap: 9px;
+    cursor: pointer; user-select: none; margin-bottom: 2px;
+  }
+  .adm-toggle-input { display: none; }
+  .adm-toggle-track {
+    width: 38px; height: 21px; border-radius: 21px;
+    background: #334155; border: 1.5px solid #475569;
+    position: relative; transition: background 0.25s, border-color 0.25s;
+    flex-shrink: 0;
+  }
+  .adm-toggle-thumb {
+    position: absolute; top: 2px; left: 2px;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: #64748b; transition: transform 0.25s, background 0.25s;
+  }
+  .adm-toggle-input:checked + .adm-toggle-track {
+    background: #1d4ed8; border-color: #3b82f6;
+  }
+  .adm-toggle-input:checked + .adm-toggle-track .adm-toggle-thumb {
+    transform: translateX(17px); background: #fff;
+  }
+  .adm-toggle-lbl { font-size: 0.78rem; color: #94a3b8; transition: color 0.2s; }
+  .adm-toggle-wrap:has(.adm-toggle-input:checked) .adm-toggle-lbl { color: #93c5fd; }
 </style>
 
 <div class="adm-container" id="admContainer">
@@ -348,13 +374,12 @@
             <label class="adm-label">Department (HOD only)</label>
             <input type="text" id="admUDept" class="adm-input" placeholder="e.g. Science">
           </div>
-          <div class="col-md-2 d-flex align-items-end">
-            <div class="form-check" style="margin-bottom:2px;">
-              <input class="form-check-input" type="checkbox" id="admUReset"
-                     style="background:#0f172a;border-color:#334155;">
-              <label class="form-check-label" for="admUReset"
-                     style="font-size:0.78rem;color:#94a3b8;">Reset Password</label>
-            </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <label class="adm-toggle-wrap" for="admUReset" title="Reset password to PCE@1848 and send user back to first-login screen">
+              <input type="checkbox" id="admUReset" class="adm-toggle-input">
+              <span class="adm-toggle-track"><span class="adm-toggle-thumb"></span></span>
+              <span class="adm-toggle-lbl">Reset Password</span>
+            </label>
           </div>
           <div class="col-md-1 d-flex align-items-end">
             <button class="adm-btn primary w-100" id="admSaveUserBtn" style="padding:10px;">
@@ -644,11 +669,15 @@
             +   '</div>'
             +   '<div class="d-flex align-items-center gap-2">'
             +     '<span class="adm-role-badge ' + roleCls + '">' + (u.role || '—') + '</span>'
-            +     '<button class="adm-btn ghost" style="padding:4px 10px;font-size:0.72rem;"'
+            +     '<button class="adm-btn ghost" style="padding:4px 10px;font-size:0.72rem;" title="Edit user"'
             +             ' data-edit-email="' + u.email + '" data-edit-role="' + u.role + '" data-edit-dept="' + (u.department||'') + '">'
             +       '<i class="bi bi-pencil"></i>'
             +     '</button>'
-            +     '<button class="adm-btn danger" style="padding:4px 10px;font-size:0.72rem;"'
+            +     '<button class="adm-btn" style="padding:4px 10px;font-size:0.72rem;background:linear-gradient(135deg,#92400e,#f59e0b);color:#fff;" title="Reset password to PCE@1848"'
+            +             ' data-reset-email="' + u.email + '">'
+            +       '<i class="bi bi-key"></i>'
+            +     '</button>'
+            +     '<button class="adm-btn danger" style="padding:4px 10px;font-size:0.72rem;" title="Delete user"'
             +             ' data-del-email="' + u.email + '">'
             +       '<i class="bi bi-trash"></i>'
             +     '</button>'
@@ -668,6 +697,12 @@
         window.scrollTo(0, 0);
       });
     });
+    list.querySelectorAll('[data-reset-email]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        admQuickReset(this.getAttribute('data-reset-email'));
+      });
+    });
+
     list.querySelectorAll('[data-del-email]').forEach(function(btn) {
       btn.addEventListener('click', function() {
         admDeleteUser(this.getAttribute('data-del-email'));
@@ -686,7 +721,13 @@
 
   document.getElementById('admRefreshUsersBtn').addEventListener('click', admLoadUsers);
 
-  /* Save user */
+  /* ── Shared: hash default password ── */
+  async function admHashDefault() {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
+    return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  }
+
+  /* ── Save / Create user ── */
   document.getElementById('admSaveUserBtn').addEventListener('click', async function() {
     var email  = document.getElementById('admUEmail').value.trim().toLowerCase();
     var role   = document.getElementById('admURole').value;
@@ -700,27 +741,41 @@
     this.disabled = true;
 
     try {
-      // Check if exists
+      // Check if user already exists
       var existing = await admFetch('users?email=eq.' + encodeURIComponent(email) + '&select=email&limit=1');
       var found    = existing && existing.length > 0;
 
-      var payload = { email, role, department: dept };
-      if (reset || !found) {
-        // SHA-256 of default password 'PCE@1848'
-        var buf    = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
-        var hashed = Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-        payload.password       = hashed;
-        payload.is_first_login = true;
+      if (found) {
+        // ── EXISTING USER: use PATCH to guarantee all fields update ──
+        var patchPayload = { role: role, department: dept };
+        if (reset) {
+          patchPayload.password       = await admHashDefault();
+          patchPayload.is_first_login = true;
+        }
+        await admFetch('users?email=eq.' + encodeURIComponent(email), {
+          method: 'PATCH', prefer: 'return=minimal',
+          body: patchPayload
+        });
+        admShowStatus(status, 'success',
+          '✅ Updated: ' + email + (reset ? ' — password reset to PCE@1848' : ''));
+      } else {
+        // ── NEW USER: INSERT ──
+        var insertPayload = {
+          email:          email,
+          role:           role,
+          department:     dept,
+          password:       await admHashDefault(),
+          is_first_login: true
+        };
+        await admFetch('users', {
+          method: 'POST', prefer: 'return=minimal',
+          body: insertPayload
+        });
+        admShowStatus(status, 'success', '✅ Created: ' + email + ' — default password PCE@1848');
       }
 
-      await admFetch('users?on_conflict=email', {
-        method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
-        body: payload
-      });
-
-      admShowStatus(status, 'success', '✅ ' + (found ? 'Updated' : 'Created') + ': ' + email);
-      document.getElementById('admUEmail').value = '';
-      document.getElementById('admUDept').value  = '';
+      document.getElementById('admUEmail').value   = '';
+      document.getElementById('admUDept').value    = '';
       document.getElementById('admUReset').checked = false;
       admLoadUsers();
     } catch(e) {
@@ -729,6 +784,25 @@
       this.disabled = false;
     }
   });
+
+  /* ── Quick reset password from user row ── */
+  async function admQuickReset(email) {
+    var status = document.getElementById('admUserSaveStatus');
+    if (!confirm('Reset password for ' + email + ' to PCE@1848?
+
+They will be asked to set a new password on next login.')) return;
+    admShowStatus(status, 'info', '<span class="spinner-border spinner-border-sm me-2"></span>Resetting password for ' + email + '…');
+    try {
+      var hashed = await admHashDefault();
+      await admFetch('users?email=eq.' + encodeURIComponent(email), {
+        method: 'PATCH', prefer: 'return=minimal',
+        body: { password: hashed, is_first_login: true }
+      });
+      admShowStatus(status, 'success', '✅ Password reset for ' + email + ' — they will be prompted to set a new password on next login.');
+    } catch(e) {
+      admShowStatus(status, 'error', '⚠️ ' + e.message);
+    }
+  }
 
   /* Delete user */
   async function admDeleteUser(email) {
