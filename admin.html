@@ -1,0 +1,827 @@
+<style>
+  .adm-container {
+    display: flex;
+    height: calc(100vh - 62px);
+    background: #0f172a;
+    overflow: hidden;
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+  }
+
+  /* ── LOCK SCREEN ── */
+  .adm-lock {
+    position: absolute; inset: 0;
+    background: #0f172a;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .adm-lock-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    padding: 40px 36px;
+    width: 360px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+    text-align: center;
+  }
+  .adm-lock-icon {
+    width: 64px; height: 64px; border-radius: 16px;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px; font-size: 1.7rem;
+    box-shadow: 0 8px 24px rgba(59,130,246,0.35);
+  }
+  .adm-lock-card h5 { color: #f1f5f9; font-weight: 700; margin-bottom: 4px; font-size: 1.1rem; }
+  .adm-lock-card p  { color: #64748b; font-size: 0.83rem; margin-bottom: 24px; }
+  .adm-lock-input {
+    width: 100%; background: #0f172a; border: 1.5px solid #334155;
+    color: #f1f5f9; padding: 11px 14px; border-radius: 9px;
+    font-size: 0.93rem; margin-bottom: 12px; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .adm-lock-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.18); }
+  .adm-lock-btn {
+    width: 100%; background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    color: #fff; border: none; padding: 12px; border-radius: 9px;
+    font-weight: 600; font-size: 0.95rem; cursor: pointer;
+    transition: opacity 0.2s; box-shadow: 0 4px 14px rgba(59,130,246,0.3);
+  }
+  .adm-lock-btn:hover:not(:disabled) { opacity: 0.88; }
+  .adm-lock-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .adm-lock-err { color: #f87171; font-size: 0.82rem; margin-top: 10px; min-height: 18px; }
+
+  /* ── SIDEBAR ── */
+  .adm-sidebar {
+    width: 220px; flex-shrink: 0;
+    background: #1e293b;
+    display: flex; flex-direction: column;
+    border-right: 1px solid #334155;
+    overflow-y: auto;
+  }
+  .adm-sidebar-hdr {
+    padding: 18px 20px;
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    border-bottom: 1px solid #1e40af;
+  }
+  .adm-sidebar-hdr h6 { color: #fff; margin: 0; font-weight: 700; font-size: 0.95rem; }
+  .adm-sidebar-hdr small { color: rgba(255,255,255,0.6); font-size: 0.73rem; }
+  .adm-section-lbl {
+    padding: 14px 20px 5px;
+    font-size: 0.67rem; font-weight: 700; color: #475569;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .adm-nav {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; color: #94a3b8; cursor: pointer;
+    font-size: 0.84rem; border-left: 3px solid transparent;
+    transition: all 0.15s; text-decoration: none;
+  }
+  .adm-nav:hover { color: #e2e8f0; background: #0f172a; }
+  .adm-nav.active { color: #fff; background: #0f172a; border-left-color: #3b82f6; font-weight: 600; }
+  .adm-nav.danger { color: #f87171; }
+  .adm-nav.danger:hover { background: #450a0a; }
+  .adm-nav.danger.active { border-left-color: #ef4444; }
+
+  .adm-sidebar-footer {
+    margin-top: auto; padding: 14px 20px;
+    border-top: 1px solid #334155;
+  }
+  .adm-lock-btn-sm {
+    width: 100%; background: transparent; border: 1px solid #334155;
+    color: #64748b; padding: 8px; border-radius: 7px;
+    font-size: 0.78rem; cursor: pointer; transition: all 0.2s;
+  }
+  .adm-lock-btn-sm:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
+
+  /* ── MAIN CONTENT ── */
+  .adm-main {
+    flex: 1; overflow-y: auto;
+    background: #0f172a;
+    padding: 24px 28px;
+  }
+  .adm-panel { display: none; animation: admFade 0.25s; }
+  .adm-panel.active { display: block; }
+  @keyframes admFade { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+  .adm-page-title {
+    font-size: 1.2rem; font-weight: 700; color: #f1f5f9;
+    margin-bottom: 6px;
+  }
+  .adm-page-sub { font-size: 0.82rem; color: #64748b; margin-bottom: 22px; }
+
+  /* Cards */
+  .adm-card {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 12px; padding: 20px; margin-bottom: 18px;
+  }
+  .adm-card-title {
+    font-size: 0.8rem; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px;
+  }
+
+  /* Stat chips */
+  .adm-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .adm-stat {
+    background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .adm-stat-num { font-size: 1.9rem; font-weight: 700; color: #f1f5f9; line-height: 1; margin-bottom: 4px; }
+  .adm-stat-lbl { font-size: 0.75rem; color: #64748b; }
+  .adm-stat.blue  { border-top: 3px solid #3b82f6; }
+  .adm-stat.green { border-top: 3px solid #22c55e; }
+  .adm-stat.amber { border-top: 3px solid #f59e0b; }
+  .adm-stat.rose  { border-top: 3px solid #f43f5e; }
+
+  /* Sync table */
+  .adm-sync-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; background: #0f172a; border-radius: 8px;
+    margin-bottom: 7px; border: 1px solid #1e293b;
+  }
+  .adm-sync-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .adm-sync-dot.ok   { background: #22c55e; }
+  .adm-sync-dot.warn { background: #f59e0b; }
+  .adm-sync-dot.err  { background: #ef4444; }
+  .adm-sync-name { font-size: 0.85rem; color: #cbd5e1; font-weight: 500; }
+  .adm-sync-count { font-size: 0.8rem; color: #64748b; }
+  .adm-sync-badge {
+    font-size: 0.68rem; font-weight: 700; padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .adm-sync-badge.ok   { background: rgba(34,197,94,0.12);  color: #4ade80; }
+  .adm-sync-badge.warn { background: rgba(245,158,11,0.12); color: #fbbf24; }
+
+  /* Form fields */
+  .adm-input {
+    width: 100%; background: #0f172a; border: 1.5px solid #334155;
+    color: #f1f5f9; padding: 10px 12px; border-radius: 8px;
+    font-size: 0.88rem; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .adm-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .adm-select {
+    width: 100%; background: #0f172a; border: 1.5px solid #334155;
+    color: #f1f5f9; padding: 10px 12px; border-radius: 8px;
+    font-size: 0.88rem; outline: none; cursor: pointer;
+  }
+  .adm-select option { background: #1e293b; }
+  .adm-label { display: block; font-size: 0.73rem; font-weight: 600; color: #64748b; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* Buttons */
+  .adm-btn {
+    padding: 9px 18px; border-radius: 8px; font-size: 0.85rem;
+    font-weight: 600; cursor: pointer; border: none; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .adm-btn.primary { background: linear-gradient(135deg,#1d4ed8,#3b82f6); color:#fff; box-shadow: 0 3px 10px rgba(59,130,246,0.25); }
+  .adm-btn.primary:hover { opacity: 0.88; }
+  .adm-btn.success { background: linear-gradient(135deg,#15803d,#22c55e); color:#fff; }
+  .adm-btn.success:hover { opacity: 0.88; }
+  .adm-btn.danger  { background: linear-gradient(135deg,#b91c1c,#ef4444); color:#fff; }
+  .adm-btn.danger:hover  { opacity: 0.88; }
+  .adm-btn.ghost   { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+  .adm-btn.ghost:hover   { border-color: #64748b; color: #e2e8f0; }
+  .adm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* User rows */
+  .adm-user-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px; background: #0f172a; border-radius: 8px;
+    margin-bottom: 7px; border: 1px solid #1e293b;
+    transition: border-color 0.2s;
+  }
+  .adm-user-row:hover { border-color: #334155; }
+  .adm-user-email { font-size: 0.85rem; color: #e2e8f0; font-weight: 500; }
+  .adm-user-meta  { font-size: 0.73rem; color: #64748b; margin-top: 2px; }
+
+  .adm-role-badge {
+    font-size: 0.68rem; font-weight: 700; padding: 3px 9px;
+    border-radius: 10px; text-transform: uppercase;
+  }
+  .role-STUDENT    { background: rgba(59,130,246,0.15);  color: #93c5fd; }
+  .role-REGISTRY   { background: rgba(34,197,94,0.15);   color: #86efac; }
+  .role-FINANCE    { background: rgba(234,179,8,0.15);   color: #fde047; }
+  .role-ASSESSMENT { background: rgba(244,63,94,0.15);   color: #fda4af; }
+  .role-HOD        { background: rgba(168,85,247,0.15);  color: #d8b4fe; }
+  .role-ADMIN      { background: rgba(239,68,68,0.15);   color: #fca5a5; }
+
+  /* Status alerts */
+  .adm-status { padding: 10px 14px; border-radius: 8px; font-size: 0.84rem; margin-top: 12px; display: none; }
+  .adm-status.info    { background: rgba(59,130,246,0.12);  border: 1px solid rgba(59,130,246,0.25); color: #93c5fd; }
+  .adm-status.success { background: rgba(34,197,94,0.12);   border: 1px solid rgba(34,197,94,0.25);  color: #86efac; }
+  .adm-status.error   { background: rgba(239,68,68,0.12);   border: 1px solid rgba(239,68,68,0.25);  color: #fca5a5; }
+
+  /* Danger zone */
+  .adm-danger-zone {
+    border: 2px solid rgba(239,68,68,0.35);
+    border-radius: 12px; padding: 24px;
+    background: rgba(127,29,29,0.12);
+  }
+  .adm-danger-zone h6 { color: #f87171; font-weight: 700; margin-bottom: 10px; }
+
+  /* Year badge */
+  .adm-year-badge {
+    background: rgba(59,130,246,0.15); color: #93c5fd;
+    border: 1px solid rgba(59,130,246,0.3);
+    padding: 3px 12px; border-radius: 20px;
+    font-size: 0.73rem; font-weight: 700;
+  }
+
+  /* Search */
+  .adm-search {
+    position: relative; margin-bottom: 14px;
+  }
+  .adm-search input { padding-left: 36px; }
+  .adm-search i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #475569; font-size: 0.9rem;
+  }
+</style>
+
+<div class="adm-container" id="admContainer">
+
+  <!-- ── LOCK SCREEN ── -->
+  <div class="adm-lock" id="admLock">
+    <div class="adm-lock-card">
+      <div class="adm-lock-icon">🔐</div>
+      <h5>PCE Admin Panel</h5>
+      <p>Enter the administrator password to continue</p>
+      <input type="password" id="admPassInput" class="adm-lock-input"
+             placeholder="Administrator password">
+      <button class="adm-lock-btn" id="admUnlockBtn">
+        <i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel
+      </button>
+      <div class="adm-lock-err" id="admLockErr"></div>
+    </div>
+  </div>
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="adm-sidebar" id="admSidebar" style="display:none;">
+    <div class="adm-sidebar-hdr">
+      <h6><i class="bi bi-shield-fill-check me-2"></i>Admin Panel</h6>
+      <small>Supabase Management</small>
+    </div>
+
+    <div class="adm-section-lbl">Overview</div>
+    <a class="adm-nav active" data-adm-tab="dashboard">
+      <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+
+    <div class="adm-section-lbl">Management</div>
+    <a class="adm-nav" data-adm-tab="users">
+      <i class="bi bi-people"></i> Users
+    </a>
+
+    <div class="adm-section-lbl">Danger</div>
+    <a class="adm-nav danger" data-adm-tab="danger">
+      <i class="bi bi-exclamation-triangle"></i> Danger Zone
+    </a>
+
+    <div class="adm-sidebar-footer">
+      <button class="adm-lock-btn-sm" id="admLockBtn">
+        <i class="bi bi-lock me-1"></i> Lock Panel
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="adm-main" id="admMain" style="display:none;">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="adm-panel active" id="adm-panel-dashboard">
+      <div class="d-flex align-items-start justify-content-between mb-1">
+        <div class="adm-page-title"><i class="bi bi-speedometer2 me-2"></i>System Dashboard</div>
+        <span class="adm-year-badge" id="admYearBadge">Loading…</span>
+      </div>
+      <div class="adm-page-sub">Live counts from Supabase</div>
+
+      <!-- Stat chips -->
+      <div class="adm-stats-row" id="admStatChips">
+        <div class="adm-stat blue"><div class="adm-stat-num" id="admStatStudents">—</div><div class="adm-stat-lbl">Students</div></div>
+        <div class="adm-stat green"><div class="adm-stat-num" id="admStatUsers">—</div><div class="adm-stat-lbl">Users</div></div>
+        <div class="adm-stat amber"><div class="adm-stat-num" id="admStatCourses">—</div><div class="adm-stat-lbl">Courses</div></div>
+        <div class="adm-stat rose"><div class="adm-stat-num" id="admStatResults">—</div><div class="adm-stat-lbl">Results</div></div>
+      </div>
+
+      <!-- Table counts -->
+      <div class="adm-card">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div class="adm-card-title mb-0">Supabase Table Counts</div>
+          <button class="adm-btn ghost" id="admRefreshBtn" style="padding:6px 12px;font-size:0.78rem;">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+        </div>
+        <div id="admSyncRows">
+          <div class="text-center text-muted py-4">
+            <div class="spinner-border spinner-border-sm me-2 text-secondary"></div>
+            <span style="color:#475569;">Loading table counts…</span>
+          </div>
+        </div>
+        <div class="adm-status" id="admDashStatus"></div>
+      </div>
+    </div>
+
+    <!-- ══ USERS ══ -->
+    <div class="adm-panel" id="adm-panel-users">
+      <div class="adm-page-title"><i class="bi bi-people me-2"></i>User Management</div>
+      <div class="adm-page-sub">Create, edit and delete portal user accounts</div>
+
+      <!-- Add/Edit form -->
+      <div class="adm-card">
+        <div class="adm-card-title">Add or Update User</div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-4">
+            <label class="adm-label">Email *</label>
+            <input type="email" id="admUEmail" class="adm-input" placeholder="user@pce.edu.gh">
+          </div>
+          <div class="col-md-2">
+            <label class="adm-label">Role *</label>
+            <select id="admURole" class="adm-select">
+              <option value="STUDENT">STUDENT</option>
+              <option value="REGISTRY">REGISTRY</option>
+              <option value="FINANCE">FINANCE</option>
+              <option value="ASSESSMENT">ASSESSMENT</option>
+              <option value="HOD">HOD</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="adm-label">Department (HOD only)</label>
+            <input type="text" id="admUDept" class="adm-input" placeholder="e.g. Science">
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <div class="form-check" style="margin-bottom:2px;">
+              <input class="form-check-input" type="checkbox" id="admUReset"
+                     style="background:#0f172a;border-color:#334155;">
+              <label class="form-check-label" for="admUReset"
+                     style="font-size:0.78rem;color:#94a3b8;">Reset Password</label>
+            </div>
+          </div>
+          <div class="col-md-1 d-flex align-items-end">
+            <button class="adm-btn primary w-100" id="admSaveUserBtn" style="padding:10px;">
+              Save
+            </button>
+          </div>
+        </div>
+        <div class="adm-status" id="admUserSaveStatus"></div>
+      </div>
+
+      <!-- User list -->
+      <div class="adm-card">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div class="adm-card-title mb-0">
+            All Users <span style="color:#3b82f6;margin-left:6px;" id="admUserCount"></span>
+          </div>
+          <button class="adm-btn ghost" id="admRefreshUsersBtn" style="padding:6px 12px;font-size:0.78rem;">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+        </div>
+        <div class="adm-search">
+          <i class="bi bi-search"></i>
+          <input type="text" class="adm-input" id="admUserSearch" placeholder="Search by email, role or department…">
+        </div>
+        <div id="admUserList">
+          <div class="text-center py-4" style="color:#475569;">
+            <div class="spinner-border spinner-border-sm me-2 text-secondary"></div>Loading users…
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DANGER ZONE ══ -->
+    <div class="adm-panel" id="adm-panel-danger">
+      <div class="adm-page-title" style="color:#f87171;">
+        <i class="bi bi-exclamation-triangle me-2"></i>Danger Zone
+      </div>
+      <div class="adm-page-sub">Irreversible operations — proceed with extreme caution</div>
+
+      <!-- Clear Sessions -->
+      <div class="adm-card mb-3" style="border:1px solid rgba(245,158,11,0.3);background:rgba(120,53,15,0.1);">
+        <h6 style="color:#fbbf24;font-weight:700;margin-bottom:8px;">
+          <i class="bi bi-arrow-repeat me-2"></i>Clear All Sessions
+        </h6>
+        <p class="small mb-3" style="color:#94a3b8;line-height:1.6;">
+          Deletes all active sessions from the <code style="color:#fde047;">sessions</code> table.
+          All logged-in users will be signed out on their next action.
+          Does <strong style="color:#fff;">not</strong> delete any student or academic data.
+        </p>
+        <button class="adm-btn" id="admClearSessionsBtn"
+                style="background:linear-gradient(135deg,#92400e,#f59e0b);color:#fff;box-shadow:0 3px 10px rgba(245,158,11,0.2);">
+          <i class="bi bi-box-arrow-right me-1"></i> Sign Out All Users
+        </button>
+        <div class="adm-status" id="admSessionsStatus"></div>
+      </div>
+
+      <!-- Nuke -->
+      <div class="adm-danger-zone">
+        <h6><i class="bi bi-radioactive me-2"></i>Nuclear Reset — Wipe All Supabase Data</h6>
+        <p class="small mb-3" style="color:#94a3b8;line-height:1.6;">
+          This permanently deletes ALL records from every Supabase table:
+          <code style="color:#fca5a5;">users, student_bio, courses, registrations, results, fee_structure, payments, student_finance</code>.
+          <br><strong style="color:#f87171;">This action cannot be undone.</strong>
+        </p>
+        <p class="small mb-3" style="color:#94a3b8;">
+          Type <strong style="color:#fff;">NUKE</strong> in the box below to enable the button.
+        </p>
+        <div class="d-flex gap-2 align-items-center">
+          <input type="text" id="admNukeInput" class="adm-input" placeholder="Type NUKE to confirm"
+                 style="max-width:200px;">
+          <button class="adm-btn danger" id="admNukeBtn" disabled>
+            <i class="bi bi-radioactive me-1"></i> Wipe Everything
+          </button>
+        </div>
+        <div class="adm-status" id="admNukeStatus"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+(function() {
+  /* ══════════════════════════════════════════════════════
+     GLOBALS
+  ══════════════════════════════════════════════════════ */
+  var ADMIN_PASSWORD = 'PCEAdmin2025';
+  var admAllUsers    = [];
+  var admUnlocked    = false;
+
+  var TABLES = [
+    { key: 'users',           label: 'Users'           },
+    { key: 'student_bio',     label: 'Student Bio'     },
+    { key: 'courses',         label: 'Courses'         },
+    { key: 'registrations',   label: 'Registrations'   },
+    { key: 'results',         label: 'Results'         },
+    { key: 'fee_structure',   label: 'Fee Structure'   },
+    { key: 'payments',        label: 'Payments'        },
+    { key: 'student_finance', label: 'Student Finance' },
+    { key: 'sessions',        label: 'Sessions'        }
+  ];
+
+  /* ══════════════════════════════════════════════════════
+     LOCK / UNLOCK
+  ══════════════════════════════════════════════════════ */
+  function admUnlock() {
+    var val = document.getElementById('admPassInput').value;
+    var err = document.getElementById('admLockErr');
+    var btn = document.getElementById('admUnlockBtn');
+    if (!val) { err.textContent = 'Please enter the password.'; return; }
+    if (val !== ADMIN_PASSWORD) {
+      err.textContent = '❌ Incorrect password. Try again.';
+      document.getElementById('admPassInput').value = '';
+      document.getElementById('admPassInput').focus();
+      return;
+    }
+    err.textContent = '';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Unlocking…';
+    admUnlocked = true;
+    document.getElementById('admLock').style.display    = 'none';
+    document.getElementById('admSidebar').style.display = 'flex';
+    document.getElementById('admMain').style.display    = 'block';
+    admLoadDashboard();
+    admLoadUsers();
+  }
+
+  function admLock() {
+    admUnlocked = false;
+    document.getElementById('admPassInput').value = '';
+    document.getElementById('admLockErr').textContent = '';
+    var btn = document.getElementById('admUnlockBtn');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel';
+    document.getElementById('admLock').style.display    = 'flex';
+    document.getElementById('admSidebar').style.display = 'none';
+    document.getElementById('admMain').style.display    = 'none';
+  }
+
+  document.getElementById('admUnlockBtn').addEventListener('click', admUnlock);
+  document.getElementById('admPassInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') admUnlock();
+  });
+  document.getElementById('admLockBtn').addEventListener('click', admLock);
+
+  /* ══════════════════════════════════════════════════════
+     TAB NAVIGATION
+  ══════════════════════════════════════════════════════ */
+  document.querySelectorAll('[data-adm-tab]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var tab = this.getAttribute('data-adm-tab');
+      document.querySelectorAll('.adm-panel').forEach(function(p) { p.classList.remove('active'); });
+      document.querySelectorAll('[data-adm-tab]').forEach(function(n) { n.classList.remove('active'); });
+      document.getElementById('adm-panel-' + tab).classList.add('active');
+      this.classList.add('active');
+    });
+  });
+
+  /* ══════════════════════════════════════════════════════
+     SUPABASE HELPERS
+  ══════════════════════════════════════════════════════ */
+  async function admFetch(path, opts) {
+    opts = opts || {};
+    var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      method: opts.method || 'GET',
+      headers: {
+        'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': opts.prefer || ''
+      },
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    if (!res.ok) {
+      var txt = await res.text();
+      throw new Error('(' + res.status + ') ' + txt);
+    }
+    var t = await res.text();
+    return t ? JSON.parse(t) : [];
+  }
+
+  async function admCount(table) {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/' + table + '?select=*', {
+      method: 'HEAD',
+      headers: {
+        'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Prefer': 'count=exact'
+      }
+    });
+    var cr = res.headers.get('content-range') || '';
+    if (cr.includes('/')) return parseInt(cr.split('/')[1]) || 0;
+    return 0;
+  }
+
+  /* ══════════════════════════════════════════════════════
+     DASHBOARD
+  ══════════════════════════════════════════════════════ */
+  async function admLoadDashboard() {
+    var container = document.getElementById('admSyncRows');
+    var dashStatus = document.getElementById('admDashStatus');
+    container.innerHTML = '<div class="text-center py-4" style="color:#475569;"><div class="spinner-border spinner-border-sm me-2 text-secondary"></div>Fetching counts…</div>';
+    admHideStatus(dashStatus);
+
+    try {
+      // Fetch all counts in parallel
+      var counts = await Promise.all(TABLES.map(function(t) {
+        return admCount(t.key).catch(function() { return -1; });
+      }));
+
+      // Update stat chips
+      var countMap = {};
+      TABLES.forEach(function(t, i) { countMap[t.key] = counts[i]; });
+      document.getElementById('admStatStudents').textContent = countMap['student_bio'] >= 0 ? countMap['student_bio'] : '—';
+      document.getElementById('admStatUsers').textContent    = countMap['users']       >= 0 ? countMap['users']       : '—';
+      document.getElementById('admStatCourses').textContent  = countMap['courses']     >= 0 ? countMap['courses']     : '—';
+      document.getElementById('admStatResults').textContent  = countMap['results']     >= 0 ? countMap['results']     : '—';
+
+      // Active year from fee_structure
+      try {
+        var fsRows = await admFetch('fee_structure?status=eq.ACTIVE&select=academic_year&limit=1');
+        var yr = fsRows && fsRows.length ? fsRows[0].academic_year : 'Not Set';
+        document.getElementById('admYearBadge').textContent = yr;
+      } catch(e) { document.getElementById('admYearBadge').textContent = 'Not Set'; }
+
+      // Build sync rows
+      var html = '';
+      TABLES.forEach(function(t, i) {
+        var n = counts[i];
+        var ok = n >= 0;
+        html += '<div class="adm-sync-row">'
+              +   '<div class="d-flex align-items-center gap-2">'
+              +     '<div class="adm-sync-dot ' + (ok ? 'ok' : 'err') + '"></div>'
+              +     '<span class="adm-sync-name">' + t.label + '</span>'
+              +   '</div>'
+              +   '<div class="d-flex align-items-center gap-2">'
+              +     '<span class="adm-sync-count">'
+              +       (ok ? '<strong style="color:#e2e8f0;">' + n + '</strong> row' + (n!==1?'s':'') : '<span style="color:#f87171;">error</span>')
+              +     '</span>'
+              +     '<span class="adm-sync-badge ' + (ok ? 'ok' : 'warn') + '">'
+              +       (ok ? '✓ live' : '⚠ error')
+              +     '</span>'
+              +   '</div>'
+              + '</div>';
+      });
+
+      container.innerHTML = html;
+    } catch(e) {
+      container.innerHTML = '';
+      admShowStatus(dashStatus, 'error', '⚠️ Failed to load counts: ' + e.message);
+    }
+  }
+
+  document.getElementById('admRefreshBtn').addEventListener('click', admLoadDashboard);
+
+  /* ══════════════════════════════════════════════════════
+     USERS
+  ══════════════════════════════════════════════════════ */
+  async function admLoadUsers() {
+    var list = document.getElementById('admUserList');
+    list.innerHTML = '<div class="text-center py-4" style="color:#475569;"><div class="spinner-border spinner-border-sm me-2 text-secondary"></div>Loading users…</div>';
+    try {
+      admAllUsers = await admFetch('users?select=email,role,is_first_login,department&order=email');
+      admRenderUsers(admAllUsers);
+    } catch(e) {
+      list.innerHTML = '<div style="color:#f87171;font-size:0.85rem;padding:12px;">Failed to load: ' + e.message + '</div>';
+    }
+  }
+
+  function admRenderUsers(users) {
+    var list  = document.getElementById('admUserList');
+    var count = document.getElementById('admUserCount');
+    count.textContent = '(' + users.length + ')';
+    if (!users.length) {
+      list.innerHTML = '<div class="text-center py-4" style="color:#475569;">No users found.</div>';
+      return;
+    }
+    var html = '';
+    users.forEach(function(u) {
+      var roleCls = 'role-' + (u.role || 'STUDENT');
+      var isFirst = u.is_first_login === true || String(u.is_first_login).toUpperCase() === 'TRUE';
+      html += '<div class="adm-user-row">'
+            +   '<div>'
+            +     '<div class="adm-user-email">' + u.email + '</div>'
+            +     '<div class="adm-user-meta">'
+            +       (u.department ? '<i class="bi bi-building me-1"></i>' + u.department + ' &nbsp;' : '')
+            +       (isFirst ? '<span style="color:#fbbf24;"><i class="bi bi-exclamation-circle me-1"></i>First login pending</span>' : '')
+            +     '</div>'
+            +   '</div>'
+            +   '<div class="d-flex align-items-center gap-2">'
+            +     '<span class="adm-role-badge ' + roleCls + '">' + (u.role || '—') + '</span>'
+            +     '<button class="adm-btn ghost" style="padding:4px 10px;font-size:0.72rem;"'
+            +             ' data-edit-email="' + u.email + '" data-edit-role="' + u.role + '" data-edit-dept="' + (u.department||'') + '">'
+            +       '<i class="bi bi-pencil"></i>'
+            +     '</button>'
+            +     '<button class="adm-btn danger" style="padding:4px 10px;font-size:0.72rem;"'
+            +             ' data-del-email="' + u.email + '">'
+            +       '<i class="bi bi-trash"></i>'
+            +     '</button>'
+            +   '</div>'
+            + '</div>';
+    });
+    list.innerHTML = html;
+
+    // Attach edit/delete via delegation
+    list.querySelectorAll('[data-edit-email]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.getElementById('admUEmail').value = this.getAttribute('data-edit-email');
+        document.getElementById('admURole').value  = this.getAttribute('data-edit-role');
+        document.getElementById('admUDept').value  = this.getAttribute('data-edit-dept');
+        document.getElementById('admUEmail').focus();
+        // Switch to users tab (already there)
+        window.scrollTo(0, 0);
+      });
+    });
+    list.querySelectorAll('[data-del-email]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        admDeleteUser(this.getAttribute('data-del-email'));
+      });
+    });
+  }
+
+  document.getElementById('admUserSearch').addEventListener('input', function() {
+    var q = this.value.toLowerCase();
+    admRenderUsers(admAllUsers.filter(function(u) {
+      return u.email.toLowerCase().includes(q)
+          || (u.role || '').toLowerCase().includes(q)
+          || (u.department || '').toLowerCase().includes(q);
+    }));
+  });
+
+  document.getElementById('admRefreshUsersBtn').addEventListener('click', admLoadUsers);
+
+  /* Save user */
+  document.getElementById('admSaveUserBtn').addEventListener('click', async function() {
+    var email  = document.getElementById('admUEmail').value.trim().toLowerCase();
+    var role   = document.getElementById('admURole').value;
+    var dept   = document.getElementById('admUDept').value.trim();
+    var reset  = document.getElementById('admUReset').checked;
+    var status = document.getElementById('admUserSaveStatus');
+
+    if (!email) { admShowStatus(status, 'error', 'Please enter an email address.'); return; }
+
+    admShowStatus(status, 'info', '<span class="spinner-border spinner-border-sm me-2"></span>Saving…');
+    this.disabled = true;
+
+    try {
+      // Check if exists
+      var existing = await admFetch('users?email=eq.' + encodeURIComponent(email) + '&select=email&limit=1');
+      var found    = existing && existing.length > 0;
+
+      var payload = { email, role, department: dept };
+      if (reset || !found) {
+        // SHA-256 of default password 'PCE@1848'
+        var buf    = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
+        var hashed = Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+        payload.password       = hashed;
+        payload.is_first_login = true;
+      }
+
+      await admFetch('users?on_conflict=email', {
+        method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
+        body: payload
+      });
+
+      admShowStatus(status, 'success', '✅ ' + (found ? 'Updated' : 'Created') + ': ' + email);
+      document.getElementById('admUEmail').value = '';
+      document.getElementById('admUDept').value  = '';
+      document.getElementById('admUReset').checked = false;
+      admLoadUsers();
+    } catch(e) {
+      admShowStatus(status, 'error', '⚠️ ' + e.message);
+    } finally {
+      this.disabled = false;
+    }
+  });
+
+  /* Delete user */
+  async function admDeleteUser(email) {
+    if (!confirm('Delete user: ' + email + '?\n\nThis cannot be undone.')) return;
+    var status = document.getElementById('admUserSaveStatus');
+    admShowStatus(status, 'info', '<span class="spinner-border spinner-border-sm me-2"></span>Deleting ' + email + '…');
+    try {
+      await admFetch('users?email=eq.' + encodeURIComponent(email), { method: 'DELETE' });
+      admShowStatus(status, 'success', '✅ Deleted: ' + email);
+      admLoadUsers();
+    } catch(e) {
+      admShowStatus(status, 'error', '⚠️ ' + e.message);
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════
+     CLEAR SESSIONS
+  ══════════════════════════════════════════════════════ */
+  document.getElementById('admClearSessionsBtn').addEventListener('click', async function() {
+    if (!confirm('Sign out all users by clearing the sessions table?\n\nThis will not delete any student or academic data.')) return;
+    var status = document.getElementById('admSessionsStatus');
+    this.disabled = true;
+    admShowStatus(status, 'info', '<span class="spinner-border spinner-border-sm me-2"></span>Clearing sessions…');
+    try {
+      await admFetch('sessions?id=neq.00000000-0000-0000-0000-000000000000', { method: 'DELETE' });
+      admShowStatus(status, 'success', '✅ All sessions cleared — users will be signed out.');
+      admLoadDashboard();
+    } catch(e) {
+      admShowStatus(status, 'error', '⚠️ ' + e.message);
+    } finally {
+      this.disabled = false;
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════
+     DANGER ZONE — NUKE
+  ══════════════════════════════════════════════════════ */
+  document.getElementById('admNukeInput').addEventListener('input', function() {
+    document.getElementById('admNukeBtn').disabled = this.value.trim() !== 'NUKE';
+  });
+
+  document.getElementById('admNukeBtn').addEventListener('click', async function() {
+    if (document.getElementById('admNukeInput').value.trim() !== 'NUKE') return;
+    if (!confirm('FINAL WARNING\n\nThis permanently deletes ALL data from every Supabase table.\n\nThis CANNOT be undone. Continue?')) return;
+
+    var status = document.getElementById('admNukeStatus');
+    this.disabled = true;
+    admShowStatus(status, 'info', '<span class="spinner-border spinner-border-sm me-2"></span>Wiping all tables…');
+
+    var filters = {
+      student_finance: 'email=neq.NONE',
+      payments:        'email=neq.NONE',
+      fee_structure:   'academic_year=neq.NONE',
+      results:         'email=neq.NONE',
+      registrations:   'email=neq.NONE',
+      courses:         'course_code=neq.NONE',
+      users:           'email=neq.NONE',
+      student_bio:     'email=neq.NONE',
+      sessions:        'id=neq.00000000-0000-0000-0000-000000000000'
+    };
+
+    var errors = [];
+    for (var tbl in filters) {
+      try {
+        await admFetch(tbl + '?' + filters[tbl], { method: 'DELETE' });
+      } catch(e) {
+        errors.push(tbl + ': ' + e.message);
+      }
+    }
+
+    document.getElementById('admNukeInput').value = '';
+    this.disabled = true; // keep disabled after nuke
+
+    if (errors.length) {
+      admShowStatus(status, 'error', '⚠️ Completed with errors:<br>' + errors.join('<br>'));
+    } else {
+      admShowStatus(status, 'success', '✅ All Supabase tables wiped successfully.');
+    }
+    admLoadDashboard();
+    admLoadUsers();
+  });
+
+  /* ══════════════════════════════════════════════════════
+     STATUS HELPERS
+  ══════════════════════════════════════════════════════ */
+  function admShowStatus(el, type, msg) {
+    el.className = 'adm-status ' + type;
+    el.innerHTML = msg;
+    el.style.display = 'block';
+  }
+  function admHideStatus(el) {
+    el.style.display = 'none';
+  }
+
+})();
+</script>
