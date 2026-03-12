@@ -8,7 +8,6 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
@@ -419,9 +418,12 @@
         return;
       }
 
-      // 3. Password check
-      const hashed = await hashPassword(password);
-      if (hashed !== user.password) {
+      // 3. Password check — try hash first, then plain text (default passwords)
+      const hashed       = await hashPassword(password);
+      const matchesHash  = (hashed === user.password);
+      const matchesPlain = (!matchesHash && password === user.password);
+
+      if (!matchesHash && !matchesPlain) {
         const attempts = (user.failed_attempts || 0) + 1;
         const patch    = attempts >= 5
           ? { failed_attempts: attempts, locked_until: new Date(Date.now() + 15*60000).toISOString() }
@@ -433,8 +435,10 @@
         return;
       }
 
-      // 4. Reset failed attempts
-      await db.from('users').update({ failed_attempts: 0, locked_until: null }).eq('email', email);
+      // 4. Reset failed attempts + auto-upgrade plain text password to hash
+      const upgradePayload = { failed_attempts: 0, locked_until: null };
+      if (matchesPlain) upgradePayload.password = hashed; // silently upgrade to hash
+      await db.from('users').update(upgradePayload).eq('email', email);
 
       // 5. Save session to sessionStorage
       const session = {
