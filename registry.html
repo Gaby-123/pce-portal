@@ -660,6 +660,17 @@ async function regSubmitManualStudent() {
   });
 
   if (res.ok) {
+    // Also create/update login account in users table
+    try {
+      const hashBuf    = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
+      const hashedPwd  = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+      await fetch(SUPABASE_URL + '/rest/v1/users?on_conflict=email', {
+        method: 'POST',
+        headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), role: 'STUDENT', password: hashedPwd, is_first_login: true })
+      });
+    } catch(ue) { console.warn('users table write failed:', ue); }
+
     statusEl.className='alert alert-success mt-3';
     statusEl.innerHTML='<i class="bi bi-check-circle me-2"></i>Student registered successfully!';
     ['regManualEmail','regManualFirstName','regManualSurname','regManualOtherName',
@@ -755,6 +766,29 @@ async function regConfirmUpload() {
     });
     if (res.ok) synced += batch.length;
     else { const err = await res.text(); Swal.fire({icon:'error',title:'Upload Error',text:err}); regSetLog('ERROR: '+err,'#ef4444'); return; }
+  }
+
+  // If students were uploaded, also upsert their login accounts in users table
+  if (regPendingUploadType === 'students') {
+    try {
+      const hashBuf   = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
+      const hashedPwd = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+      const userRows  = regPendingUploadRows.map(r => ({
+        email:          r.email.toLowerCase().trim(),
+        role:           'STUDENT',
+        password:       hashedPwd,
+        is_first_login: true
+      }));
+      for (let i = 0; i < userRows.length; i += 100) {
+        const batch = userRows.slice(i, i+100);
+        await fetch(SUPABASE_URL + '/rest/v1/users?on_conflict=email', {
+          method: 'POST',
+          headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify(batch)
+        });
+      }
+      regSetLog('Login accounts created for ' + userRows.length + ' students (default password: PCE@1848)', '#10b981');
+    } catch(ue) { console.warn('users table bulk write failed:', ue); }
   }
 
   Swal.fire({icon:'success',title:'Upload Complete!',text:synced+' records saved.',confirmButtonColor:'#10b981'});
