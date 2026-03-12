@@ -726,7 +726,7 @@ async function regPreviewUpload(type) {
     if (type === 'students') {
       const firstName = c[1]||'', surname = c[2]||'', otherName = c[3]||'';
       const fullName  = [firstName, surname, otherName].filter(Boolean).join(' ');
-      return { email:(c[0]||'').toLowerCase(), name:fullName, first_name:firstName, surname, other_name:otherName, index_number:c[4]||'', level:String(c[5]||'100'), gender:(c[6]||'MALE').toUpperCase(), dob:c[7]||null, phone:c[8]||'', program:c[9]||'', department:(c[10]||'').toUpperCase(), spec:c[11]||'', status:'PENDING' };
+      return { email:(c[0]||'').toLowerCase(), name:fullName, first_name:firstName, surname, other_name:otherName, index_number:c[4]||'', level:String(c[5]||'100'), gender:(c[6]||'MALE').toUpperCase(), dob:c[7]||null, phone:c[8]||'', program:c[9]||'', department:(c[10]||'').toUpperCase(), specialization:c[11]||'', status:'PENDING' };
     } else {
       return { course_code:c[0]||'', course_name:c[1]||'', level:String(c[2]||'100'), department:(c[3]||'').toUpperCase(), semester:c[4]||'1', credit_hours:Number(c[5]||3) };
     }
@@ -803,7 +803,7 @@ async function regRunBackup() {
 
   if (!rows || !rows.length) { Swal.fire({icon:'warning',title:'No Data',text:'No student records found.'}); regSetLog('BACKUP FAILED — no data.','#ef4444'); return; }
 
-  const headers = ['email','name','first_name','surname','other_name','index_number','level','program','department','spec','gender','dob','phone','status'];
+  const headers = ['email','name','first_name','surname','other_name','index_number','level','program','department','specialization','gender','dob','phone','status'];
   const csv = [
     headers,
     ...rows.map(r => headers.map(h => String(r[h]||'')))
