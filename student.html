@@ -352,6 +352,8 @@ async function runLoadCourses() {
   }
 
   // STEP 3 — active academic year
+  // BUG 3 FIX: Filter fee_structure by the student's actual level so a student at
+  // Level 300 doesn't receive Level 100's academic_year when fees differ per level.
   var activeFees = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(officialLevel) + '&select=academic_year,amount&limit=1');
   if (!activeFees || activeFees.length === 0) {
     area.innerHTML = '<div class="alert alert-warning text-center mt-2"><div style="font-size:2.5rem;">&#9203;</div><h5 class="fw-bold mt-2">Registration Not Yet Open</h5><p>The Finance Office has not yet activated an academic year for Level ' + officialLevel + '.</p></div>';
@@ -493,7 +495,11 @@ async function runStudentSubmitReg() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting Registration...';
 
-  var activeYear = _stuActiveYear || await stuGetActiveYear(lvl);
+  // BUG 6 FIX: Always re-fetch the active year at submit time instead of relying
+  // on the cached _stuActiveYear, which could be stale if Finance activated a new
+  // year while the student's tab was open. Cache is updated after the fresh fetch.
+  var activeYear = await stuGetActiveYear(lvl);
+  _stuActiveYear = activeYear; // update cache
   if (!activeYear) {
     alert('No active academic year found. Contact Finance Office.');
     btn.disabled = false; btn.innerHTML = 'Submit Final Registration';
@@ -745,7 +751,6 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
 
   pceDrawHeader(doc, logoData, pageW);
 
-  // Title
   let y = 32;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(15, 23, 42);
   doc.text('SEMESTER RESULT SLIP', pageW / 2, y, { align: 'center' });
@@ -754,20 +759,17 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
   doc.text('Level ' + lvl + '  —  ' + semLabel, pageW / 2, y, { align: 'center' });
   y += 8;
 
-  // Student info
   y = pceDrawSectionLabel(doc, 'Student Information', y, pageW);
   y = pceDrawInfoTable(doc, [
     ['Full Name:',  String(s.name || '').toUpperCase(),       'Index Number:', s.index_number || ''],
     ['Program:',    String(s.program || 'N/A').toUpperCase(), 'Department:',   s.department   || 'N/A'],
   ], y, pageW);
 
-  // Course table — columns: #, Code, Title, Cr, Grade, GP
   y = pceDrawSectionLabel(doc, 'Course Results', y, pageW);
   const cols  = [8, 24, usableW - 8 - 24 - 12 - 16 - 16, 12, 16, 16];
   const hdrs  = ['#', 'Code', 'Course Title', 'Cr', 'Grade', 'GP'];
   const rowH  = 7;
 
-  // Table header
   doc.setFillColor(30, 58, 95); doc.rect(margin, y, usableW, rowH, 'F');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255);
   let cx = margin;
@@ -778,7 +780,6 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
   });
   y += rowH;
 
-  // Table rows
   filtered.forEach((r, idx) => {
     const info  = courseMap[r.course_code] || {};
     const grade = String(r.grade || '').toUpperCase().trim();
@@ -797,7 +798,6 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
       const tx = a === 'center' ? cx + cols[i] / 2 : cx + 2;
       doc.setFont('helvetica', i === 4 ? 'bold' : 'normal');
       doc.setTextColor(...(i === 4 ? (fail ? [220,38,38] : [22,163,74]) : [55,65,81]));
-      // Truncate long title
       let t = val;
       if (i === 2) { while (doc.getTextWidth(t) > cols[2] - 4 && t.length) t = t.slice(0,-1); if (t !== val) t = t.slice(0,-1) + '…'; }
       doc.text(t, tx, y + rowH - 2, { align: a });
@@ -807,16 +807,13 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
     if (y > pageH - 40) { doc.addPage(); y = 20; }
   });
 
-  // Table bottom border
   doc.setDrawColor(15, 23, 42); doc.setLineWidth(0.4);
   doc.line(margin, y, margin + usableW, y);
   y += 7;
 
-  // GPA summary — two coloured boxes
   const halfW = usableW / 2;
   const gpaRGB = parseFloat(semGPA) >= 3.5 ? [22,163,74] : parseFloat(semGPA) >= 2.5 ? [2,132,199] : parseFloat(semGPA) >= 1.5 ? [217,119,6] : [220,38,38];
 
-  // Semester GPA
   doc.setFillColor(240, 249, 255); doc.setDrawColor(2, 132, 199); doc.setLineWidth(0.4);
   doc.roundedRect(margin, y, halfW - 2, 14, 2, 2, 'FD');
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139);
@@ -824,7 +821,6 @@ async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(...gpaRGB);
   doc.text(semGPA, margin + (halfW - 2) / 2, y + 12, { align: 'center' });
 
-  // Cumulative GPA
   const cx2 = margin + halfW + 2;
   doc.setFillColor(240, 253, 244); doc.setDrawColor(22, 163, 74); doc.setLineWidth(0.4);
   doc.roundedRect(cx2, y, halfW - 2, 14, 2, 2, 'FD');
@@ -845,8 +841,13 @@ async function loadStudentFinanceTab() {
   var display = document.getElementById('financeTabContent');
   display.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary mb-3"></div><p>Loading financial information...</p></div>';
 
-  var email      = userSession.email.toLowerCase().trim();
-  var activeFees = await sbFetch('fee_structure?status=eq.ACTIVE&select=academic_year,level,amount&limit=4');
+  var email        = userSession.email.toLowerCase().trim();
+  var studentLevel = userSession.level || '';
+
+  // BUG 3 FIX: Filter by the student's level so the correct academic year is
+  // retrieved. Without this, a Level 300 student could receive Level 100's year
+  // and then fail to find their student_finance row.
+  var activeFees = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(studentLevel) + '&select=academic_year,level,amount&limit=1');
   var activeYear = activeFees && activeFees.length > 0 ? activeFees[0].academic_year : null;
   if (!activeYear) { display.innerHTML = '<div class="alert alert-danger text-center py-5"><h5>No Active Academic Year</h5><p>The Finance Office has not activated an academic year yet.</p></div>'; return; }
 
@@ -854,9 +855,13 @@ async function loadStudentFinanceTab() {
   if (!sfRows || sfRows.length === 0) { display.innerHTML = '<div class="alert alert-danger text-center py-5"><h5>No Fees Configured For This Year</h5><p>The Finance Office has not set fees for your level yet.</p></div>'; return; }
 
   var sf = sfRows[0];
+
+  // BUG 4 FIX: Build the year list from the payments table (not just student_finance)
+  // so years that have payment records but no student_finance row still appear in
+  // the receipt dropdown (e.g. after data migration gaps).
   var step2 = await Promise.all([
     sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=amount,type,payment_date,reference&order=payment_date.desc'),
-    sbFetch('student_finance?email=eq.' + encodeURIComponent(email) + '&select=academic_year&order=academic_year.desc')
+    sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&select=academic_year&order=academic_year.desc')
   ]);
   var payments = step2[0] || [], allYears = step2[1] || [];
 
@@ -982,7 +987,6 @@ async function printStudentReceipt() {
     ['Program:',    String(s.program || 'N/A').toUpperCase(),  'Level (' + year + '):', sf.level || 'N/A'],
   ], y, pageW);
 
-  // Fee summary
   y = pceDrawSectionLabel(doc, 'Fee Summary', y, pageW);
   const feeRows = [
     ['Base Fees for ' + year,        'GH\u20B5 ' + baseFees.toFixed(2)],
@@ -1005,14 +1009,12 @@ async function printStudentReceipt() {
   });
   y += 2;
 
-  // Status badge
   doc.setFillColor(...statusRGB);
   doc.roundedRect(margin, y, usableW, 8, 1.5, 1.5, 'F');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 255);
   doc.text(statusLabel + ' (' + pct + '%)', pageW / 2, y + 5.5, { align: 'center' });
   y += 13;
 
-  // Payment history table
   y = pceDrawSectionLabel(doc, 'Payment Transaction History', y, pageW);
   const pCols = [8, 26, 30, usableW - 8 - 26 - 30 - 35, 35];
   const pHdrs = ['#', 'Date', 'Type', 'Reference', 'Amount'];
@@ -1053,7 +1055,6 @@ async function printStudentReceipt() {
   doc.save('Receipt_' + (s.index_number || em) + '_' + String(year).replace('/', '-') + '.pdf');
 }
 
-
 async function pceLoadLogo() {
   try {
     const resp = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
@@ -1068,15 +1069,12 @@ async function pceLoadLogo() {
   } catch { return null; }
 }
 
-// ── Shared: draw page header (logo + college name + divider + watermark) ─
 function pceDrawHeader(doc, logoData, pageW) {
   if (logoData) {
-    // Faint centred watermark
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.06 }));
     doc.addImage(logoData, 'PNG', (pageW - 90) / 2, 55, 90, 90);
     doc.restoreGraphicsState();
-    // Logo top-left
     doc.addImage(logoData, 'PNG', 14, 10, 18, 18);
   }
   doc.setFont('helvetica', 'bold');
@@ -1092,7 +1090,6 @@ function pceDrawHeader(doc, logoData, pageW) {
   doc.line(14, 25, pageW - 14, 25);
 }
 
-// ── Shared: draw a key-value info block (2 columns per row) ──────────────
 function pceDrawInfoTable(doc, rows, startY, pageW) {
   const margin = 14;
   const colW   = (pageW - margin * 2) / 2;
@@ -1104,13 +1101,10 @@ function pceDrawInfoTable(doc, rows, startY, pageW) {
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.2);
     doc.rect(margin, y, colW * 2, cellH, 'FD');
-    // Left key
     doc.setFont('helvetica', 'bold');   doc.setFontSize(8); doc.setTextColor(55, 65, 81);
     doc.text(row[0], margin + 2, y + cellH - 2);
-    // Left value
     doc.setFont('helvetica', 'normal'); doc.setTextColor(15, 23, 42);
     doc.text(String(row[1] || 'N/A'), margin + colW * 0.38, y + cellH - 2);
-    // Right key & value (optional)
     if (row[2] !== undefined) {
       doc.setFont('helvetica', 'bold');   doc.setTextColor(55, 65, 81);
       doc.text(row[2], margin + colW + 2, y + cellH - 2);
@@ -1122,7 +1116,6 @@ function pceDrawInfoTable(doc, rows, startY, pageW) {
   return y + 3;
 }
 
-// ── Shared: blue section label with underline ────────────────────────────
 function pceDrawSectionLabel(doc, label, y, pageW) {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(2, 132, 199);
   doc.text(label.toUpperCase(), 14, y);
@@ -1131,7 +1124,6 @@ function pceDrawSectionLabel(doc, label, y, pageW) {
   return y + 5;
 }
 
-// ── Shared: footer ───────────────────────────────────────────────────────
 function pceFooter(doc, pageW, pageH) {
   doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
   doc.line(14, pageH - 11, pageW - 14, pageH - 11);
@@ -1142,7 +1134,6 @@ function pceFooter(doc, pageW, pageH) {
   );
 }
 
-  
 // ── Auto-init ──────────────────────────────────────────────────
 (function() { initStudentPortal(); })();
 </script>
