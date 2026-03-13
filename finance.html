@@ -214,7 +214,7 @@
         <div class="alert alert-info py-2 px-3 small mb-3">
           <strong>CSV Format:</strong> Email, Amount, Type, Date, Reference<br>
           <strong>Type:</strong> PAYMENT or DEDUCTION &nbsp;|&nbsp;
-          <strong>Example:</strong> student@pce.edu.gh, 3500, PAYMENT, 2024-09-15, TXN12345
+          <strong>Example:</strong> <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d4a7a0a1b0b1baa094a4b7b1fab1b0a1fab3bc">[email&#160;protected]</a>, 3500, PAYMENT, 2024-09-15, TXN12345
         </div>
         <div class="row g-3 mb-3">
           <div class="col-md-8">
@@ -324,7 +324,7 @@
   </div>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // All finance functions are prefixed fin* to avoid any global name collisions
 
 function finShowSection(id) {
@@ -376,6 +376,21 @@ async function finSyncFinanceRow(email, academicYear) {
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ total_paid: totalPaid, balance, percentage, can_register: percentage >= 70 })
   });
+  // Auto-update student_bio.status based on payment percentage.
+  // Finance can still manually override to CLEARED at any time.
+  // Only upgrade status — never downgrade a CLEARED student automatically.
+  const bioRows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(em) + '&select=status&limit=1');
+  const currentStatus = bioRows && bioRows.length ? (bioRows[0].status || 'PENDING') : 'PENDING';
+  let autoStatus = null;
+  if (percentage >= 100 && currentStatus !== 'CLEARED') autoStatus = 'CLEARED';
+  else if (percentage >= 70 && currentStatus === 'PENDING') autoStatus = 'ELIGIBLE';
+  if (autoStatus) {
+    await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(em), {
+      method: 'PATCH',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: autoStatus })
+    });
+  }
 }
 
 // ── Academic Year ──────────────────────────────────────────────
@@ -1098,11 +1113,4 @@ async function finRunDl() {
 }
 
 // ── Auto-init when fragment loads ──────────────────────────────
-(async function() {
-  document.querySelectorAll('.finance-section').forEach(s => {
-    s.style.display = s.id === 'year-setup' ? 'block' : 'none';
-  });
-  await finLoadActiveYearDisplay();
-  await finLoadYearFeeStatusTable();
-})();
-</script>
+(async functi
