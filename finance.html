@@ -534,8 +534,87 @@ async function finSubmitFeeStructure() {
       body: JSON.stringify({ academic_year: year, level: String(level), amount, status: year === activeYear ? 'ACTIVE' : 'INACTIVE', set_by: userSession.email || 'Finance Officer' })
     });
     if (!res.ok) { status.className = 'alert alert-danger mt-2'; status.innerHTML = '⚠️ ' + await res.text(); return; }
-    status.className = 'alert alert-success mt-2';
-    status.innerHTML = `✅ ${year} Level ${level} → GH₵ ${amount.toFixed(2)} saved.`;
+
+    // ── Backfill: create/repair student_finance rows for any students at this
+    // level who are missing one or have zero fees for this year.
+    // This covers students migrated to a new level by Registry AFTER activation,
+    // and fees set for a level AFTER activation.
+    status.className = 'alert alert-info mt-2'; status.style.display = 'block';
+    status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Saved. Checking for students who need finance records...';
+    try {
+      const normLvl = v => String(v || '').replace(/[^0-9]/g, '').trim();
+      const levelKey = normLvl(level);
+
+      const [allBio, existingLevelRows, allPrior] = await Promise.all([
+        sbFetch('student_bio?select=email,name,level') || [],
+        sbFetch('student_finance?academic_year=eq.' + encodeURIComponent(year) + '&select=email,base_fees,total_required') || [],
+        sbFetch('student_finance?select=email,academic_year,balance&order=academic_year.asc') || []
+      ]);
+
+      const studentsAtLevel = (allBio || []).filter(r => normLvl(r.level) === levelKey);
+      const existingMap     = {};
+      (existingLevelRows || []).forEach(r => { existingMap[r.email.toLowerCase().trim()] = r; });
+
+      // Build carry-over map
+      const prevBalances = {};
+      (allPrior || []).forEach(r => {
+        if (r.academic_year === year) return;
+        const em = r.email.toLowerCase().trim();
+        if (!prevBalances[em]) prevBalances[em] = [];
+        prevBalances[em].push({ year: r.academic_year, balance: Number(r.balance) || 0 });
+      });
+      Object.keys(prevBalances).forEach(em => {
+        const sorted = prevBalances[em].sort((a, b) =>
+          (parseInt(String(b.year).split('/')[0]) || 0) - (parseInt(String(a.year).split('/')[0]) || 0));
+        prevBalances[em] = (sorted[0] && sorted[0].balance > 0) ? sorted[0].balance : 0;
+      });
+
+      const toInsert = [], toRepatch = [];
+      studentsAtLevel.forEach(row => {
+        const em    = row.email.toLowerCase().trim();
+        const carry = (typeof prevBalances[em] === 'number') ? prevBalances[em] : 0;
+        const total = amount + carry;
+        if (!existingMap[em]) {
+          // No row at all — insert
+          toInsert.push({ email: em, name: row.name || '', level: levelKey, academic_year: year,
+            base_fees: amount, carry_over: carry, total_required: total,
+            total_paid: 0, balance: total, percentage: 0, can_register: false });
+        } else if (Number(existingMap[em].base_fees) === 0 || Number(existingMap[em].total_required) === 0) {
+          // Row exists but fees are zero — patch
+          toRepatch.push({ em, carry, total });
+        }
+      });
+
+      let inserted = 0, repatched = 0;
+      for (let i = 0; i < toInsert.length; i += 100) {
+        const r = await fetch(SUPABASE_URL + '/rest/v1/student_finance', {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+                     'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify(toInsert.slice(i, i + 100))
+        });
+        if (r.ok) inserted += Math.min(100, toInsert.length - i);
+      }
+      for (const row of toRepatch) {
+        const r = await fetch(SUPABASE_URL + '/rest/v1/student_finance?email=eq.' + encodeURIComponent(row.em) + '&academic_year=eq.' + encodeURIComponent(year), {
+          method: 'PATCH',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base_fees: amount, carry_over: row.carry, total_required: row.total,
+                                 balance: row.total, percentage: 0, can_register: false })
+        });
+        if (r.ok) repatched++;
+      }
+
+      status.className = 'alert alert-success mt-2';
+      status.innerHTML = `✅ ${year} Level ${level} → GH₵ ${amount.toFixed(2)} saved.`
+        + (inserted  > 0 ? ` ${inserted} new finance record(s) created.` : '')
+        + (repatched > 0 ? ` ${repatched} zero-fee record(s) corrected.` : '')
+        + (inserted === 0 && repatched === 0 ? ' All students already have correct records.' : '');
+    } catch(backfillErr) {
+      status.className = 'alert alert-warning mt-2';
+      status.innerHTML = `✅ Fee saved, but auto-backfill failed: ${backfillErr.message}`;
+    }
+
     document.getElementById('feeAmount').value = '';
     finLoadFeeStructure();
   } catch(e) { status.className = 'alert alert-danger mt-2'; status.innerHTML = '⚠️ Error: ' + e.message; }
