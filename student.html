@@ -1,5 +1,10 @@
 <style>
-  :root { --pce-blue:#0284c7; --pce-blue-light:#f0f9ff; --pce-border:#e2e8f0; --pce-text-dark:#0f172a; }
+  :root {
+    --pce-blue: #0284c7;
+    --pce-blue-light: #f0f9ff;
+    --pce-border: #e2e8f0;
+    --pce-text-dark: #0f172a;
+  }
   .portal-wrapper { background-color:#ffffff; font-family:'Inter',system-ui,-apple-system,sans-serif; color:var(--pce-text-dark); }
   .portal-header { background:var(--pce-blue-light); border-radius:12px; padding:16px 20px; border:1px solid var(--pce-border); }
   .portal-header h4 { font-weight:800; letter-spacing:-0.5px; margin:0; color:var(--pce-text-dark); }
@@ -32,52 +37,180 @@
     <h4 style="color:#007bff;">STUDENT PORTAL</h4>
     <span class="badge" id="studentLevelBadge">Level --</span>
   </div>
+
   <ul class="nav nav-tabs mb-4" id="stuNavTabs">
-    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#profile" data-stu-tab="profile"><i class="bi bi-person-circle me-1"></i> Profile</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#registration" data-stu-tab="registration"><i class="bi bi-pencil-square me-1"></i> Registration</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#results" data-stu-tab="results"><i class="bi bi-graph-up me-1"></i> Results</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#finance" data-stu-tab="finance"><i class="bi bi-cash-stack me-1"></i> Finance</button></li>
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#profile" data-stu-tab="profile">
+        <i class="bi bi-person-circle me-1"></i> Profile
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#registration" data-stu-tab="registration">
+        <i class="bi bi-pencil-square me-1"></i> Registration
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#results" data-stu-tab="results">
+        <i class="bi bi-graph-up me-1"></i> Results
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#finance" data-stu-tab="finance">
+        <i class="bi bi-cash-stack me-1"></i> Finance
+      </button>
+    </li>
   </ul>
+
   <div class="tab-content tab-content-container">
-    <div class="tab-pane fade show active" id="profile"><div class="row" id="profileDisplay"><div class="text-center p-5 text-muted">Loading your profile...</div></div></div>
+
+    <!-- PROFILE TAB -->
+    <div class="tab-pane fade show active" id="profile">
+      <div class="row" id="profileDisplay">
+        <div class="text-center p-5 text-muted">Loading your profile...</div>
+      </div>
+    </div>
+
+    <!-- REGISTRATION TAB -->
     <div class="tab-pane fade" id="registration">
       <div id="registrationContent">
         <div class="control-box mb-3">
           <div class="row g-3">
-            <div class="col-md-5"><label class="small fw-bold text-muted mb-1">Select Level</label><select id="regLvl" class="form-select"><option value="">-- Select Level --</option><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select></div>
-            <div class="col-md-5"><label class="small fw-bold text-muted mb-1">Select Semester</label><select id="regSem" class="form-select"><option value="">-- Select Semester --</option><option value="SEMESTER1">Semester 1</option><option value="SEMESTER2">Semester 2</option></select><div class="dropdown-hint"><i class="bi bi-lightning-fill text-warning"></i> Courses load automatically when both are selected</div></div>
-            <div class="col-md-2 d-flex align-items-end"><button class="btn btn-pce-dark w-100 py-2" id="stuLoadCoursesBtn"><i class="bi bi-arrow-clockwise me-1"></i>Load</button></div>
+            <div class="col-md-5">
+              <label class="small fw-bold text-muted mb-1">Select Level</label>
+              <select id="regLvl" class="form-select">
+                <option value="">-- Select Level --</option>
+                <option value="100">Level 100</option>
+                <option value="200">Level 200</option>
+                <option value="300">Level 300</option>
+                <option value="400">Level 400</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="small fw-bold text-muted mb-1">Select Semester</label>
+              <select id="regSem" class="form-select">
+                <option value="">-- Select Semester --</option>
+                <option value="SEMESTER1">Semester 1</option>
+                <option value="SEMESTER2">Semester 2</option>
+              </select>
+              <div class="dropdown-hint">
+                <i class="bi bi-lightning-fill text-warning"></i>
+                Courses load automatically when both are selected
+              </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-pce-dark w-100 py-2" id="stuLoadCoursesBtn">
+                <i class="bi bi-arrow-clockwise me-1"></i>Load
+              </button>
+            </div>
           </div>
         </div>
+
         <div id="courseList"></div>
+
         <div id="finalStep" style="display:none;" class="mt-4 p-4 border-top control-box">
           <h6 class="mb-3">Update Profile &amp; Confirm Registration</h6>
           <div id="regExtras">
             <div class="row g-3 mb-4">
-              <div class="col-md-4"><label class="small fw-bold text-muted">Date of Birth</label><input type="date" id="vDOB" class="form-control"></div>
-              <div class="col-md-4"><label class="small fw-bold text-muted">Department</label><select id="vDept" class="form-select"><option value="">-- Select Dept --</option><option>SOCIAL SCIENCE</option><option>MATHS AND ICT</option><option>SCIENCES</option><option>CREATIVE ARTS</option><option>LANGUAGES</option><option>EDUCATIONAL STUDIES</option><option>VOCATIONAL-TECHNICAL</option></select></div>
-              <div class="col-md-4"><label class="small fw-bold text-muted">Specialization</label><select id="vSpec" class="form-select"><option value="">-- Select Specialization --</option><option>VISUAL ARTS</option><option>TECHNICAL EDUCATION</option><option>SCIENCE</option><option>HISTORY AND SOCIAL STUDIES</option><option>SOCIAL STUDIES AND HISTORY</option><option>RELIGIOUS AND MORAL EDUCATION AND SOCIAL STUDIES</option><option>SOCIAL STUDIES AND RELIGIOUS AND MORAL EDUCATION</option><option>AGRICULTURAL SCIENCE AND HOME ECONOMICS</option><option>HOME ECONOMICS AND AGRICULTURAL SCIENCE</option><option>ICT AND MATHEMATICS</option><option>MATHEMATICS AND ICT</option><option>SCIENCE AND MATHEMATICS</option><option>MATHEMATICS AND SCIENCE</option><option>UPPER PRIMARY</option><option>SPECIAL EDUCATION AND SOCIAL STUDIES</option><option>SPECIAL EDUCATION AND MATHEMATICS</option><option>SPECIAL EDUCATION AND ICT</option><option>SPECIAL EDUCATION AND HISTORY</option><option>SPECIAL EDUCATION AND HOME ECONOMICS</option><option>SPECIAL EDUCATION AND RELIGIOUS AND MORAL EDUCATION</option><option>SPECIAL EDUCATION AND AGRICULTURAL SCIENCE</option></select></div>
+              <div class="col-md-4">
+                <label class="small fw-bold text-muted">Date of Birth</label>
+                <input type="date" id="vDOB" class="form-control">
+              </div>
+              <div class="col-md-4">
+                <label class="small fw-bold text-muted">Department</label>
+                <select id="vDept" class="form-select">
+                  <option value="">-- Select Dept --</option>
+                  <option>SOCIAL SCIENCE</option>
+                  <option>MATHS AND ICT</option>
+                  <option>SCIENCES</option>
+                  <option>CREATIVE ARTS</option>
+                  <option>LANGUAGES</option>
+                  <option>EDUCATIONAL STUDIES</option>
+                  <option>VOCATIONAL-TECHNICAL</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="small fw-bold text-muted">Specialization</label>
+                <select id="vSpec" class="form-select">
+                  <option value="">-- Select Specialization --</option>
+                  <option>VISUAL ARTS</option>
+                  <option>TECHNICAL EDUCATION</option>
+                  <option>SCIENCE</option>
+                  <option>HISTORY AND SOCIAL STUDIES</option>
+                  <option>SOCIAL STUDIES AND HISTORY</option>
+                  <option>RELIGIOUS AND MORAL EDUCATION AND SOCIAL STUDIES</option>
+                  <option>SOCIAL STUDIES AND RELIGIOUS AND MORAL EDUCATION</option>
+                  <option>AGRICULTURAL SCIENCE AND HOME ECONOMICS</option>
+                  <option>HOME ECONOMICS AND AGRICULTURAL SCIENCE</option>
+                  <option>ICT AND MATHEMATICS</option>
+                  <option>MATHEMATICS AND ICT</option>
+                  <option>SCIENCE AND MATHEMATICS</option>
+                  <option>MATHEMATICS AND SCIENCE</option>
+                  <option>UPPER PRIMARY</option>
+                  <option>SPECIAL EDUCATION AND SOCIAL STUDIES</option>
+                  <option>SPECIAL EDUCATION AND MATHEMATICS</option>
+                  <option>SPECIAL EDUCATION AND ICT</option>
+                  <option>SPECIAL EDUCATION AND HISTORY</option>
+                  <option>SPECIAL EDUCATION AND HOME ECONOMICS</option>
+                  <option>SPECIAL EDUCATION AND RELIGIOUS AND MORAL EDUCATION</option>
+                  <option>SPECIAL EDUCATION AND AGRICULTURAL SCIENCE</option>
+                </select>
+              </div>
             </div>
           </div>
           <button id="regBtn" class="btn btn-pce-success w-100">Submit Final Registration</button>
         </div>
       </div>
     </div>
+
+    <!-- RESULTS TAB -->
     <div class="tab-pane fade" id="results">
-      <div class="control-box mb-4"><div class="row g-3">
-        <div class="col-md-5"><label class="small fw-bold text-muted mb-1">Level</label><select id="resLvl" class="form-select"><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select></div>
-        <div class="col-md-5"><label class="small fw-bold text-muted mb-1">Semester</label><select id="resSem" class="form-select"><option value="SEMESTER1">Semester 1</option><option value="SEMESTER2">Semester 2</option></select></div>
-        <div class="col-md-2 d-flex align-items-end"><button class="btn btn-pce-dark w-100 py-2" id="stuFetchResultsBtn">Fetch</button></div>
-      </div></div>
-      <div id="resultsDisplay" class="text-center py-5 text-muted border rounded" style="border-style:dashed!important;"><i class="bi bi-file-earmark-text mb-2" style="font-size:2rem;"></i><br>Select level and semester to view results.</div>
+      <div class="control-box mb-4">
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label class="small fw-bold text-muted mb-1">Level</label>
+            <select id="resLvl" class="form-select">
+              <option value="100">Level 100</option>
+              <option value="200">Level 200</option>
+              <option value="300">Level 300</option>
+              <option value="400">Level 400</option>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="small fw-bold text-muted mb-1">Semester</label>
+            <select id="resSem" class="form-select">
+              <option value="SEMESTER1">Semester 1</option>
+              <option value="SEMESTER2">Semester 2</option>
+            </select>
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-pce-dark w-100 py-2" id="stuFetchResultsBtn">Fetch</button>
+          </div>
+        </div>
+      </div>
+      <div id="resultsDisplay" class="text-center py-5 text-muted border rounded" style="border-style:dashed!important;">
+        <i class="bi bi-file-earmark-text mb-2" style="font-size:2rem;"></i><br>
+        Select level and semester to view results.
+      </div>
     </div>
-    <div class="tab-pane fade" id="finance"><div id="financeTabContent"><div class="text-center p-5 text-muted"><div class="spinner-border text-primary mb-3"></div><p>Loading your financial information...</p></div></div></div>
+
+    <!-- FINANCE TAB -->
+    <div class="tab-pane fade" id="finance">
+      <div id="financeTabContent">
+        <div class="text-center p-5 text-muted">
+          <div class="spinner-border text-primary mb-3"></div>
+          <p>Loading your financial information...</p>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <script>
+// ── Module-scoped state ────────────────────────────────────────
 var _stuActiveYear = null;
 
+// ── Tab switching ──────────────────────────────────────────────
 document.querySelectorAll('#stuNavTabs [data-stu-tab]').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var tab = this.getAttribute('data-stu-tab');
@@ -97,12 +230,14 @@ document.querySelectorAll('#stuNavTabs [data-stu-tab]').forEach(function(btn) {
   });
 });
 
+// ── Wire up static buttons ─────────────────────────────────────
 document.getElementById('regLvl').addEventListener('change', onRegDropdownChange);
 document.getElementById('regSem').addEventListener('change', onRegDropdownChange);
 document.getElementById('stuLoadCoursesBtn').addEventListener('click', runLoadCourses);
 document.getElementById('regBtn').addEventListener('click', runStudentSubmitReg);
 document.getElementById('stuFetchResultsBtn').addEventListener('click', runFetchResults);
 
+// toggleAllCourses must be global — called from dynamically rendered HTML
 window.toggleAllCourses = function(checked) {
   document.querySelectorAll('.c-cb').forEach(function(cb) { cb.checked = checked; });
 };
@@ -138,7 +273,6 @@ async function initStudentPortal() {
   if (nameEl) nameEl.innerText = profile.name;
   if (initEl && profile.name) initEl.innerText = profile.name.charAt(0).toUpperCase();
 
-  // Render immediately with stored status — page appears at once
   renderStudentProfile(profile);
 
   var badge = document.getElementById('studentLevelBadge');
@@ -148,40 +282,8 @@ async function initStudentPortal() {
   if (regLvl && profile.level) regLvl.value = profile.level;
   var resLvl = document.getElementById('resLvl');
   if (resLvl && profile.level) resLvl.value = profile.level;
+  // Re-run smartFill now that userSession.dob/spec/dept are populated
   smartFillRegistrationExtras();
-
-  // ── Update Finance Status badge in background (non-blocking) ──────────────
-  // Profile is already visible above. This quietly corrects the badge once the
-  // live payment data arrives, without making the user wait for it.
-  (async function() {
-    try {
-      var em      = email.toLowerCase().trim();
-      var normLvl = String(profile.level || '').replace(/[^0-9]/g, '').trim();
-      var feeRows = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(normLvl) + '&select=academic_year&limit=1');
-      var activeYr = feeRows && feeRows.length ? feeRows[0].academic_year : null;
-      if (!activeYr) return;
-      var finRows = await Promise.all([
-        sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(activeYr) + '&select=total_required&limit=1'),
-        sbFetch('payments?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(activeYr) + '&select=amount')
-      ]);
-      var sfRow = finRows[0] && finRows[0].length ? finRows[0][0] : null;
-      var pays  = finRows[1] || [];
-      if (!sfRow) return;
-      var req  = Number(sfRow.total_required);
-      var paid = pays.reduce(function(s, p) { return s + Number(p.amount); }, 0);
-      var pct  = req > 0 ? (paid / req) * 100 : 0;
-      var liveStatus = pct >= 100 ? 'CLEARED' : pct >= 70 ? 'ELIGIBLE' : 'PENDING';
-      // Only update the DOM if the status has changed — avoids flicker
-      if (liveStatus !== profile.status) {
-        var statusEl = document.querySelector('#profileDisplay .badge');
-        if (statusEl) {
-          statusEl.className = 'badge mb-3 ' + (liveStatus === 'CLEARED' ? 'bg-success' : liveStatus === 'ELIGIBLE' ? 'bg-warning text-dark' : 'bg-danger');
-          statusEl.innerText = liveStatus;
-        }
-      }
-    } catch(e) { /* silent — stored status remains shown */ }
-  })();
-  // ─────────────────────────────────────────────────────────────────────────
 }
 
 function renderStudentProfile(profile) {
@@ -216,14 +318,18 @@ function renderStudentProfile(profile) {
 function onRegDropdownChange() {
   var lvl = document.getElementById('regLvl').value;
   var sem = document.getElementById('regSem').value;
-  if (!lvl || !sem) { document.getElementById('courseList').innerHTML = ''; document.getElementById('finalStep').style.display = 'none'; return; }
+  if (!lvl || !sem) {
+    document.getElementById('courseList').innerHTML = '';
+    document.getElementById('finalStep').style.display = 'none';
+    return;
+  }
   clearTimeout(window._regAutoLoadTimer);
   window._regAutoLoadTimer = setTimeout(runLoadCourses, 300);
 }
 
 async function runLoadCourses() {
-  var lvl = document.getElementById('regLvl').value;
-  var sem = document.getElementById('regSem').value;
+  var lvl  = document.getElementById('regLvl').value;
+  var sem  = document.getElementById('regSem').value;
   var area = document.getElementById('courseList');
   var finalStep = document.getElementById('finalStep');
   if (!lvl || !sem) { area.innerHTML = ''; finalStep.style.display = 'none'; return; }
@@ -233,24 +339,42 @@ async function runLoadCourses() {
 
   var email = userSession.email.toLowerCase().trim();
 
+  // STEP 1 — official level
   var bioRows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=level,status&limit=1');
-  if (!bioRows || bioRows.length === 0) { area.innerHTML = '<div class="alert alert-danger text-center mt-2"><h5>&#9888;&#65039; Profile Not Found</h5><p>Contact the Registry office.</p></div>'; return; }
+  if (!bioRows || bioRows.length === 0) {
+    area.innerHTML = '<div class="alert alert-danger text-center mt-2"><h5>&#9888;&#65039; Profile Not Found</h5><p>Contact the Registry office.</p></div>';
+    return;
+  }
   var officialLevel = String(bioRows[0].level).trim();
 
-  if (String(lvl).trim() !== officialLevel) { area.innerHTML = '<div class="alert alert-danger text-center mt-2"><h5>&#9888;&#65039; Unauthorized</h5><p>Your official level is <strong>Level ' + officialLevel + '</strong>. You cannot register for Level ' + lvl + '.</p></div>'; return; }
+  // STEP 2 — anti-cheat
+  if (String(lvl).trim() !== officialLevel) {
+    area.innerHTML = '<div class="alert alert-danger text-center mt-2"><h5>&#9888;&#65039; Unauthorized</h5><p>Your official level is <strong>Level ' + officialLevel + '</strong>. You cannot register for Level ' + lvl + '.</p></div>';
+    return;
+  }
 
+  // STEP 3 — active academic year
+  // BUG 3 FIX: Filter fee_structure by the student's actual level so a student at
+  // Level 300 doesn't receive Level 100's academic_year when fees differ per level.
   var activeFees = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(officialLevel) + '&select=academic_year,amount&limit=1');
-  if (!activeFees || activeFees.length === 0) { area.innerHTML = '<div class="alert alert-warning text-center mt-2"><div style="font-size:2.5rem;">&#9203;</div><h5 class="fw-bold mt-2">Registration Not Yet Open</h5><p>The Finance Office has not yet activated an academic year for Level ' + officialLevel + '.</p></div>'; return; }
+  if (!activeFees || activeFees.length === 0) {
+    area.innerHTML = '<div class="alert alert-warning text-center mt-2"><div style="font-size:2.5rem;">&#9203;</div><h5 class="fw-bold mt-2">Registration Not Yet Open</h5><p>The Finance Office has not yet activated an academic year for Level ' + officialLevel + '.</p></div>';
+    return;
+  }
   var activeYear = activeFees[0].academic_year;
   _stuActiveYear = activeYear;
 
+  // STEP 4 — 70% payment check
   var step4 = await Promise.all([
     sbFetch('student_finance?email=eq.' + encodeURIComponent(email) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=total_required&limit=1'),
     sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=amount')
   ]);
   var sfRows = step4[0], payments = step4[1] || [];
 
-  if (!sfRows || sfRows.length === 0) { area.innerHTML = '<div class="alert alert-danger text-center mt-2"><div style="font-size:2.5rem;">&#128274;</div><h5 class="fw-bold mt-2">No Fee Record Found</h5><p>Please visit the Finance Office immediately.</p></div>'; return; }
+  if (!sfRows || sfRows.length === 0) {
+    area.innerHTML = '<div class="alert alert-danger text-center mt-2"><div style="font-size:2.5rem;">&#128274;</div><h5 class="fw-bold mt-2">No Fee Record Found</h5><p>Please visit the Finance Office immediately.</p></div>';
+    return;
+  }
 
   var totalReq  = Number(sfRows[0].total_required);
   var totalPaid = payments.reduce(function(s, p) { return s + Number(p.amount); }, 0);
@@ -260,81 +384,164 @@ async function runLoadCourses() {
 
   if (pct < 70) {
     area.innerHTML =
-      '<div class="alert alert-danger text-center mt-2"><div style="font-size:2.5rem;">&#128274;</div><h5 class="fw-bold mt-2">Payment Required to Register</h5><p>You must pay at least <strong>70%</strong> of your fees before you can register.</p><hr>' +
-      '<div class="row text-center g-3 my-2"><div class="col-4"><small class="text-muted d-block">Required</small><h5 class="text-primary mb-0">GH&#8373; ' + totalReq.toFixed(2) + '</h5></div><div class="col-4"><small class="text-muted d-block">Paid</small><h5 class="text-success mb-0">GH&#8373; ' + totalPaid.toFixed(2) + '</h5></div><div class="col-4"><small class="text-muted d-block">Still Needed</small><h5 class="text-danger mb-0">GH&#8373; ' + Math.max(0, needed70 - totalPaid).toFixed(2) + '</h5></div></div>' +
-      '<div class="progress mt-3" style="height:28px;"><div class="progress-bar bg-danger" style="width:' + pct.toFixed(1) + '%"><strong>' + pct.toFixed(1) + '%</strong></div></div>' +
-      '<p class="small text-muted mt-3 mb-0">Academic Year: <strong>' + activeYear + '</strong> | Outstanding: <strong>GH&#8373; ' + balance.toFixed(2) + '</strong></p></div>';
+      '<div class="alert alert-danger text-center mt-2">' +
+        '<div style="font-size:2.5rem;">&#128274;</div>' +
+        '<h5 class="fw-bold mt-2">Payment Required to Register</h5>' +
+        '<p>You must pay at least <strong>70%</strong> of your fees before you can register.</p><hr>' +
+        '<div class="row text-center g-3 my-2">' +
+          '<div class="col-4"><small class="text-muted d-block">Required</small><h5 class="text-primary mb-0">GH&#8373; ' + totalReq.toFixed(2) + '</h5></div>' +
+          '<div class="col-4"><small class="text-muted d-block">Paid</small><h5 class="text-success mb-0">GH&#8373; ' + totalPaid.toFixed(2) + '</h5></div>' +
+          '<div class="col-4"><small class="text-muted d-block">Still Needed</small><h5 class="text-danger mb-0">GH&#8373; ' + Math.max(0, needed70 - totalPaid).toFixed(2) + '</h5></div>' +
+        '</div>' +
+        '<div class="progress mt-3" style="height:28px;"><div class="progress-bar bg-danger" style="width:' + pct.toFixed(1) + '%"><strong>' + pct.toFixed(1) + '%</strong></div></div>' +
+        '<p class="small text-muted mt-3 mb-0">Academic Year: <strong>' + activeYear + '</strong> | Outstanding: <strong>GH&#8373; ' + balance.toFixed(2) + '</strong></p>' +
+      '</div>';
     return;
   }
 
+  // STEP 5 — semester registration status
   var otherSem = sem === 'SEMESTER1' ? 'SEMESTER2' : 'SEMESTER1';
   var semChecks = await Promise.all([
     sbFetch('registrations?email=eq.' + encodeURIComponent(email) + '&semester=eq.' + encodeURIComponent(sem) + '&level=eq.' + encodeURIComponent(officialLevel) + '&select=id&limit=1'),
     sbFetch('registrations?email=eq.' + encodeURIComponent(email) + '&semester=eq.' + encodeURIComponent(otherSem) + '&level=eq.' + encodeURIComponent(officialLevel) + '&select=id&limit=1')
   ]);
-  var thisDone = semChecks[0] && semChecks[0].length > 0;
+  var thisDone  = semChecks[0] && semChecks[0].length > 0;
   var otherDone = semChecks[1] && semChecks[1].length > 0;
-  var sem1Done = sem === 'SEMESTER1' ? thisDone : otherDone;
-  var sem2Done = sem === 'SEMESTER2' ? thisDone : otherDone;
-  var semLabel = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
+  var sem1Done  = sem === 'SEMESTER1' ? thisDone : otherDone;
+  var sem2Done  = sem === 'SEMESTER2' ? thisDone : otherDone;
+  var semLabel  = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
 
   var statusBar =
     '<div class="d-flex gap-2 mb-3">' +
-    '<span class="badge px-3 py-2 ' + (sem1Done ? 'bg-success' : 'bg-light text-dark border') + '" style="font-size:0.8rem;">' + (sem1Done ? '&#9989;' : '&#9203;') + ' Semester 1</span>' +
-    '<span class="badge px-3 py-2 ' + (sem2Done ? 'bg-success' : 'bg-light text-dark border') + '" style="font-size:0.8rem;">' + (sem2Done ? '&#9989;' : '&#9203;') + ' Semester 2</span>' +
-    '<span class="ms-auto badge bg-success px-3 py-2" style="font-size:0.8rem;">&#9989; Fees: ' + pct.toFixed(1) + '% Paid</span></div>';
+      '<span class="badge px-3 py-2 ' + (sem1Done ? 'bg-success' : 'bg-light text-dark border') + '" style="font-size:0.8rem;">' + (sem1Done ? '&#9989;' : '&#9203;') + ' Semester 1</span>' +
+      '<span class="badge px-3 py-2 ' + (sem2Done ? 'bg-success' : 'bg-light text-dark border') + '" style="font-size:0.8rem;">' + (sem2Done ? '&#9989;' : '&#9203;') + ' Semester 2</span>' +
+      '<span class="ms-auto badge bg-success px-3 py-2" style="font-size:0.8rem;">&#9989; Fees: ' + pct.toFixed(1) + '% Paid</span>' +
+    '</div>';
 
   if (thisDone) {
-    area.innerHTML = statusBar + '<div class="text-center p-4 border rounded" style="background:#f0fdf4;border-color:#86efac!important;"><div style="font-size:3rem;">&#9989;</div><h5 class="fw-bold mt-2" style="color:#166534;">Level ' + officialLevel + ' &#8212; ' + semLabel + ' Already Registered</h5><p class="text-muted mb-4">You have already registered your courses for this semester.</p><button class="btn btn-success fw-bold px-5 py-2" id="downloadSlipBtn"><i class="bi bi-file-earmark-pdf me-2"></i>Download Registration Slip</button></div>';
+    area.innerHTML = statusBar +
+      '<div class="text-center p-4 border rounded" style="background:#f0fdf4;border-color:#86efac!important;">' +
+        '<div style="font-size:3rem;">&#9989;</div>' +
+        '<h5 class="fw-bold mt-2" style="color:#166534;">Level ' + officialLevel + ' &#8212; ' + semLabel + ' Already Registered</h5>' +
+        '<p class="text-muted mb-4">You have already registered your courses for this semester.</p>' +
+        '<button class="btn btn-success fw-bold px-5 py-2" id="downloadSlipBtn"><i class="bi bi-file-earmark-pdf me-2"></i>Download Registration Slip</button>' +
+      '</div>';
     document.getElementById('downloadSlipBtn').addEventListener('click', function() { handleDownloadSlip(this); });
     return;
   }
 
+  // STEP 6 — fetch courses
   var courses = await sbFetch('courses?level=eq.' + encodeURIComponent(officialLevel) + '&semester=eq.' + encodeURIComponent(sem) + '&select=course_code,title&order=course_code');
-  if (!courses || courses.length === 0) { area.innerHTML = statusBar + '<div class="alert alert-secondary text-center">No courses found for Level ' + officialLevel + ' ' + semLabel + '. Contact the Registry office.</div>'; return; }
+  if (!courses || courses.length === 0) {
+    area.innerHTML = statusBar + '<div class="alert alert-secondary text-center">No courses found for Level ' + officialLevel + ' ' + semLabel + '. Contact the Registry office.</div>';
+    return;
+  }
 
-  var h = statusBar + '<div class="mb-2 d-flex gap-2 align-items-center"><button type="button" class="btn btn-sm btn-outline-primary" id="stuSelAll">Select All</button><button type="button" class="btn btn-sm btn-outline-secondary" id="stuUnselAll">Unselect All</button><span class="ms-auto small text-muted">' + courses.length + ' courses available</span></div><table class="table table-sm table-hover mt-2 border rounded"><thead class="table-light"><tr><th style="width:40px;"></th><th>Code</th><th>Title</th></tr></thead><tbody>';
-  courses.forEach(function(c) { h += '<tr><td><input type="checkbox" class="c-cb form-check-input" value="' + c.course_code + '" checked></td><td><code>' + c.course_code + '</code></td><td>' + c.title + '</td></tr>'; });
+  // STEP 7 — course table
+  var h = statusBar +
+    '<div class="mb-2 d-flex gap-2 align-items-center">' +
+      '<button type="button" class="btn btn-sm btn-outline-primary" id="stuSelAll">Select All</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary" id="stuUnselAll">Unselect All</button>' +
+      '<span class="ms-auto small text-muted">' + courses.length + ' courses available</span>' +
+    '</div>' +
+    '<table class="table table-sm table-hover mt-2 border rounded">' +
+      '<thead class="table-light"><tr><th style="width:40px;"></th><th>Code</th><th>Title</th></tr></thead><tbody>';
+  courses.forEach(function(c) {
+    h += '<tr><td><input type="checkbox" class="c-cb form-check-input" value="' + c.course_code + '" checked></td>' +
+         '<td><code>' + c.course_code + '</code></td><td>' + c.title + '</td></tr>';
+  });
   area.innerHTML = h + '</tbody></table>';
 
-  document.getElementById('stuSelAll').addEventListener('click', function() { toggleAllCourses(true); });
+  document.getElementById('stuSelAll').addEventListener('click',   function() { toggleAllCourses(true);  });
   document.getElementById('stuUnselAll').addEventListener('click', function() { toggleAllCourses(false); });
+
   finalStep.style.display = 'block';
   smartFillRegistrationExtras();
 }
 
 function smartFillRegistrationExtras() {
-  var dobEl = document.getElementById('vDOB'), specEl = document.getElementById('vSpec'), deptEl = document.getElementById('vDept'), extras = document.getElementById('regExtras');
+  var dobEl  = document.getElementById('vDOB');
+  var specEl = document.getElementById('vSpec');
+  var deptEl = document.getElementById('vDept');
+  var extras = document.getElementById('regExtras');
   if (!dobEl || !specEl || !deptEl || !extras) return;
+
+  // Always push latest session values into the inputs first so submit
+  // can read them even when the form section is hidden.
   if (userSession.dob)  dobEl.value  = userSession.dob;
   if (userSession.spec) specEl.value = userSession.spec;
   if (userSession.dept) deptEl.value = userSession.dept;
-  var filled = userSession.dob && userSession.dob !== '' && userSession.spec && userSession.spec !== '' && userSession.dept && userSession.dept !== '' && userSession.dept !== 'Not Assigned';
+
+  var filled = userSession.dob  && userSession.dob  !== '' &&
+               userSession.spec && userSession.spec !== '' &&
+               userSession.dept && userSession.dept !== '' && userSession.dept !== 'Not Assigned';
+
   extras.style.display = filled ? 'none' : 'block';
 }
 
 async function runStudentSubmitReg() {
   var codes = Array.from(document.querySelectorAll('.c-cb:checked')).map(function(cb) { return cb.value; });
-  var dob  = document.getElementById('vDOB').value  || userSession.dob  || '';
-  var spec = document.getElementById('vSpec').value || userSession.spec || '';
-  var dept = document.getElementById('vDept').value || userSession.dept || '';
-  var sem  = document.getElementById('regSem').value;
-  var lvl  = document.getElementById('regLvl').value;
-  var btn  = document.getElementById('regBtn');
+  // Fall back to userSession values in case the extras form is hidden
+  var dob   = document.getElementById('vDOB').value  || userSession.dob  || '';
+  var spec  = document.getElementById('vSpec').value || userSession.spec || '';
+  var dept  = document.getElementById('vDept').value || userSession.dept || '';
+  var sem   = document.getElementById('regSem').value;
+  var lvl   = document.getElementById('regLvl').value;
+  var btn   = document.getElementById('regBtn');
+
   if (!codes.length)          { alert('Please select at least one course.'); return; }
   if (!dob || !spec || !dept) { alert('Please fill in your Date of Birth, Specialization and Department to complete registration.'); return; }
-  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting Registration...';
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting Registration...';
+
+  // BUG 6 FIX: Always re-fetch the active year at submit time instead of relying
+  // on the cached _stuActiveYear, which could be stale if Finance activated a new
+  // year while the student's tab was open. Cache is updated after the fresh fetch.
   var activeYear = await stuGetActiveYear(lvl);
-  _stuActiveYear = activeYear;
-  if (!activeYear) { alert('No active academic year found. Contact Finance Office.'); btn.disabled = false; btn.innerHTML = 'Submit Final Registration'; return; }
+  _stuActiveYear = activeYear; // update cache
+  if (!activeYear) {
+    alert('No active academic year found. Contact Finance Office.');
+    btn.disabled = false; btn.innerHTML = 'Submit Final Registration';
+    return;
+  }
+
   var email = userSession.email.toLowerCase().trim();
-  var records = codes.map(function(code) { return { email: email, level: String(lvl), semester: sem, course_code: code, academic_year: activeYear, registered_at: new Date().toISOString() }; });
-  var res = await fetch(SUPABASE_URL + '/rest/v1/registrations', { method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(records) });
-  if (!res.ok) { var err = await res.text(); alert('Registration failed: ' + err); btn.disabled = false; btn.innerHTML = 'Submit Final Registration'; return; }
-  await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(email), { method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify({ dob: dob, specialization: spec, department: dept }) });
-  userSession.dob = dob; userSession.spec = spec; userSession.dept = dept;
+  var records = codes.map(function(code) {
+    return { email: email, level: String(lvl), semester: sem, course_code: code, academic_year: activeYear, registered_at: new Date().toISOString() };
+  });
+
+  var res = await fetch(SUPABASE_URL + '/rest/v1/registrations', {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify(records)
+  });
+  if (!res.ok) {
+    var err = await res.text();
+    alert('Registration failed: ' + err);
+    btn.disabled = false; btn.innerHTML = 'Submit Final Registration';
+    return;
+  }
+
+  // Patch student_bio
+  await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(email), {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ dob: dob, specialization: spec, department: dept })
+  });
+
+  userSession.dob  = dob;
+  userSession.spec = spec;
+  userSession.dept = dept;
   btn.disabled = false; btn.innerHTML = 'Submit Final Registration';
-  document.getElementById('courseList').innerHTML = '<div class="alert alert-success text-center p-4"><div style="font-size:3rem;">&#9989;</div><h4 class="alert-heading fw-bold mt-2">Successfully Registered!</h4><p class="text-muted mb-4">Your ' + codes.length + ' course(s) have been saved for ' + activeYear + '.</p><button class="btn btn-success btn-lg fw-bold px-5" id="postRegSlipBtn"><i class="bi bi-file-earmark-pdf me-2"></i>Download Registration Slip</button></div>';
+
+  document.getElementById('courseList').innerHTML =
+    '<div class="alert alert-success text-center p-4">' +
+      '<div style="font-size:3rem;">&#9989;</div>' +
+      '<h4 class="alert-heading fw-bold mt-2">Successfully Registered!</h4>' +
+      '<p class="text-muted mb-4">Your ' + codes.length + ' course(s) have been saved for ' + activeYear + '.</p>' +
+      '<button class="btn btn-success btn-lg fw-bold px-5" id="postRegSlipBtn"><i class="bi bi-file-earmark-pdf me-2"></i>Download Registration Slip</button>' +
+    '</div>';
   document.getElementById('postRegSlipBtn').addEventListener('click', function() { handleDownloadSlip(this); });
   document.getElementById('finalStep').style.display = 'none';
   setTimeout(initStudentPortal, 1500);
@@ -349,238 +556,584 @@ async function stuGetActiveYear(level) {
 // REGISTRATION SLIP PDF
 // ═══════════════════════════════════════════════════════════════
 async function handleDownloadSlip(btnEl) {
-  const lvl = document.getElementById('regLvl').value, sem = document.getElementById('regSem').value;
+  const lvl  = document.getElementById('regLvl').value;
+  const sem  = document.getElementById('regSem').value;
   const orig = btnEl ? btnEl.innerHTML : '';
   if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...'; }
+
   Swal.fire({ title: 'Generating Registration Slip...', html: '<div class="spinner-border text-primary" style="width:2.5rem;height:2.5rem;"></div>', allowOutsideClick: false, showConfirmButton: false });
-  const email = userSession.email.toLowerCase().trim();
+
+  const email      = userSession.email.toLowerCase().trim();
   const activeYear = _stuActiveYear || await stuGetActiveYear(lvl);
-  const semLabel = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
-  const [[bioRows, regRows], logoData] = await Promise.all([Promise.all([sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=*&limit=1'), sbFetch('registrations?email=eq.' + encodeURIComponent(email) + '&level=eq.' + encodeURIComponent(lvl) + '&semester=eq.' + encodeURIComponent(sem) + '&select=course_code,registered_at&order=course_code')]), pceLoadLogo()]);
-  if (!bioRows || !bioRows.length || !regRows || !regRows.length) { Swal.fire({ icon: 'warning', title: 'No Registration Found', text: 'No registration found for Level ' + lvl + ' ' + sem + '. Please contact Registry.' }); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } return; }
-  const codes = regRows.map(r => r.course_code);
+  const semLabel   = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
+
+  const [[bioRows, regRows], logoData] = await Promise.all([
+    Promise.all([
+      sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=*&limit=1'),
+      sbFetch('registrations?email=eq.' + encodeURIComponent(email) + '&level=eq.' + encodeURIComponent(lvl) + '&semester=eq.' + encodeURIComponent(sem) + '&select=course_code,registered_at&order=course_code')
+    ]),
+    pceLoadLogo()
+  ]);
+
+  if (!bioRows || !bioRows.length || !regRows || !regRows.length) {
+    Swal.fire({ icon: 'warning', title: 'No Registration Found', text: 'No registration found for Level ' + lvl + ' ' + sem + '. Please contact Registry.' });
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
+    return;
+  }
+
+  const codes      = regRows.map(r => r.course_code);
   const courseData = await sbFetch('courses?course_code=in.(' + codes.map(encodeURIComponent).join(',') + ')&select=course_code,title,credits&order=course_code');
-  const courseMap = {}; (courseData || []).forEach(c => { courseMap[c.course_code] = c; });
-  const s = bioRows[0];
+  const courseMap  = {};
+  (courseData || []).forEach(c => { courseMap[c.course_code] = c; });
+
+  const s       = bioRows[0];
   const regDate = regRows[0].registered_at ? new Date(regRows[0].registered_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight(), margin = 14, usableW = pageW - margin * 2;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const usableW = pageW - margin * 2;
+
   pceDrawHeader(doc, logoData, pageW);
+
   let y = 32;
-  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(15,23,42); doc.text('COURSE REGISTRATION SLIP', pageW/2, y, {align:'center'}); y+=5;
-  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(100,116,139); doc.text('Academic Year: ' + activeYear + '   |   ' + semLabel, pageW/2, y, {align:'center'}); y+=8;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(15, 23, 42);
+  doc.text('COURSE REGISTRATION SLIP', pageW / 2, y, { align: 'center' });
+  y += 5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
+  doc.text('Academic Year: ' + activeYear + '   |   ' + semLabel, pageW / 2, y, { align: 'center' });
+  y += 8;
+
   y = pceDrawSectionLabel(doc, 'Student Information', y, pageW);
-  y = pceDrawInfoTable(doc, [['Full Name:', String(s.name||'').toUpperCase(), 'Index Number:', s.index_number||''], ['Program:', String(s.program||'N/A').toUpperCase(), 'Level:', lvl], ['Department:', s.department||'N/A', 'Specialization:', s.specialization||'N/A']], y, pageW);
+  y = pceDrawInfoTable(doc, [
+    ['Full Name:',   String(s.name || '').toUpperCase(),        'Index Number:',   s.index_number   || ''],
+    ['Program:',     String(s.program || 'N/A').toUpperCase(),  'Level:',          lvl],
+    ['Department:',  s.department || 'N/A',                     'Specialization:', s.specialization || 'N/A'],
+  ], y, pageW);
+
   y = pceDrawSectionLabel(doc, 'Registered Courses', y, pageW);
-  const cols = [8, 28, usableW-8-28-14, 14], hdrs = ['#','Code','Course Title','Credits'], rowH = 7; let totalCr = 0;
-  doc.setFillColor(30,58,95); doc.rect(margin, y, usableW, rowH, 'F'); doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
-  let cx = margin; hdrs.forEach((h,i) => { const a = i===3?'center':'left'; doc.text(h, a==='center'?cx+cols[i]/2:cx+2, y+rowH-2, {align:a}); cx+=cols[i]; }); y+=rowH;
-  codes.forEach((code, idx) => {
-    const c = courseMap[code]||{title:code,credits:3}, cr = Number(c.credits)||3; totalCr+=cr;
-    doc.setFillColor(...(idx%2===0?[249,250,251]:[255,255,255])); doc.setDrawColor(226,232,240); doc.setLineWidth(0.2); doc.rect(margin,y,usableW,rowH,'FD');
-    const cells = [String(idx+1), code, c.title||code, String(cr)]; cx=margin;
-    cells.forEach((val,i) => { const a=i===3?'center':'left', tx=a==='center'?cx+cols[i]/2:cx+2; doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(55,65,81); let t=val; if(i===2){while(doc.getTextWidth(t)>cols[2]-4&&t.length)t=t.slice(0,-1);if(t!==val)t=t.slice(0,-1)+'…';} doc.text(t,tx,y+rowH-2,{align:a}); cx+=cols[i]; }); y+=rowH;
-    if(y>pageH-40){doc.addPage();y=20;}
+
+  const cols  = [8, 28, usableW - 8 - 28 - 14, 14];
+  const hdrs  = ['#', 'Code', 'Course Title', 'Credits'];
+  const rowH  = 7;
+  let totalCr = 0;
+
+  doc.setFillColor(30, 58, 95); doc.rect(margin, y, usableW, rowH, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255);
+  let cx = margin;
+  hdrs.forEach((h, i) => {
+    const a = i === 3 ? 'center' : 'left';
+    doc.text(h, a === 'center' ? cx + cols[i] / 2 : cx + 2, y + rowH - 2, { align: a });
+    cx += cols[i];
   });
-  doc.setFillColor(241,245,249); doc.setDrawColor(15,23,42); doc.setLineWidth(0.4); doc.rect(margin,y,usableW,rowH,'FD');
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(15,23,42); doc.text('Total Credit Hours:', margin+usableW-cols[3]-2, y+rowH-2, {align:'right'}); doc.text(String(totalCr), margin+usableW-cols[3]/2, y+rowH-2, {align:'center'}); y+=rowH+6;
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(100,116,139); doc.text('Date Registered: ' + regDate, margin, y);
-  pceFooter(doc, pageW, pageH); Swal.close();
-  doc.save('RegSlip_'+(s.index_number||email)+'_L'+lvl+'_'+sem+'.pdf');
-  if(btnEl){btnEl.disabled=false;btnEl.innerHTML=orig;}
+  y += rowH;
+
+  codes.forEach((code, idx) => {
+    const c  = courseMap[code] || { title: code, credits: 3 };
+    const cr = Number(c.credits) || 3;
+    totalCr += cr;
+
+    doc.setFillColor(...(idx % 2 === 0 ? [249,250,251] : [255,255,255]));
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
+    doc.rect(margin, y, usableW, rowH, 'FD');
+
+    const cells = [String(idx + 1), code, c.title || code, String(cr)];
+    cx = margin;
+    cells.forEach((val, i) => {
+      const a  = i === 3 ? 'center' : 'left';
+      const tx = a === 'center' ? cx + cols[i] / 2 : cx + 2;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(55, 65, 81);
+      let t = val;
+      if (i === 2) { while (doc.getTextWidth(t) > cols[2] - 4 && t.length) t = t.slice(0,-1); if (t !== val) t = t.slice(0,-1) + '…'; }
+      doc.text(t, tx, y + rowH - 2, { align: a });
+      cx += cols[i];
+    });
+    y += rowH;
+    if (y > pageH - 40) { doc.addPage(); y = 20; }
+  });
+
+  // Total row
+  doc.setFillColor(241, 245, 249); doc.setDrawColor(15, 23, 42); doc.setLineWidth(0.4);
+  doc.rect(margin, y, usableW, rowH, 'FD');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(15, 23, 42);
+  doc.text('Total Credit Hours:', margin + usableW - cols[3] - 2, y + rowH - 2, { align: 'right' });
+  doc.text(String(totalCr), margin + usableW - cols[3] / 2, y + rowH - 2, { align: 'center' });
+  y += rowH + 6;
+
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+  doc.text('Date Registered: ' + regDate, margin, y);
+
+  pceFooter(doc, pageW, pageH);
+  Swal.close();
+  doc.save('RegSlip_' + (s.index_number || email) + '_L' + lvl + '_' + sem + '.pdf');
+  if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
 }
 
 // ═══════════════════════════════════════════════════════════════
 // RESULTS
 // ═══════════════════════════════════════════════════════════════
 async function runFetchResults() {
-  var lvl = document.getElementById('resLvl').value, sem = document.getElementById('resSem').value;
+  var lvl  = document.getElementById('resLvl').value;
+  var sem  = document.getElementById('resSem').value;
   var area = document.getElementById('resultsDisplay');
   area.innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm text-primary"></div><span class="ms-2">Fetching results...</span></div>';
-  var email = userSession.email.toLowerCase().trim();
-  var searchSem = sem.replace(/\s+/g,'').toUpperCase();
-  var scale = {'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0};
-  var results = await sbFetch('results?email=eq.'+encodeURIComponent(email)+'&select=course_code,grade,semester,academic_year&order=academic_year');
-  if(!results||results.length===0){area.innerHTML='<div class="alert alert-info mt-2">No results found for Level '+lvl+' '+sem+'.</div>';return;}
-  var codes = Array.from(new Set(results.map(function(r){return r.course_code;})));
-  var courses = await sbFetch('courses?course_code=in.('+codes.map(encodeURIComponent).join(',')+'&select=course_code,title,credits,level,semester');
-  var courseMap = {}; (courses||[]).forEach(function(c){courseMap[c.course_code]={title:c.title,credits:Number(c.credits)||0,level:String(c.level).trim(),semester:String(c.semester).replace(/\s+/g,'').toUpperCase()};});
-  var filtered = results.filter(function(r){var info=courseMap[r.course_code];if(!info)return false;return info.level===String(lvl).trim()&&String(r.semester).replace(/\s+/g,'').toUpperCase()===searchSem;});
-  if(!filtered.length){area.innerHTML='<div class="alert alert-info mt-2">No results found for Level '+lvl+' '+sem+'.</div>';return;}
-  var semPts=0, semCreds=0;
-  var rows = filtered.map(function(r){var info=courseMap[r.course_code]||{},credits=info.credits||0;var grade=String(r.grade).toUpperCase().trim(),gp=(scale[grade]||0)*credits;semPts+=gp;semCreds+=credits;return '<tr><td>'+r.course_code+'</td><td>'+(info.title||'Unknown')+'</td><td class="text-center">'+credits+'</td><td class="fw-bold">'+grade+'</td></tr>';}).join('');
-  var semGPA = semCreds>0?(semPts/semCreds).toFixed(2):'0.00';
-  var globalPts=0, globalCreds=0;
-  results.forEach(function(r){var info=courseMap[r.course_code];if(!info)return;globalPts+=(scale[String(r.grade).toUpperCase().trim()]||0)*(info.credits||0);globalCreds+=info.credits||0;});
-  var cgpa = globalCreds>0?(globalPts/globalCreds).toFixed(2):'0.00';
-  area.innerHTML = '<div class="alert alert-primary d-flex justify-content-between align-items-center"><span>Level '+lvl+' &#8212; '+sem+'</span><span>CGPA: <strong>'+cgpa+'</strong></span></div><table class="table table-sm table-hover bg-white border"><thead class="table-light"><tr><th>Code</th><th>Title</th><th class="text-center">Credits</th><th>Grade</th></tr></thead><tbody>'+rows+'</tbody><tfoot class="table-light"><tr><td colspan="2" class="text-end fw-bold">Semester GPA:</td><td class="text-center fw-bold text-primary" colspan="2">'+semGPA+'</td></tr></tfoot></table><button class="btn btn-danger w-100 btn-sm mt-2" id="stuPrintTranscriptBtn"><i class="bi bi-file-earmark-pdf me-1"></i>Download Result Slip</button>';
-  document.getElementById('stuPrintTranscriptBtn').addEventListener('click', function(){runStudentPrintTranscript(filtered,courseMap,lvl,sem,semGPA,cgpa);});
+
+  var email     = userSession.email.toLowerCase().trim();
+  var searchSem = sem.replace(/\s+/g, '').toUpperCase();
+  var scale     = { 'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0 };
+
+  var results = await sbFetch('results?email=eq.' + encodeURIComponent(email) + '&select=course_code,grade,semester,academic_year&order=academic_year');
+  if (!results || results.length === 0) { area.innerHTML = '<div class="alert alert-info mt-2">No results found for Level ' + lvl + ' ' + sem + '.</div>'; return; }
+
+  var codes   = Array.from(new Set(results.map(function(r) { return r.course_code; })));
+  var courses = await sbFetch('courses?course_code=in.(' + codes.map(encodeURIComponent).join(',') + ')&select=course_code,title,credits,level,semester');
+  var courseMap = {};
+  (courses || []).forEach(function(c) {
+    courseMap[c.course_code] = { title: c.title, credits: Number(c.credits) || 0, level: String(c.level).trim(), semester: String(c.semester).replace(/\s+/g,'').toUpperCase() };
+  });
+
+  var filtered = results.filter(function(r) {
+    var info = courseMap[r.course_code]; if (!info) return false;
+    return info.level === String(lvl).trim() && String(r.semester).replace(/\s+/g,'').toUpperCase() === searchSem;
+  });
+  if (!filtered.length) { area.innerHTML = '<div class="alert alert-info mt-2">No results found for Level ' + lvl + ' ' + sem + '.</div>'; return; }
+
+  var semPts = 0, semCreds = 0;
+  var rows = filtered.map(function(r) {
+    var info = courseMap[r.course_code] || {}, credits = info.credits || 0;
+    var grade = String(r.grade).toUpperCase().trim(), gp = (scale[grade] || 0) * credits;
+    semPts += gp; semCreds += credits;
+    return '<tr><td>' + r.course_code + '</td><td>' + (info.title || 'Unknown') + '</td><td class="text-center">' + credits + '</td><td class="fw-bold">' + grade + '</td></tr>';
+  }).join('');
+  var semGPA = semCreds > 0 ? (semPts / semCreds).toFixed(2) : '0.00';
+
+  var globalPts = 0, globalCreds = 0;
+  results.forEach(function(r) {
+    var info = courseMap[r.course_code]; if (!info) return;
+    globalPts += (scale[String(r.grade).toUpperCase().trim()] || 0) * (info.credits || 0);
+    globalCreds += info.credits || 0;
+  });
+  var cgpa = globalCreds > 0 ? (globalPts / globalCreds).toFixed(2) : '0.00';
+
+  area.innerHTML =
+    '<div class="alert alert-primary d-flex justify-content-between align-items-center"><span>Level ' + lvl + ' &#8212; ' + sem + '</span><span>CGPA: <strong>' + cgpa + '</strong></span></div>' +
+    '<table class="table table-sm table-hover bg-white border"><thead class="table-light"><tr><th>Code</th><th>Title</th><th class="text-center">Credits</th><th>Grade</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody>' +
+    '<tfoot class="table-light"><tr><td colspan="2" class="text-end fw-bold">Semester GPA:</td><td class="text-center fw-bold text-primary" colspan="2">' + semGPA + '</td></tr></tfoot></table>' +
+    '<button class="btn btn-danger w-100 btn-sm mt-2" id="stuPrintTranscriptBtn"><i class="bi bi-file-earmark-pdf me-1"></i>Download Result Slip</button>';
+
+  document.getElementById('stuPrintTranscriptBtn').addEventListener('click', function() {
+    runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, cgpa);
+  });
 }
 
 async function runStudentPrintTranscript(filtered, courseMap, lvl, sem, semGPA, cgpa) {
   Swal.fire({ title: 'Generating Result Slip...', html: '<div class="spinner-border text-primary" style="width:2.5rem;height:2.5rem;"></div>', allowOutsideClick: false, showConfirmButton: false });
-  const email = userSession.email.toLowerCase().trim(), semLabel = sem==='SEMESTER1'?'Semester 1':'Semester 2';
-  const gpScale = {'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0};
-  const [bioRows, logoData] = await Promise.all([sbFetch('student_bio?email=eq.'+encodeURIComponent(email)+'&select=name,index_number,program,department,specialization&limit=1'), pceLoadLogo()]);
-  const s = bioRows&&bioRows.length?bioRows[0]:{};
+
+  const email    = userSession.email.toLowerCase().trim();
+  const semLabel = sem === 'SEMESTER1' ? 'Semester 1' : 'Semester 2';
+  const gpScale  = { 'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0 };
+
+  const [bioRows, logoData] = await Promise.all([
+    sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=name,index_number,program,department,specialization&limit=1'),
+    pceLoadLogo()
+  ]);
+  const s = bioRows && bioRows.length ? bioRows[0] : {};
+
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
-  const pageW=doc.internal.pageSize.getWidth(), pageH=doc.internal.pageSize.getHeight(), margin=14, usableW=pageW-margin*2;
-  pceDrawHeader(doc,logoData,pageW);
-  let y=32; doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(15,23,42);doc.text('SEMESTER RESULT SLIP',pageW/2,y,{align:'center'});y+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(100,116,139);doc.text('Level '+lvl+'  \u2014  '+semLabel,pageW/2,y,{align:'center'});y+=8;
-  y=pceDrawSectionLabel(doc,'Student Information',y,pageW);
-  y=pceDrawInfoTable(doc,[['Full Name:',String(s.name||'').toUpperCase(),'Index Number:',s.index_number||''],['Program:',String(s.program||'N/A').toUpperCase(),'Department:',s.department||'N/A']],y,pageW);
-  y=pceDrawSectionLabel(doc,'Course Results',y,pageW);
-  const cols=[8,24,usableW-8-24-12-16-16,12,16,16],hdrs=['#','Code','Course Title','Cr','Grade','GP'],rowH=7;
-  doc.setFillColor(30,58,95);doc.rect(margin,y,usableW,rowH,'F');doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
-  let cx=margin; hdrs.forEach((h,i)=>{const a=i>=3?'center':'left';doc.text(h,a==='center'?cx+cols[i]/2:cx+2,y+rowH-2,{align:a});cx+=cols[i];}); y+=rowH;
-  filtered.forEach((r,idx)=>{
-    const info=courseMap[r.course_code]||{},grade=String(r.grade||'').toUpperCase().trim(),cr=info.credits||3,gp=((gpScale[grade]!==undefined?gpScale[grade]:0)*cr).toFixed(1),fail=['E','IC','F'].includes(grade);
-    doc.setFillColor(...(idx%2===0?[249,250,251]:[255,255,255]));doc.setDrawColor(226,232,240);doc.setLineWidth(0.2);doc.rect(margin,y,usableW,rowH,'FD');
-    const cells=[String(idx+1),r.course_code,info.title||r.course_code,String(cr),grade,gp]; cx=margin;
-    cells.forEach((val,i)=>{const a=i>=3?'center':'left',tx=a==='center'?cx+cols[i]/2:cx+2;doc.setFont('helvetica',i===4?'bold':'normal');doc.setTextColor(...(i===4?(fail?[220,38,38]:[22,163,74]):[55,65,81]));let t=val;if(i===2){while(doc.getTextWidth(t)>cols[2]-4&&t.length)t=t.slice(0,-1);if(t!==val)t=t.slice(0,-1)+'…';}doc.text(t,tx,y+rowH-2,{align:a});cx+=cols[i];});
-    y+=rowH; if(y>pageH-40){doc.addPage();y=20;}
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const usableW = pageW - margin * 2;
+
+  pceDrawHeader(doc, logoData, pageW);
+
+  let y = 32;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(15, 23, 42);
+  doc.text('SEMESTER RESULT SLIP', pageW / 2, y, { align: 'center' });
+  y += 5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
+  doc.text('Level ' + lvl + '  —  ' + semLabel, pageW / 2, y, { align: 'center' });
+  y += 8;
+
+  y = pceDrawSectionLabel(doc, 'Student Information', y, pageW);
+  y = pceDrawInfoTable(doc, [
+    ['Full Name:',  String(s.name || '').toUpperCase(),       'Index Number:', s.index_number || ''],
+    ['Program:',    String(s.program || 'N/A').toUpperCase(), 'Department:',   s.department   || 'N/A'],
+  ], y, pageW);
+
+  y = pceDrawSectionLabel(doc, 'Course Results', y, pageW);
+  const cols  = [8, 24, usableW - 8 - 24 - 12 - 16 - 16, 12, 16, 16];
+  const hdrs  = ['#', 'Code', 'Course Title', 'Cr', 'Grade', 'GP'];
+  const rowH  = 7;
+
+  doc.setFillColor(30, 58, 95); doc.rect(margin, y, usableW, rowH, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255);
+  let cx = margin;
+  hdrs.forEach((h, i) => {
+    const a = i >= 3 ? 'center' : 'left';
+    doc.text(h, a === 'center' ? cx + cols[i] / 2 : cx + 2, y + rowH - 2, { align: a });
+    cx += cols[i];
   });
-  doc.setDrawColor(15,23,42);doc.setLineWidth(0.4);doc.line(margin,y,margin+usableW,y);y+=7;
-  const halfW=usableW/2,gpaRGB=parseFloat(semGPA)>=3.5?[22,163,74]:parseFloat(semGPA)>=2.5?[2,132,199]:parseFloat(semGPA)>=1.5?[217,119,6]:[220,38,38];
-  doc.setFillColor(240,249,255);doc.setDrawColor(2,132,199);doc.setLineWidth(0.4);doc.roundedRect(margin,y,halfW-2,14,2,2,'FD');
-  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(100,116,139);doc.text('SEMESTER GPA',margin+(halfW-2)/2,y+5,{align:'center'});
-  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(...gpaRGB);doc.text(semGPA,margin+(halfW-2)/2,y+12,{align:'center'});
-  const cx2=margin+halfW+2; doc.setFillColor(240,253,244);doc.setDrawColor(22,163,74);doc.setLineWidth(0.4);doc.roundedRect(cx2,y,halfW-2,14,2,2,'FD');
-  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(100,116,139);doc.text('CUMULATIVE GPA',cx2+(halfW-2)/2,y+5,{align:'center'});
-  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(22,163,74);doc.text(cgpa,cx2+(halfW-2)/2,y+12,{align:'center'});
-  pceFooter(doc,pageW,pageH); Swal.close();
-  doc.save('ResultSlip_'+(s.index_number||email)+'_L'+lvl+'_'+sem+'.pdf');
+  y += rowH;
+
+  filtered.forEach((r, idx) => {
+    const info  = courseMap[r.course_code] || {};
+    const grade = String(r.grade || '').toUpperCase().trim();
+    const cr    = info.credits || 3;
+    const gp    = ((gpScale[grade] !== undefined ? gpScale[grade] : 0) * cr).toFixed(1);
+    const fail  = ['E','IC','F'].includes(grade);
+
+    doc.setFillColor(...(idx % 2 === 0 ? [249,250,251] : [255,255,255]));
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
+    doc.rect(margin, y, usableW, rowH, 'FD');
+
+    const cells = [String(idx + 1), r.course_code, info.title || r.course_code, String(cr), grade, gp];
+    cx = margin;
+    cells.forEach((val, i) => {
+      const a  = i >= 3 ? 'center' : 'left';
+      const tx = a === 'center' ? cx + cols[i] / 2 : cx + 2;
+      doc.setFont('helvetica', i === 4 ? 'bold' : 'normal');
+      doc.setTextColor(...(i === 4 ? (fail ? [220,38,38] : [22,163,74]) : [55,65,81]));
+      let t = val;
+      if (i === 2) { while (doc.getTextWidth(t) > cols[2] - 4 && t.length) t = t.slice(0,-1); if (t !== val) t = t.slice(0,-1) + '…'; }
+      doc.text(t, tx, y + rowH - 2, { align: a });
+      cx += cols[i];
+    });
+    y += rowH;
+    if (y > pageH - 40) { doc.addPage(); y = 20; }
+  });
+
+  doc.setDrawColor(15, 23, 42); doc.setLineWidth(0.4);
+  doc.line(margin, y, margin + usableW, y);
+  y += 7;
+
+  const halfW = usableW / 2;
+  const gpaRGB = parseFloat(semGPA) >= 3.5 ? [22,163,74] : parseFloat(semGPA) >= 2.5 ? [2,132,199] : parseFloat(semGPA) >= 1.5 ? [217,119,6] : [220,38,38];
+
+  doc.setFillColor(240, 249, 255); doc.setDrawColor(2, 132, 199); doc.setLineWidth(0.4);
+  doc.roundedRect(margin, y, halfW - 2, 14, 2, 2, 'FD');
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139);
+  doc.text('SEMESTER GPA', margin + (halfW - 2) / 2, y + 5, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(...gpaRGB);
+  doc.text(semGPA, margin + (halfW - 2) / 2, y + 12, { align: 'center' });
+
+  const cx2 = margin + halfW + 2;
+  doc.setFillColor(240, 253, 244); doc.setDrawColor(22, 163, 74); doc.setLineWidth(0.4);
+  doc.roundedRect(cx2, y, halfW - 2, 14, 2, 2, 'FD');
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139);
+  doc.text('CUMULATIVE GPA', cx2 + (halfW - 2) / 2, y + 5, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(22, 163, 74);
+  doc.text(cgpa, cx2 + (halfW - 2) / 2, y + 12, { align: 'center' });
+
+  pceFooter(doc, pageW, pageH);
+  Swal.close();
+  doc.save('ResultSlip_' + (s.index_number || email) + '_L' + lvl + '_' + sem + '.pdf');
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FINANCE TAB — unchanged from original
+// FINANCE TAB
 // ═══════════════════════════════════════════════════════════════
 async function loadStudentFinanceTab() {
   var display = document.getElementById('financeTabContent');
   display.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary mb-3"></div><p>Loading financial information...</p></div>';
-  var email = userSession.email.toLowerCase().trim(), studentLevel = userSession.level || '';
-  var activeFees = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.'+encodeURIComponent(studentLevel)+'&select=academic_year,level,amount&limit=1');
-  var activeYear = activeFees&&activeFees.length>0?activeFees[0].academic_year:null;
-  if(!activeYear){display.innerHTML='<div class="alert alert-danger text-center py-5"><h5>No Active Academic Year</h5><p>The Finance Office has not activated an academic year yet.</p></div>';return;}
-  var sfRows = await sbFetch('student_finance?email=eq.'+encodeURIComponent(email)+'&academic_year=eq.'+encodeURIComponent(activeYear)+'&select=*&limit=1');
-  if(!sfRows||sfRows.length===0){display.innerHTML='<div class="alert alert-danger text-center py-5"><h5>No Fees Configured For This Year</h5><p>The Finance Office has not set fees for your level yet.</p></div>';return;}
+
+  var email        = userSession.email.toLowerCase().trim();
+  var studentLevel = userSession.level || '';
+
+  // BUG 3 FIX: Filter by the student's level so the correct academic year is
+  // retrieved. Without this, a Level 300 student could receive Level 100's year
+  // and then fail to find their student_finance row.
+  var activeFees = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(studentLevel) + '&select=academic_year,level,amount&limit=1');
+  var activeYear = activeFees && activeFees.length > 0 ? activeFees[0].academic_year : null;
+  if (!activeYear) { display.innerHTML = '<div class="alert alert-danger text-center py-5"><h5>No Active Academic Year</h5><p>The Finance Office has not activated an academic year yet.</p></div>'; return; }
+
+  var sfRows = await sbFetch('student_finance?email=eq.' + encodeURIComponent(email) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=*&limit=1');
+  if (!sfRows || sfRows.length === 0) { display.innerHTML = '<div class="alert alert-danger text-center py-5"><h5>No Fees Configured For This Year</h5><p>The Finance Office has not set fees for your level yet.</p></div>'; return; }
+
   var sf = sfRows[0];
+
+  // BUG 4 FIX: Build the year list from the payments table (not just student_finance)
+  // so years that have payment records but no student_finance row still appear in
+  // the receipt dropdown (e.g. after data migration gaps).
   var step2 = await Promise.all([
-    sbFetch('payments?email=eq.'+encodeURIComponent(email)+'&academic_year=eq.'+encodeURIComponent(activeYear)+'&select=amount,type,payment_date,reference&order=payment_date.desc'),
-    sbFetch('payments?email=eq.'+encodeURIComponent(email)+'&select=academic_year&order=academic_year.desc')
+    sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=amount,type,payment_date,reference&order=payment_date.desc'),
+    sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&select=academic_year&order=academic_year.desc')
   ]);
-  var payments=step2[0]||[], allYears=step2[1]||[];
-  var totalPaid=payments.reduce(function(s,p){return s+Number(p.amount);},0);
-  var totalReq=Number(sf.total_required), balance=totalReq-totalPaid;
-  var percentage=totalReq>0?parseFloat(((totalPaid/totalReq)*100).toFixed(1)):0;
-  var availYears=Array.from(new Set(allYears.map(function(r){return r.academic_year;})));
-  if(!availYears.length) availYears=[activeYear];
-  var fin={
-    academicYear:activeYear, level:sf.level,
-    baseFees:Number(sf.base_fees||0), carryOver:Number(sf.carry_over||0),
-    requiredFees:totalReq, totalPaid:totalPaid, balance:balance,
-    percentage:percentage, canRegister:percentage>=70,
-    payments:payments.map(function(p){return {amount:Number(p.amount),type:p.type||'',date:p.payment_date?new Date(p.payment_date).toLocaleDateString('en-GB'):'',reference:p.reference||''};})
+  var payments = step2[0] || [], allYears = step2[1] || [];
+
+  var totalPaid  = payments.reduce(function(s, p) { return s + Number(p.amount); }, 0);
+  var totalReq   = Number(sf.total_required);
+  var balance    = totalReq - totalPaid;
+  var percentage = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
+  var availYears = Array.from(new Set(allYears.map(function(r) { return r.academic_year; })));
+  if (!availYears.length) availYears = [activeYear];
+
+  var fin = {
+    academicYear: activeYear, level: sf.level,
+    baseFees: Number(sf.base_fees || 0), carryOver: Number(sf.carry_over || 0),
+    requiredFees: totalReq, totalPaid: totalPaid, balance: balance,
+    percentage: percentage, canRegister: percentage >= 70,
+    payments: payments.map(function(p) {
+      return { amount: Number(p.amount), type: p.type || '', date: p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : '', reference: p.reference || '' };
+    })
   };
   renderStudentFinanceTab(fin, availYears);
 }
 
 function renderStudentFinanceTab(fin, availableYears) {
   var display = document.getElementById('financeTabContent');
-  if(!fin||fin.error){display.innerHTML='<div class="alert alert-warning"><h5>Financial Data Unavailable</h5></div>';return;}
-  var yearOptions=availableYears.map(function(y){return '<option value="'+y+'"'+(y===fin.academicYear?' selected':'')+'>'+y+'</option>';}).join('');
-  var paymentHistory=fin.payments&&fin.payments.length>0
-    ?fin.payments.map(function(p){var isD=p.amount<0;return '<div class="payment-item '+(isD?'deduction':'payment')+'"><div class="d-flex justify-content-between align-items-start"><div><span class="badge '+(isD?'bg-danger':'bg-success')+' mb-2">'+p.type+'</span><div class="small text-muted">'+p.date+'</div><div class="small text-muted mt-1">'+p.reference+'</div></div><h5 class="mb-0 '+(isD?'text-danger':'text-success')+'">'+(isD?'-':'+')+' GH&#8373; '+Math.abs(p.amount).toFixed(2)+'</h5></div></div>';}).join('')
-    :'<div class="text-center text-muted py-4"><p class="mt-3">No payments recorded yet for this year</p></div>';
-  display.innerHTML=
-    '<div class="mb-4" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;"><label class="small fw-bold text-muted mb-1 d-block">PRINT RECEIPT FOR YEAR</label><div class="d-flex gap-2"><select id="receiptYearSelect" class="form-select">'+yearOptions+'</select><button class="btn btn-danger fw-bold" id="stuPrintReceiptBtn"><i class="bi bi-file-earmark-pdf me-1"></i>Print Receipt</button></div></div>'+
-    '<div class="row g-3 mb-4"><div class="col-md-4"><div class="stat-card"><small class="text-muted d-block">Total Fees Required</small><h3 class="mb-0 text-primary">GH&#8373; '+Number(fin.requiredFees).toFixed(2)+'</h3></div></div><div class="col-md-4"><div class="stat-card"><small class="text-muted d-block">Total Paid</small><h3 class="mb-0 text-success">GH&#8373; '+Number(fin.totalPaid).toFixed(2)+'</h3></div></div><div class="col-md-4"><div class="stat-card"><small class="text-muted d-block">Outstanding Balance</small><h3 class="mb-0 '+(fin.balance>0?'text-danger':'text-success')+'">GH&#8373; '+Number(fin.balance).toFixed(2)+'</h3></div></div></div>'+
-    '<div class="stat-card mb-4"><div class="progress" style="height:28px;"><div class="progress-bar '+(fin.percentage>=70?'bg-success':'bg-danger')+'" style="width:'+fin.percentage+'%"><strong>'+fin.percentage+'%</strong></div></div>'+
-    (!fin.canRegister?'<div class="alert alert-warning mt-3 mb-0 py-2 px-3 small">You need to pay at least <strong>GH&#8373; '+(fin.requiredFees*0.7).toFixed(2)+'</strong> (70%) to register.</div>':'')+
-    '</div><div class="stat-card"><h6 class="mb-3">PAYMENT HISTORY ('+fin.academicYear+')</h6><div class="payment-timeline">'+paymentHistory+'</div></div>';
+  if (!fin || fin.error) { display.innerHTML = '<div class="alert alert-warning"><h5>Financial Data Unavailable</h5></div>'; return; }
+
+  var yearOptions = availableYears.map(function(y) {
+    return '<option value="' + y + '"' + (y === fin.academicYear ? ' selected' : '') + '>' + y + '</option>';
+  }).join('');
+
+  var paymentHistory = fin.payments && fin.payments.length > 0
+    ? fin.payments.map(function(p) {
+        var isD = p.amount < 0;
+        return '<div class="payment-item ' + (isD ? 'deduction' : 'payment') + '">' +
+          '<div class="d-flex justify-content-between align-items-start">' +
+            '<div><span class="badge ' + (isD ? 'bg-danger' : 'bg-success') + ' mb-2">' + p.type + '</span>' +
+            '<div class="small text-muted">' + p.date + '</div>' +
+            '<div class="small text-muted mt-1">' + p.reference + '</div></div>' +
+            '<h5 class="mb-0 ' + (isD ? 'text-danger' : 'text-success') + '">' + (isD ? '-' : '+') + 'GH&#8373; ' + Math.abs(p.amount).toFixed(2) + '</h5>' +
+          '</div></div>';
+      }).join('')
+    : '<div class="text-center text-muted py-4"><p class="mt-3">No payments recorded yet for this year</p></div>';
+
+  display.innerHTML =
+    '<div class="mb-4" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;">' +
+      '<label class="small fw-bold text-muted mb-1 d-block">PRINT RECEIPT FOR YEAR</label>' +
+      '<div class="d-flex gap-2">' +
+        '<select id="receiptYearSelect" class="form-select">' + yearOptions + '</select>' +
+        '<button class="btn btn-danger fw-bold" id="stuPrintReceiptBtn"><i class="bi bi-file-earmark-pdf me-1"></i>Print Receipt</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="row g-3 mb-4">' +
+      '<div class="col-md-4"><div class="stat-card"><small class="text-muted d-block">Total Fees Required</small><h3 class="mb-0 text-primary">GH&#8373; ' + Number(fin.requiredFees).toFixed(2) + '</h3></div></div>' +
+      '<div class="col-md-4"><div class="stat-card"><small class="text-muted d-block">Total Paid</small><h3 class="mb-0 text-success">GH&#8373; ' + Number(fin.totalPaid).toFixed(2) + '</h3></div></div>' +
+      '<div class="col-md-4"><div class="stat-card"><small class="text-muted d-block">Outstanding Balance</small><h3 class="mb-0 ' + (fin.balance > 0 ? 'text-danger' : 'text-success') + '">GH&#8373; ' + Number(fin.balance).toFixed(2) + '</h3></div></div>' +
+    '</div>' +
+    '<div class="stat-card mb-4"><div class="progress" style="height:28px;"><div class="progress-bar ' + (fin.percentage >= 70 ? 'bg-success' : 'bg-danger') + '" style="width:' + fin.percentage + '%"><strong>' + fin.percentage + '%</strong></div></div>' +
+    (!fin.canRegister ? '<div class="alert alert-warning mt-3 mb-0 py-2 px-3 small">You need to pay at least <strong>GH&#8373; ' + (fin.requiredFees * 0.7).toFixed(2) + '</strong> (70%) to register.</div>' : '') + '</div>' +
+    '<div class="stat-card"><h6 class="mb-3">PAYMENT HISTORY (' + fin.academicYear + ')</h6><div class="payment-timeline">' + paymentHistory + '</div></div>';
+
   document.getElementById('stuPrintReceiptBtn').addEventListener('click', printStudentReceipt);
 }
 
 async function printStudentReceipt() {
-  const select=document.getElementById('receiptYearSelect');
-  if(!select){alert('Please load the Finance tab first.');return;}
-  const year=select.value; if(!year){alert('Please select an academic year.');return;}
-  Swal.fire({title:'Generating Receipt...',html:'<div class="spinner-border text-primary" style="width:2.5rem;height:2.5rem;"></div>',allowOutsideClick:false,showConfirmButton:false});
-  const em=userSession.email.toLowerCase().trim();
-  const [[bioRows,sfRows,payRows],logoData]=await Promise.all([Promise.all([sbFetch('student_bio?email=eq.'+encodeURIComponent(em)+'&select=*&limit=1'),sbFetch('student_finance?email=eq.'+encodeURIComponent(em)+'&academic_year=eq.'+encodeURIComponent(year)+'&select=*&limit=1'),sbFetch('payments?email=eq.'+encodeURIComponent(em)+'&academic_year=eq.'+encodeURIComponent(year)+'&select=*&order=payment_date.asc')]),pceLoadLogo()]);
-  if(!bioRows||!bioRows.length||!sfRows||!sfRows.length){Swal.fire({icon:'error',title:'No Records',text:'No records found for '+year});return;}
-  if(!payRows||!payRows.length){Swal.fire({icon:'warning',title:'No Payments',text:'No payment records found for '+year});return;}
-  const s=bioRows[0],sf=sfRows[0];
-  const totalPaid=payRows.reduce((sum,p)=>sum+Number(p.amount),0);
-  const baseFees=Number(sf.base_fees||0),carryOver=Number(sf.carry_over||0),totalReq=Number(sf.total_required||0),balance=totalReq-totalPaid;
-  const pct=totalReq>0?parseFloat(((totalPaid/totalReq)*100).toFixed(1)):0;
-  const statusLabel=pct>=100?'FULLY PAID':pct>=70?'70% CLEARED \u2014 ELIGIBLE TO REGISTER':'INSUFFICIENT PAYMENT';
-  const statusRGB=pct>=70?[22,163,74]:[220,38,38];
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
-  const pageW=doc.internal.pageSize.getWidth(),pageH=doc.internal.pageSize.getHeight(),margin=14,usableW=pageW-margin*2;
-  pceDrawHeader(doc,logoData,pageW);
-  let y=32; doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(15,23,42);doc.text('OFFICIAL PAYMENT RECEIPT',pageW/2,y,{align:'center'});y+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(100,116,139);doc.text('Academic Year: '+year,pageW/2,y,{align:'center'});y+=4;
-  doc.setFont('helvetica','italic');doc.setFontSize(7);doc.setTextColor(156,163,175);doc.text('* Computer generated. Not official without Finance Office stamp.',pageW/2,y,{align:'center'});y+=7;
-  y=pceDrawSectionLabel(doc,'Student Information',y,pageW);
-  y=pceDrawInfoTable(doc,[['Full Name:',String(s.name||'').toUpperCase(),'Index Number:',s.index_number||''],['Program:',String(s.program||'N/A').toUpperCase(),'Level ('+year+'):',sf.level||'N/A']],y,pageW);
-  y=pceDrawSectionLabel(doc,'Fee Summary',y,pageW);
-  const feeRows=[['Base Fees for '+year,'GHS '+baseFees.toFixed(2)],...(carryOver>0?[['Carried Over from Previous Year','GHS '+carryOver.toFixed(2)]]:[]],['Total Required','GHS '+totalReq.toFixed(2)],['Total Amount Paid','GHS '+totalPaid.toFixed(2)],['Outstanding Balance','GHS '+balance.toFixed(2)]];
-  feeRows.forEach((row,i)=>{const isBold=i===feeRows.length-1||row[0]==='Total Required',isLast=i===feeRows.length-1;doc.setFillColor(...(i%2===0?[249,250,251]:[255,255,255]));doc.setDrawColor(226,232,240);doc.setLineWidth(isLast?0.5:0.2);doc.rect(margin,y,usableW,7,'FD');doc.setFont('helvetica',isBold?'bold':'normal');doc.setFontSize(8);doc.setTextColor(...(isLast&&balance>0?[220,38,38]:[55,65,81]));doc.text(row[0],margin+2,y+5);doc.text(row[1],margin+usableW-2,y+5,{align:'right'});y+=7;});y+=2;
-  doc.setFillColor(...statusRGB);doc.roundedRect(margin,y,usableW,8,1.5,1.5,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.text(statusLabel+' ('+pct+'%)',pageW/2,y+5.5,{align:'center'});y+=13;
-  y=pceDrawSectionLabel(doc,'Payment Transaction History',y,pageW);
-  const pCols=[8,26,30,usableW-8-26-30-35,35],pHdrs=['#','Date','Type','Reference','Amount'],pRowH=7;
-  doc.setFillColor(30,58,95);doc.rect(margin,y,usableW,pRowH,'F');doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
-  let cx=margin; pHdrs.forEach((h,i)=>{const a=i===4?'right':'left';doc.text(h,a==='right'?cx+pCols[i]-2:cx+2,y+pRowH-2,{align:a});cx+=pCols[i];}); y+=pRowH;
-  payRows.forEach((p,idx)=>{
-    const amt=Number(p.amount);doc.setFillColor(...(idx%2===0?[249,250,251]:[255,255,255]));doc.setDrawColor(226,232,240);doc.setLineWidth(0.2);doc.rect(margin,y,usableW,pRowH,'FD');
-    const dateStr=p.payment_date?new Date(p.payment_date).toLocaleDateString('en-GB'):'N/A';
-    const cells=[String(idx+1),dateStr,p.type||'PAYMENT',p.reference||'\u2014',(amt>=0?'+':'')+'GHS '+Math.abs(amt).toFixed(2)];
-    cx=margin; cells.forEach((val,i)=>{const a=i===4?'right':'left',tx=a==='right'?cx+pCols[i]-2:cx+2;doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...(i===4?(amt>=0?[22,163,74]:[220,38,38]):[55,65,81]));doc.text(val,tx,y+pRowH-2,{align:a});cx+=pCols[i];});
-    y+=pRowH; if(y>pageH-30){doc.addPage();y=20;}
+  const select = document.getElementById('receiptYearSelect');
+  if (!select) { alert('Please load the Finance tab first.'); return; }
+  const year = select.value;
+  if (!year)  { alert('Please select an academic year.'); return; }
+
+  Swal.fire({ title: 'Generating Receipt...', html: '<div class="spinner-border text-primary" style="width:2.5rem;height:2.5rem;"></div>', allowOutsideClick: false, showConfirmButton: false });
+
+  const em = userSession.email.toLowerCase().trim();
+  const [[bioRows, sfRows, payRows], logoData] = await Promise.all([
+    Promise.all([
+      sbFetch('student_bio?email=eq.'     + encodeURIComponent(em) + '&select=*&limit=1'),
+      sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(year) + '&select=*&limit=1'),
+      sbFetch('payments?email=eq.'        + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(year) + '&select=*&order=payment_date.asc')
+    ]),
+    pceLoadLogo()
+  ]);
+
+  if (!bioRows || !bioRows.length || !sfRows || !sfRows.length) {
+    Swal.fire({ icon: 'error', title: 'No Records', text: 'No records found for ' + year }); return;
+  }
+  if (!payRows || !payRows.length) {
+    Swal.fire({ icon: 'warning', title: 'No Payments', text: 'No payment records found for ' + year }); return;
+  }
+
+  const s         = bioRows[0];
+  const sf        = sfRows[0];
+  const totalPaid = payRows.reduce((sum, p) => sum + Number(p.amount), 0);
+  const baseFees  = Number(sf.base_fees      || 0);
+  const carryOver = Number(sf.carry_over     || 0);
+  const totalReq  = Number(sf.total_required || 0);
+  const balance   = totalReq - totalPaid;
+  const pct       = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
+  const statusLabel = pct >= 100 ? 'FULLY PAID' : pct >= 70 ? '70% CLEARED — ELIGIBLE TO REGISTER' : 'INSUFFICIENT PAYMENT';
+  const statusRGB   = pct >= 70 ? [22, 163, 74] : [220, 38, 38];
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const usableW = pageW - margin * 2;
+
+  pceDrawHeader(doc, logoData, pageW);
+
+  let y = 32;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(15, 23, 42);
+  doc.text('OFFICIAL PAYMENT RECEIPT', pageW / 2, y, { align: 'center' });
+  y += 5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
+  doc.text('Academic Year: ' + year, pageW / 2, y, { align: 'center' });
+  y += 4;
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(156, 163, 175);
+  doc.text('* Computer generated. Not official without Finance Office stamp.', pageW / 2, y, { align: 'center' });
+  y += 7;
+
+  y = pceDrawSectionLabel(doc, 'Student Information', y, pageW);
+  y = pceDrawInfoTable(doc, [
+    ['Full Name:',  String(s.name || '').toUpperCase(),        'Index Number:',    s.index_number || ''],
+    ['Program:',    String(s.program || 'N/A').toUpperCase(),  'Level (' + year + '):', sf.level || 'N/A'],
+  ], y, pageW);
+
+  y = pceDrawSectionLabel(doc, 'Fee Summary', y, pageW);
+  const feeRows = [
+    ['Base Fees for ' + year,        'GH\u20B5 ' + baseFees.toFixed(2)],
+    ...(carryOver > 0 ? [['Carried Over from Previous Year', 'GH\u20B5 ' + carryOver.toFixed(2)]] : []),
+    ['Total Required',               'GH\u20B5 ' + totalReq.toFixed(2)],
+    ['Total Amount Paid',            'GH\u20B5 ' + totalPaid.toFixed(2)],
+    ['Outstanding Balance',          'GH\u20B5 ' + balance.toFixed(2)],
+  ];
+  feeRows.forEach((row, i) => {
+    const isBold = i === feeRows.length - 1 || row[0] === 'Total Required';
+    const isLast = i === feeRows.length - 1;
+    doc.setFillColor(...(i % 2 === 0 ? [249,250,251] : [255,255,255]));
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(isLast ? 0.5 : 0.2);
+    doc.rect(margin, y, usableW, 7, 'FD');
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal'); doc.setFontSize(8);
+    doc.setTextColor(...(isLast && balance > 0 ? [220,38,38] : [55,65,81]));
+    doc.text(row[0], margin + 2, y + 5);
+    doc.text(row[1], margin + usableW - 2, y + 5, { align: 'right' });
+    y += 7;
   });
-  pceFooter(doc,pageW,pageH); Swal.close();
-  doc.save('Receipt_'+(s.index_number||em)+'_'+String(year).replace('/','- ')+'.pdf');
+  y += 2;
+
+  doc.setFillColor(...statusRGB);
+  doc.roundedRect(margin, y, usableW, 8, 1.5, 1.5, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 255);
+  doc.text(statusLabel + ' (' + pct + '%)', pageW / 2, y + 5.5, { align: 'center' });
+  y += 13;
+
+  y = pceDrawSectionLabel(doc, 'Payment Transaction History', y, pageW);
+  const pCols = [8, 26, 30, usableW - 8 - 26 - 30 - 35, 35];
+  const pHdrs = ['#', 'Date', 'Type', 'Reference', 'Amount'];
+  const pRowH = 7;
+
+  doc.setFillColor(30, 58, 95); doc.rect(margin, y, usableW, pRowH, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255);
+  let cx = margin;
+  pHdrs.forEach((h, i) => {
+    const a = i === 4 ? 'right' : 'left';
+    doc.text(h, a === 'right' ? cx + pCols[i] - 2 : cx + 2, y + pRowH - 2, { align: a });
+    cx += pCols[i];
+  });
+  y += pRowH;
+
+  payRows.forEach((p, idx) => {
+    const amt = Number(p.amount);
+    doc.setFillColor(...(idx % 2 === 0 ? [249,250,251] : [255,255,255]));
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
+    doc.rect(margin, y, usableW, pRowH, 'FD');
+    const dateStr = p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : 'N/A';
+    const cells   = [String(idx + 1), dateStr, p.type || 'PAYMENT', p.reference || '—', (amt >= 0 ? '+' : '') + 'GH\u20B5 ' + Math.abs(amt).toFixed(2)];
+    cx = margin;
+    cells.forEach((val, i) => {
+      const a  = i === 4 ? 'right' : 'left';
+      const tx = a === 'right' ? cx + pCols[i] - 2 : cx + 2;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+      doc.setTextColor(...(i === 4 ? (amt >= 0 ? [22,163,74] : [220,38,38]) : [55,65,81]));
+      doc.text(val, tx, y + pRowH - 2, { align: a });
+      cx += pCols[i];
+    });
+    y += pRowH;
+    if (y > pageH - 30) { doc.addPage(); y = 20; }
+  });
+
+  pceFooter(doc, pageW, pageH);
+  Swal.close();
+  doc.save('Receipt_' + (s.index_number || em) + '_' + String(year).replace('/', '-') + '.pdf');
 }
 
 async function pceLoadLogo() {
-  try { const resp=await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1'); if(!resp.ok)return null; const blob=await resp.blob(); return await new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>resolve(null);r.readAsDataURL(blob);}); } catch{return null;}
+  try {
+    const resp = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return await new Promise(resolve => {
+      const r = new FileReader();
+      r.onload  = () => resolve(r.result);
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(blob);
+    });
+  } catch { return null; }
 }
 
-function pceDrawHeader(doc,logoData,pageW) {
-  if(logoData){doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:0.06}));doc.addImage(logoData,'PNG',(pageW-90)/2,55,90,90);doc.restoreGraphicsState();doc.addImage(logoData,'PNG',14,10,18,18);}
-  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(15,23,42);doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM',pageW/2,16,{align:'center'});
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(100,116,139);doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh',pageW/2,21,{align:'center'});
-  doc.setDrawColor(15,23,42);doc.setLineWidth(0.5);doc.line(14,25,pageW-14,25);
+function pceDrawHeader(doc, logoData, pageW) {
+  if (logoData) {
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.06 }));
+    doc.addImage(logoData, 'PNG', (pageW - 90) / 2, 55, 90, 90);
+    doc.restoreGraphicsState();
+    doc.addImage(logoData, 'PNG', 14, 10, 18, 18);
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', pageW / 2, 16, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh', pageW / 2, 21, { align: 'center' });
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.5);
+  doc.line(14, 25, pageW - 14, 25);
 }
 
-function pceDrawInfoTable(doc,rows,startY,pageW) {
-  const margin=14,colW=(pageW-margin*2)/2,cellH=7; let y=startY;
-  rows.forEach((row,i)=>{
-    doc.setFillColor(...(i%2===0?[249,250,251]:[255,255,255]));doc.setDrawColor(226,232,240);doc.setLineWidth(0.2);doc.rect(margin,y,colW*2,cellH,'FD');
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(55,65,81);doc.text(row[0],margin+2,y+cellH-2);
-    doc.setFont('helvetica','normal');doc.setTextColor(15,23,42);doc.text(String(row[1]||'N/A'),margin+colW*0.38,y+cellH-2);
-    if(row[2]!==undefined){doc.setFont('helvetica','bold');doc.setTextColor(55,65,81);doc.text(row[2],margin+colW+2,y+cellH-2);doc.setFont('helvetica','normal');doc.setTextColor(15,23,42);doc.text(String(row[3]||'N/A'),margin+colW+colW*0.38,y+cellH-2);}
-    y+=cellH;
+function pceDrawInfoTable(doc, rows, startY, pageW) {
+  const margin = 14;
+  const colW   = (pageW - margin * 2) / 2;
+  const cellH  = 7;
+  let y = startY;
+  rows.forEach((row, i) => {
+    const bg = i % 2 === 0 ? [249, 250, 251] : [255, 255, 255];
+    doc.setFillColor(...bg);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, y, colW * 2, cellH, 'FD');
+    doc.setFont('helvetica', 'bold');   doc.setFontSize(8); doc.setTextColor(55, 65, 81);
+    doc.text(row[0], margin + 2, y + cellH - 2);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(15, 23, 42);
+    doc.text(String(row[1] || 'N/A'), margin + colW * 0.38, y + cellH - 2);
+    if (row[2] !== undefined) {
+      doc.setFont('helvetica', 'bold');   doc.setTextColor(55, 65, 81);
+      doc.text(row[2], margin + colW + 2, y + cellH - 2);
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(15, 23, 42);
+      doc.text(String(row[3] || 'N/A'), margin + colW + colW * 0.38, y + cellH - 2);
+    }
+    y += cellH;
   });
-  return y+3;
+  return y + 3;
 }
 
-function pceDrawSectionLabel(doc,label,y,pageW) {
-  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(2,132,199);doc.text(label.toUpperCase(),14,y);
-  doc.setDrawColor(2,132,199);doc.setLineWidth(0.2);doc.line(14,y+1,pageW-14,y+1);
-  return y+5;
+function pceDrawSectionLabel(doc, label, y, pageW) {
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(2, 132, 199);
+  doc.text(label.toUpperCase(), 14, y);
+  doc.setDrawColor(2, 132, 199); doc.setLineWidth(0.2);
+  doc.line(14, y + 1, pageW - 14, y + 1);
+  return y + 5;
 }
 
-function pceFooter(doc,pageW,pageH) {
-  doc.setDrawColor(226,232,240);doc.setLineWidth(0.3);doc.line(14,pageH-11,pageW-14,pageH-11);
-  doc.setFont('helvetica','italic');doc.setFontSize(7);doc.setTextColor(156,163,175);
-  doc.text('Generated by PCE Academic System  |  Date Printed: '+new Date().toLocaleDateString('en-GB'),pageW/2,pageH-7,{align:'center'});
+function pceFooter(doc, pageW, pageH) {
+  doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+  doc.line(14, pageH - 11, pageW - 14, pageH - 11);
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(156, 163, 175);
+  doc.text(
+    'Generated by PCE Academic System  |  Date Printed: ' + new Date().toLocaleDateString('en-GB'),
+    pageW / 2, pageH - 7, { align: 'center' }
+  );
 }
 
+// ── Auto-init ──────────────────────────────────────────────────
 (function() { initStudentPortal(); })();
 </script>
