@@ -753,7 +753,7 @@
     this.disabled = true;
     admShowStatus(status, 'info', '<span class="spinner-border spinner-border-sm me-2"></span>Clearing sessions…');
     try {
-      await admFetch('sessions?id=neq.00000000-0000-0000-0000-000000000000', { method: 'DELETE' });
+      await admFetch('sessions?session_token=neq.NONE', { method: 'DELETE' });
       admShowStatus(status, 'success', '✅ All sessions cleared — users will be signed out.');
       admLoadDashboard();
     } catch(e) {
@@ -787,7 +787,7 @@
       courses:         'course_code=neq.NONE',
       users:           'email=neq.NONE',
       student_bio:     'email=neq.NONE',
-      sessions:        'id=neq.00000000-0000-0000-0000-000000000000'
+      sessions:        'session_token=neq.NONE'
     };
 
     var errors = [];
