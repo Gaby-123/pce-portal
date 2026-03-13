@@ -282,6 +282,8 @@ async function initStudentPortal() {
   if (regLvl && profile.level) regLvl.value = profile.level;
   var resLvl = document.getElementById('resLvl');
   if (resLvl && profile.level) resLvl.value = profile.level;
+  // Re-run smartFill now that userSession.dob/spec/dept are populated
+  smartFillRegistrationExtras();
 }
 
 function renderStudentProfile(profile) {
@@ -464,27 +466,25 @@ function smartFillRegistrationExtras() {
   var extras = document.getElementById('regExtras');
   if (!dobEl || !specEl || !deptEl || !extras) return;
 
+  // Always push latest session values into the inputs first so submit
+  // can read them even when the form section is hidden.
+  if (userSession.dob)  dobEl.value  = userSession.dob;
+  if (userSession.spec) specEl.value = userSession.spec;
+  if (userSession.dept) deptEl.value = userSession.dept;
+
   var filled = userSession.dob  && userSession.dob  !== '' &&
                userSession.spec && userSession.spec !== '' &&
                userSession.dept && userSession.dept !== '' && userSession.dept !== 'Not Assigned';
-  if (filled) {
-    dobEl.value  = userSession.dob;
-    specEl.value = userSession.spec;
-    deptEl.value = userSession.dept;
-    extras.style.display = 'none';
-  } else {
-    extras.style.display = 'block';
-    if (userSession.dob  && dobEl.value  === '') dobEl.value  = userSession.dob;
-    if (userSession.spec && specEl.value === '') specEl.value = userSession.spec;
-    if (userSession.dept && deptEl.value === '') deptEl.value = userSession.dept;
-  }
+
+  extras.style.display = filled ? 'none' : 'block';
 }
 
 async function runStudentSubmitReg() {
   var codes = Array.from(document.querySelectorAll('.c-cb:checked')).map(function(cb) { return cb.value; });
-  var dob   = document.getElementById('vDOB').value;
-  var spec  = document.getElementById('vSpec').value;
-  var dept  = document.getElementById('vDept').value;
+  // Fall back to userSession values in case the extras form is hidden
+  var dob   = document.getElementById('vDOB').value  || userSession.dob  || '';
+  var spec  = document.getElementById('vSpec').value || userSession.spec || '';
+  var dept  = document.getElementById('vDept').value || userSession.dept || '';
   var sem   = document.getElementById('regSem').value;
   var lvl   = document.getElementById('regLvl').value;
   var btn   = document.getElementById('regBtn');
