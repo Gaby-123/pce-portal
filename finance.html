@@ -442,8 +442,15 @@ async function finConfirmActivateYear() {
       status.className = 'alert alert-danger mt-2';
       status.innerHTML = '⚠️ No fee structure found for ' + year + '. Set fees first.'; return;
     }
+    // Normalise level keys so "300", 300, and "Level 300" all map to the same key "300".
+    // This prevents a silent feeMap miss (→ base_fees: 0) when fee_structure and
+    // student_bio store the level in different formats or types.
+    function normLevel(v) { return String(v || '').replace(/[^0-9]/g, '').trim(); }
     const feeMap = {};
-    feesForYear.forEach(f => { feeMap[String(f.level).trim()] = Number(f.amount) || 0; });
+    feesForYear.forEach(f => {
+      const key = normLevel(f.level);
+      if (key) feeMap[key] = Number(f.amount) || 0;
+    });
 
     const allPrior = await sbFetch('student_finance?select=email,academic_year,balance&order=academic_year.asc') || [];
     const priorByStudent = {};
@@ -468,7 +475,7 @@ async function finConfirmActivateYear() {
     bioRows.forEach(row => {
       const em = row.email.toLowerCase().trim();
       if (!em || existingEmails.has(em)) return;
-      const level = String(row.level || '').trim();
+      const level = normLevel(row.level);  // normalised key — matches feeMap regardless of DB type
       const base  = feeMap[level] || 0;
       const carry = prevBalances[em] || 0;
       const total = base + carry;
