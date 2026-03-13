@@ -127,33 +127,6 @@ async function initStudentPortal() {
     status: r.status || 'PENDING', department: r.department || '', gender: r.gender || 'N/A'
   };
 
-  // ── FIX: Compute Finance Status live from actual payments ──────────────────
-  // student_bio.status can be stale. Derive it fresh from payment percentage so
-  // the Profile badge is always accurate regardless of Finance sync timing.
-  try {
-    var normLvl  = String(profile.level || '').replace(/[^0-9]/g, '').trim();
-    var feeRows  = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(normLvl) + '&select=academic_year&limit=1');
-    var activeYr = feeRows && feeRows.length ? feeRows[0].academic_year : null;
-    if (activeYr) {
-      var em = email.toLowerCase().trim();
-      var finRows = await Promise.all([
-        sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(activeYr) + '&select=total_required&limit=1'),
-        sbFetch('payments?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(activeYr) + '&select=amount')
-      ]);
-      var sfRow  = finRows[0] && finRows[0].length ? finRows[0][0] : null;
-      var pays   = finRows[1] || [];
-      if (sfRow) {
-        var req   = Number(sfRow.total_required);
-        var paid  = pays.reduce(function(s, p) { return s + Number(p.amount); }, 0);
-        var pct   = req > 0 ? (paid / req) * 100 : 0;
-        if      (pct >= 100) profile.status = 'CLEARED';
-        else if (pct >= 70)  profile.status = 'ELIGIBLE';
-        else                 profile.status = 'PENDING';
-      }
-    }
-  } catch(e) { /* fall back to stored status on any error */ }
-  // ─────────────────────────────────────────────────────────────────────────
-
   userSession.dob   = profile.dob;
   userSession.spec  = profile.specialization;
   userSession.dept  = profile.department;
@@ -165,6 +138,7 @@ async function initStudentPortal() {
   if (nameEl) nameEl.innerText = profile.name;
   if (initEl && profile.name) initEl.innerText = profile.name.charAt(0).toUpperCase();
 
+  // Render immediately with stored status — page appears at once
   renderStudentProfile(profile);
 
   var badge = document.getElementById('studentLevelBadge');
@@ -175,6 +149,39 @@ async function initStudentPortal() {
   var resLvl = document.getElementById('resLvl');
   if (resLvl && profile.level) resLvl.value = profile.level;
   smartFillRegistrationExtras();
+
+  // ── Update Finance Status badge in background (non-blocking) ──────────────
+  // Profile is already visible above. This quietly corrects the badge once the
+  // live payment data arrives, without making the user wait for it.
+  (async function() {
+    try {
+      var em      = email.toLowerCase().trim();
+      var normLvl = String(profile.level || '').replace(/[^0-9]/g, '').trim();
+      var feeRows = await sbFetch('fee_structure?status=eq.ACTIVE&level=eq.' + encodeURIComponent(normLvl) + '&select=academic_year&limit=1');
+      var activeYr = feeRows && feeRows.length ? feeRows[0].academic_year : null;
+      if (!activeYr) return;
+      var finRows = await Promise.all([
+        sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(activeYr) + '&select=total_required&limit=1'),
+        sbFetch('payments?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(activeYr) + '&select=amount')
+      ]);
+      var sfRow = finRows[0] && finRows[0].length ? finRows[0][0] : null;
+      var pays  = finRows[1] || [];
+      if (!sfRow) return;
+      var req  = Number(sfRow.total_required);
+      var paid = pays.reduce(function(s, p) { return s + Number(p.amount); }, 0);
+      var pct  = req > 0 ? (paid / req) * 100 : 0;
+      var liveStatus = pct >= 100 ? 'CLEARED' : pct >= 70 ? 'ELIGIBLE' : 'PENDING';
+      // Only update the DOM if the status has changed — avoids flicker
+      if (liveStatus !== profile.status) {
+        var statusEl = document.querySelector('#profileDisplay .badge');
+        if (statusEl) {
+          statusEl.className = 'badge mb-3 ' + (liveStatus === 'CLEARED' ? 'bg-success' : liveStatus === 'ELIGIBLE' ? 'bg-warning text-dark' : 'bg-danger');
+          statusEl.innerText = liveStatus;
+        }
+      }
+    } catch(e) { /* silent — stored status remains shown */ }
+  })();
+  // ─────────────────────────────────────────────────────────────────────────
 }
 
 function renderStudentProfile(profile) {
