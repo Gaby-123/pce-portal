@@ -511,9 +511,9 @@ async function runStudentSubmitReg() {
     return { email: email, level: String(lvl), semester: sem, course_code: code, academic_year: activeYear, registered_at: new Date().toISOString() };
   });
 
-  var res = await fetch(SUPABASE_URL + '/rest/v1/registrations?on_conflict=email,level,semester,course_code', {
+  var res = await fetch(SUPABASE_URL + '/rest/v1/registrations', {
     method: 'POST',
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify(records)
   });
   if (!res.ok) {
