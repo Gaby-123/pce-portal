@@ -861,9 +861,11 @@ async function loadStudentFinanceTab() {
   // the receipt dropdown (e.g. after data migration gaps).
   var step2 = await Promise.all([
     sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=amount,type,payment_date,reference&order=payment_date.desc'),
-    sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&select=academic_year&order=academic_year.desc')
+    sbFetch('payments?email=eq.' + encodeURIComponent(email) + '&select=academic_year&order=academic_year.desc'),
+    sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=status&limit=1')
   ]);
   var payments = step2[0] || [], allYears = step2[1] || [];
+  var bioStatus = (step2[2] && step2[2].length) ? (step2[2][0].status || 'PENDING') : 'PENDING';
 
   var totalPaid  = payments.reduce(function(s, p) { return s + Number(p.amount); }, 0);
   var totalReq   = Number(sf.total_required);
@@ -877,6 +879,7 @@ async function loadStudentFinanceTab() {
     baseFees: Number(sf.base_fees || 0), carryOver: Number(sf.carry_over || 0),
     requiredFees: totalReq, totalPaid: totalPaid, balance: balance,
     percentage: percentage, canRegister: percentage >= 70,
+    clearanceStatus: bioStatus,
     payments: payments.map(function(p) {
       return { amount: Number(p.amount), type: p.type || '', date: p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : '', reference: p.reference || '' };
     })
@@ -905,7 +908,22 @@ function renderStudentFinanceTab(fin, availableYears) {
       }).join('')
     : '<div class="text-center text-muted py-4"><p class="mt-3">No payments recorded yet for this year</p></div>';
 
+  var cs = fin.clearanceStatus || 'PENDING';
+  var csBadgeClass = cs === 'CLEARED' ? 'bg-success' : cs === 'ELIGIBLE' ? 'bg-warning text-dark' : 'bg-danger';
+  var csIcon       = cs === 'CLEARED' ? '&#9989;' : cs === 'ELIGIBLE' ? '&#9888;&#65039;' : '&#128274;';
+  var csMsg        = cs === 'CLEARED' ? 'Finance has fully cleared you.'
+                   : cs === 'ELIGIBLE' ? 'You are eligible to register (70%+ paid).'
+                   : 'Payment insufficient. Visit the Finance Office.';
+
   display.innerHTML =
+    '<div class="stat-card mb-4 d-flex align-items-center gap-3 py-3 px-4" style="border-left:5px solid ' + (cs === 'CLEARED' ? '#10b981' : cs === 'ELIGIBLE' ? '#f59e0b' : '#ef4444') + ';">' +
+      '<div style="font-size:2rem;">' + csIcon + '</div>' +
+      '<div>' +
+        '<div class="small text-muted fw-bold mb-1">CLEARANCE STATUS</div>' +
+        '<span class="badge ' + csBadgeClass + ' px-3 py-2 fs-6">' + cs + '</span>' +
+        '<div class="small text-muted mt-1">' + csMsg + '</div>' +
+      '</div>' +
+    '</div>' +
     '<div class="mb-4" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;">' +
       '<label class="small fw-bold text-muted mb-1 d-block">PRINT RECEIPT FOR YEAR</label>' +
       '<div class="d-flex gap-2">' +
@@ -989,11 +1007,11 @@ async function printStudentReceipt() {
 
   y = pceDrawSectionLabel(doc, 'Fee Summary', y, pageW);
   const feeRows = [
-    ['Base Fees for ' + year,        'GH\u20B5 ' + baseFees.toFixed(2)],
-    ...(carryOver > 0 ? [['Carried Over from Previous Year', 'GH\u20B5 ' + carryOver.toFixed(2)]] : []),
-    ['Total Required',               'GH\u20B5 ' + totalReq.toFixed(2)],
-    ['Total Amount Paid',            'GH\u20B5 ' + totalPaid.toFixed(2)],
-    ['Outstanding Balance',          'GH\u20B5 ' + balance.toFixed(2)],
+    ['Base Fees for ' + year,        'GHS ' + baseFees.toFixed(2)],
+    ...(carryOver > 0 ? [['Carried Over from Previous Year', 'GHS ' + carryOver.toFixed(2)]] : []),
+    ['Total Required',               'GHS ' + totalReq.toFixed(2)],
+    ['Total Amount Paid',            'GHS ' + totalPaid.toFixed(2)],
+    ['Outstanding Balance',          'GHS ' + balance.toFixed(2)],
   ];
   feeRows.forEach((row, i) => {
     const isBold = i === feeRows.length - 1 || row[0] === 'Total Required';
@@ -1036,7 +1054,7 @@ async function printStudentReceipt() {
     doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
     doc.rect(margin, y, usableW, pRowH, 'FD');
     const dateStr = p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : 'N/A';
-    const cells   = [String(idx + 1), dateStr, p.type || 'PAYMENT', p.reference || '—', (amt >= 0 ? '+' : '') + 'GH\u20B5 ' + Math.abs(amt).toFixed(2)];
+    const cells   = [String(idx + 1), dateStr, p.type || 'PAYMENT', p.reference || '—', (amt >= 0 ? '+' : '') + 'GHS ' + Math.abs(amt).toFixed(2)];
     cx = margin;
     cells.forEach((val, i) => {
       const a  = i === 4 ? 'right' : 'left';
