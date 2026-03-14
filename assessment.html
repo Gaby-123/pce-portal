@@ -563,9 +563,20 @@ document.getElementById('asmPrefilledTplBtn').addEventListener('click',async fun
 // ── 4. BROADSHEET ─────────────────────────────────────────────
 async function _asmLoadBsYears(){
   var sel=document.getElementById('bsSemYear'); if(!sel) return;
-  var rows=await sbFetch('results?select=academic_year&order=academic_year.desc');
-  var years=[...new Set((rows||[]).map(function(r){return r.academic_year;}).filter(Boolean))];
-  sel.innerHTML=years.length?'<option value="">-- Select Academic Year --</option>'+years.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join(''):'<option value="">-- No results uploaded yet --</option>';
+  // Paginate — years beyond row 1000 were silently missing
+  var allRows=[],offset=0;
+  while(true){
+    var page=await sbFetch('results?select=academic_year&order=academic_year.desc&limit=1000&offset='+offset);
+    if(!page||!page.length) break;
+    allRows=allRows.concat(page);
+    if(page.length<1000) break;
+    offset+=1000;
+  }
+  var years=[...new Set(allRows.map(function(r){return r.academic_year;}).filter(Boolean))];
+  years.sort(function(a,b){return String(b).localeCompare(String(a));});
+  sel.innerHTML=years.length
+    ?'<option value="">-- Select Academic Year --</option>'+years.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('')
+    :'<option value="">-- No results uploaded yet --</option>';
 }
 
 document.querySelectorAll('[data-bs-mode]').forEach(function(tab){
@@ -579,21 +590,73 @@ document.querySelectorAll('[data-bs-mode]').forEach(function(tab){
 });
 
 async function _asmBuildSem(level,sem,year){
-  var results=await sbFetch('results?semester=eq.'+encodeURIComponent(sem)+'&academic_year=eq.'+encodeURIComponent(year)+'&select=email,course_code,grade');
-  if(!results||!results.length) return null;
-  var emails=[...new Set(results.map(function(r){return r.email;}))];
-  var allCodes=[...new Set(results.map(function(r){return r.course_code;}))];
-  var [bioData,crsData,allRes]=await Promise.all([
-    sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,program,gender'),
-    sbFetch('courses?course_code=in.('+allCodes.map(encodeURIComponent).join(',')+')'+'&select=course_code,credits'),
-    sbFetch('results?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,course_code,grade')
-  ]);
-  var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b;});
-  var crMap={}; (crsData||[]).forEach(function(c){crMap[c.course_code]=Number(c.credits)||3;});
-  var semMap={}; results.forEach(function(r){if(!semMap[r.email])semMap[r.email]=[];semMap[r.email].push(r);});
-  var allMap={}; (allRes||[]).forEach(function(r){if(!allMap[r.email])allMap[r.email]=[];allMap[r.email].push(r);});
-  var students=Object.keys(bioMap).map(function(email){
-    var bio=bioMap[email],sR=semMap[email]||[],aR=allMap[email]||[];
+  // Step 1: Get all students at this level from student_bio (current level)
+  var bioAll=[],bioOffset=0;
+  while(true){
+    var bioPage=await sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&select=email,name,index_number,program,gender&limit=1000&offset='+bioOffset);
+    if(!bioPage||!bioPage.length) break;
+    bioAll=bioAll.concat(bioPage);
+    if(bioPage.length<1000) break;
+    bioOffset+=1000;
+  }
+  if(!bioAll.length) return null;
+  var bioMap={}; bioAll.forEach(function(b){bioMap[b.email]=b;});
+  var levelEmails=new Set(bioAll.map(function(b){return b.email.toLowerCase().trim();}));
+
+  // Step 2: Fetch ALL results for this semester+year — paginated, then filter to this level's students
+  var semResults=[],resOffset=0;
+  while(true){
+    var resPage=await sbFetch('results?semester=eq.'+encodeURIComponent(sem)+'&academic_year=eq.'+encodeURIComponent(year)+'&select=email,course_code,grade&limit=1000&offset='+resOffset);
+    if(!resPage||!resPage.length) break;
+    semResults=semResults.concat(resPage);
+    if(resPage.length<1000) break;
+    resOffset+=1000;
+  }
+  // Filter to only students who are currently at this level
+  var filteredSemResults=semResults.filter(function(r){return levelEmails.has(r.email.toLowerCase().trim());});
+  if(!filteredSemResults.length) return null;
+
+  // Step 3: Fetch ALL results for CGPA calculation (all semesters for these students)
+  var allResults=[],allOffset=0;
+  while(true){
+    var allPage=await sbFetch('results?select=email,course_code,grade&limit=1000&offset='+allOffset);
+    if(!allPage||!allPage.length) break;
+    allResults=allResults.concat(allPage);
+    if(allPage.length<1000) break;
+    allOffset+=1000;
+  }
+  var allFiltered=allResults.filter(function(r){return levelEmails.has(r.email.toLowerCase().trim());});
+
+  // Step 4: Fetch all courses — paginated
+  var crsAll=[],crsOffset=0;
+  while(true){
+    var crsPage=await sbFetch('courses?select=course_code,credits&limit=1000&offset='+crsOffset);
+    if(!crsPage||!crsPage.length) break;
+    crsAll=crsAll.concat(crsPage);
+    if(crsPage.length<1000) break;
+    crsOffset+=1000;
+  }
+  var crMap={}; crsAll.forEach(function(c){crMap[c.course_code]=Number(c.credits)||3;});
+
+  // Step 5: Build per-student maps
+  var semMap={};
+  filteredSemResults.forEach(function(r){
+    var em=r.email.toLowerCase().trim();
+    if(!semMap[em])semMap[em]=[];
+    semMap[em].push(r);
+  });
+  var allMap={};
+  allFiltered.forEach(function(r){
+    var em=r.email.toLowerCase().trim();
+    if(!allMap[em])allMap[em]=[];
+    allMap[em].push(r);
+  });
+
+  // Step 6: Build student rows — only students who have results for this sem+year
+  var students=Object.keys(semMap).map(function(email){
+    var bio=bioMap[email]||bioMap[Object.keys(bioMap).find(function(k){return k.toLowerCase()===email;})];
+    if(!bio) return null;
+    var sR=semMap[email]||[], aR=allMap[email]||[];
     var sCR=sR.reduce(function(s,r){return s+(crMap[r.course_code]||3);},0);
     var sGP=sR.reduce(function(s,r){return s+_asmGP(r.grade)*(crMap[r.course_code]||3);},0);
     var sGPA=sCR>0?(sGP/sCR).toFixed(2):'0.00';
@@ -601,36 +664,84 @@ async function _asmBuildSem(level,sem,year){
     var aGP=aR.reduce(function(s,r){return s+_asmGP(r.grade)*(crMap[r.course_code]||3);},0);
     var fcgpa=aCR>0?(aGP/aCR).toFixed(2):'0.00';
     return {email:email,bio:bio,sCR:sCR,sGP:sGP.toFixed(2),sGPA:sGPA,fcgpa:fcgpa,cls:_asmClass(fcgpa)};
-  });
+  }).filter(Boolean);
+
   return {students:students,level:level,sem:sem,year:year};
 }
 
 async function _asmBuildEOP(level){
-  var bioData=await sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&select=email,name,index_number,program,gender&order=name');
-  if(!bioData||!bioData.length) return null;
-  var emails=bioData.map(function(b){return b.email;}); var bioMap={};
-  bioData.forEach(function(b){bioMap[b.email]=b;});
-  var [allRes,crsData]=await Promise.all([
-    sbFetch('results?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,course_code,grade,semester,academic_year&order=academic_year,semester'),
-    sbFetch('courses?select=course_code,credits')
-  ]);
-  var crMap={}; (crsData||[]).forEach(function(c){crMap[c.course_code]=Number(c.credits)||3;});
-  var resByEmail={}; (allRes||[]).forEach(function(r){if(!resByEmail[r.email])resByEmail[r.email]=[];resByEmail[r.email].push(r);});
-  var students=emails.map(function(email){
-    var bio=bioMap[email],myRows=resByEmail[email]||[];
-    var groups={}; myRows.forEach(function(r){
+  // Step 1: Get all students at this level — paginated
+  var bioAll=[],bioOffset=0;
+  while(true){
+    var bioPage=await sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&select=email,name,index_number,program,gender&order=name&limit=1000&offset='+bioOffset);
+    if(!bioPage||!bioPage.length) break;
+    bioAll=bioAll.concat(bioPage);
+    if(bioPage.length<1000) break;
+    bioOffset+=1000;
+  }
+  if(!bioAll.length) return null;
+  var bioMap={}; bioAll.forEach(function(b){bioMap[b.email]=b;});
+  var levelEmails=new Set(bioAll.map(function(b){return b.email.toLowerCase().trim();}));
+
+  // Step 2: Fetch ALL results across ALL years and semesters — paginated
+  // Then filter client-side to this level's students only
+  // This gives the full programme history (Level 100 through current level)
+  var allRes=[],resOffset=0;
+  while(true){
+    var resPage=await sbFetch('results?select=email,course_code,grade,semester,academic_year&order=academic_year,semester&limit=1000&offset='+resOffset);
+    if(!resPage||!resPage.length) break;
+    allRes=allRes.concat(resPage);
+    if(resPage.length<1000) break;
+    resOffset+=1000;
+  }
+  // Filter to only this level's students
+  var filteredRes=allRes.filter(function(r){return levelEmails.has(r.email.toLowerCase().trim());});
+
+  // Step 3: Fetch all courses — paginated
+  var crsAll=[],crsOffset=0;
+  while(true){
+    var crsPage=await sbFetch('courses?select=course_code,credits&limit=1000&offset='+crsOffset);
+    if(!crsPage||!crsPage.length) break;
+    crsAll=crsAll.concat(crsPage);
+    if(crsPage.length<1000) break;
+    crsOffset+=1000;
+  }
+  var crMap={}; crsAll.forEach(function(c){crMap[c.course_code]=Number(c.credits)||3;});
+
+  // Step 4: Group results by student email
+  var resByEmail={};
+  filteredRes.forEach(function(r){
+    var em=r.email.toLowerCase().trim();
+    if(!resByEmail[em])resByEmail[em]=[];
+    resByEmail[em].push(r);
+  });
+
+  // Step 5: Build student rows
+  var students=bioAll.map(function(bio){
+    var email=bio.email.toLowerCase().trim();
+    var myRows=resByEmail[email]||[];
+    var groups={};
+    myRows.forEach(function(r){
       var key=r.academic_year+'|'+r.semester;
       if(!groups[key])groups[key]={year:r.academic_year,sem:r.semester,cr:0,gp:0};
-      var cr=crMap[r.course_code]||3; groups[key].cr+=cr; groups[key].gp+=_asmGP(r.grade)*cr;
+      var cr=crMap[r.course_code]||3;
+      groups[key].cr+=cr;
+      groups[key].gp+=_asmGP(r.grade)*cr;
     });
-    var sortedSems=Object.values(groups).sort(function(a,b){return a.year!==b.year?a.year.localeCompare(b.year):a.sem.localeCompare(b.sem);});
-    var semStats=sortedSems.map(function(g){return {label:g.year+'\n'+(g.sem==='SEMESTER1'?'Sem 1':'Sem 2'),cr:g.cr,gp:g.gp.toFixed(2),gpa:g.cr>0?(g.gp/g.cr).toFixed(2):'0.00'};});
-    var runCR=0,runGP=0; semStats.forEach(function(s){runCR+=Number(s.cr);runGP+=Number(s.gp);});
+    var sortedSems=Object.values(groups).sort(function(a,b){
+      return a.year!==b.year?a.year.localeCompare(b.year):a.sem.localeCompare(b.sem);
+    });
+    var semStats=sortedSems.map(function(g){
+      return {label:g.year+'\n'+(g.sem==='SEMESTER1'?'Sem 1':'Sem 2'),cr:g.cr,gp:g.gp.toFixed(2),gpa:g.cr>0?(g.gp/g.cr).toFixed(2):'0.00'};
+    });
+    var runCR=0,runGP=0;
+    semStats.forEach(function(s){runCR+=Number(s.cr);runGP+=Number(s.gp);});
     var fcgpa=runCR>0?(runGP/runCR).toFixed(2):'0.00';
     var trails=myRows.filter(function(r){var g=String(r.grade||'').toUpperCase();return g==='E'||g==='F';}).length;
     var ics=myRows.filter(function(r){return String(r.grade||'').toUpperCase()==='IC';}).length;
     return {email:email,bio:bio,semStats:semStats,noc:myRows.length,tcgp:runGP.toFixed(2),tccr:runCR,fcgpa:fcgpa,cls:_asmClass(fcgpa),trails:trails,ics:ics};
   });
+
   return {students:students,level:level};
 }
 
@@ -817,8 +928,15 @@ document.getElementById('bsEOPPDFBtn').addEventListener('click',async function()
 async function _asmInitResit(){
   var sel=document.getElementById('resitCourseFilter');
   if(!sel||sel.options.length>1) return;
-  var courses=await sbFetch('courses?select=course_code,title&order=course_code');
-  (courses||[]).forEach(function(c){var o=document.createElement('option');o.value=c.course_code;o.text=c.course_code+' - '+c.title;sel.add(o);});
+  var allCourses=[],offset=0;
+  while(true){
+    var page=await sbFetch('courses?select=course_code,title&order=course_code&limit=1000&offset='+offset);
+    if(!page||!page.length) break;
+    allCourses=allCourses.concat(page);
+    if(page.length<1000) break;
+    offset+=1000;
+  }
+  allCourses.forEach(function(c){var o=document.createElement('option');o.value=c.course_code;o.text=c.course_code+' - '+c.title;sel.add(o);});
 }
 
 document.getElementById('resitSearchBtn').addEventListener('click',async function(){
@@ -839,13 +957,31 @@ document.getElementById('resitSearchBtn').addEventListener('click',async functio
   if(semester!=='ALL') q+='&semester=eq.'+encodeURIComponent(semester);
   if(course!=='ALL')   q+='&course_code=eq.'+encodeURIComponent(course);
   q+='&order=email';
-  var results=await sbFetch(q);
-  if(!results||!results.length){tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted p-5"><p class="fw-bold">No Students Match Filters</p></td></tr>';countEl.innerText=0;return;}
+ var results=[],resOff=0;
+  while(true){
+    var rp=await sbFetch(q+'&limit=1000&offset='+resOff);
+    if(!rp||!rp.length) break;
+    results=results.concat(rp);
+    if(rp.length<1000) break;
+    resOff+=1000;
+  }
+  if(!results.length){tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted p-5"><p class="fw-bold">No Students Match Filters</p></td></tr>';countEl.innerText=0;return;}
   var emails=[...new Set(results.map(function(r){return r.email;}))];
-  var [bioData,crsData]=await Promise.all([
-    sbFetch('student_bio?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,level'),
-    sbFetch('courses?select=course_code,title,level')
-  ]);
+  // Fetch bio in batches of 100 to avoid URL length limit
+  var bioData=[];
+  for(var bi=0;bi<emails.length;bi+=100){
+    var batch=emails.slice(bi,bi+100);
+    var bp=await sbFetch('student_bio?email=in.('+batch.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,level');
+    if(bp) bioData=bioData.concat(bp);
+  }
+  var crsData=[],crsOff=0;
+  while(true){
+    var cp=await sbFetch('courses?select=course_code,title,level&limit=1000&offset='+crsOff);
+    if(!cp||!cp.length) break;
+    crsData=crsData.concat(cp);
+    if(cp.length<1000) break;
+    crsOff+=1000;
+  }
   var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b;});
   var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c;});
   var filtered=results.filter(function(r){
@@ -879,13 +1015,30 @@ document.getElementById('resitDownloadBtn').addEventListener('click',async funct
   if(grade!=='ALL')    q+='&grade=eq.'+encodeURIComponent(grade);
   if(semester!=='ALL') q+='&semester=eq.'+encodeURIComponent(semester);
   if(course!=='ALL')   q+='&course_code=eq.'+encodeURIComponent(course);
-  var results=await sbFetch(q);
-  if(!results||!results.length){Swal.fire({icon:'warning',title:'No Data',text:'No students match the selected filters.',confirmButtonColor:'#f59e0b'});return;}
+ var results=[],dlResOff=0;
+  while(true){
+    var dlRp=await sbFetch(q+'&limit=1000&offset='+dlResOff);
+    if(!dlRp||!dlRp.length) break;
+    results=results.concat(dlRp);
+    if(dlRp.length<1000) break;
+    dlResOff+=1000;
+  }
+  if(!results.length){Swal.fire({icon:'warning',title:'No Data',text:'No students match the selected filters.',confirmButtonColor:'#f59e0b'});return;}
   var emails=[...new Set(results.map(function(r){return r.email;}))];
-  var [bioData,crsData]=await Promise.all([
-    sbFetch('student_bio?email=in.('+emails.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,level'),
-    sbFetch('courses?select=course_code,title,level')
-  ]);
+  var bioData=[];
+  for(var dbi=0;dbi<emails.length;dbi+=100){
+    var dbatch=emails.slice(dbi,dbi+100);
+    var dbp=await sbFetch('student_bio?email=in.('+dbatch.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,level');
+    if(dbp) bioData=bioData.concat(dbp);
+  }
+  var crsData=[],dlCrsOff=0;
+  while(true){
+    var dlCp=await sbFetch('courses?select=course_code,title,level&limit=1000&offset='+dlCrsOff);
+    if(!dlCp||!dlCp.length) break;
+    crsData=crsData.concat(dlCp);
+    if(dlCp.length<1000) break;
+    dlCrsOff+=1000;
+  }
   var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b;});
   var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c;});
   var filtered=results.filter(function(r){
