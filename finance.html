@@ -275,6 +275,15 @@
           <i class="bi bi-download me-2"></i>Download Registered Students (CSV)
         </button>
       </div>
+
+      <div class="stat-card mt-3" style="max-width:500px;">
+        <h6 class="text-danger small fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>DEBTORS LIST</h6>
+        <p class="small text-muted mb-3">All students with any outstanding balance across <strong>all academic years</strong> — even GH₵ 0.01. Sorted by total owed (highest first).</p>
+        <button class="btn btn-danger w-100" onclick="finDownloadDebtorsList()">
+          <i class="bi bi-download me-2"></i>Download Debtors List (CSV)
+        </button>
+        <div id="debtorsStatus" class="mt-2" style="display:none;"></div>
+      </div>
     </section>
 
   </main>
@@ -373,7 +382,7 @@ async function finSyncFinanceRow(email, academicYear) {
   const percentage = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
   await fetch(SUPABASE_URL + '/rest/v1/student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(academicYear), {
     method: 'PATCH',
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify({ total_paid: totalPaid, balance, percentage, can_register: percentage >= 70 })
   });
   // Auto-update student_bio.status based on payment percentage.
@@ -442,12 +451,12 @@ async function finConfirmActivateYear() {
     // or updates every single row in the table (unsafe mode). Both are wrong.
     await fetch(SUPABASE_URL + '/rest/v1/fee_structure?status=eq.ACTIVE', {
       method: 'PATCH',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({ status: 'INACTIVE' })
     });
     await fetch(SUPABASE_URL + '/rest/v1/fee_structure?academic_year=eq.' + encodeURIComponent(year), {
       method: 'PATCH',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({ status: 'ACTIVE' })
     });
     localStorage.setItem('pce_active_year', year);
@@ -613,7 +622,7 @@ async function finSubmitFeeStructure() {
       for (const row of toRepatch) {
         const r = await fetch(SUPABASE_URL + '/rest/v1/student_finance?email=eq.' + encodeURIComponent(row.em) + '&academic_year=eq.' + encodeURIComponent(year), {
           method: 'PATCH',
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
           body: JSON.stringify({ base_fees: amount, carry_over: row.carry, total_required: row.total,
                                  balance: row.total, percentage: 0, can_register: false })
         });
@@ -683,7 +692,7 @@ async function finRunClearance(email, nextStatus) {
   }
   const res = await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(email), {
     method: 'PATCH',
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify({ status: resolvedStatus })
   });
   if (res.ok) { Swal.fire({ icon: 'success', title: 'Updated', text: 'Status set to ' + resolvedStatus, timer: 1500, showConfirmButton: false }); finRunSearch(); }
@@ -761,10 +770,30 @@ async function finSearchStudentFinancials() {
         ${payRows ? `<table class="table table-sm table-bordered mb-0">
           <thead class="table-light"><tr><th>Date</th><th>Type</th><th>Amount</th><th>Ref</th><th>By</th></tr></thead>
           <tbody>${payRows}</tbody></table>` : '<p class="text-muted small">No transactions yet.</p>'}
+        <div class="mt-3">
+          <button class="btn btn-outline-primary btn-sm w-100" id="viewFullHistoryBtn"
+            onclick="finToggleFullHistory('${s.email}', this)">
+            <i class="bi bi-clock-history me-1"></i>View Full Payment History (All Years)
+          </button>
+        </div>
       </div>
     </div>`;
+}
 
-  finLoadStudentFullHistory(s.email);
+// ── Full History Toggle ────────────────────────────────────────
+async function finToggleFullHistory(email, btn) {
+  const section = document.getElementById('financeHistorySection');
+  // If already loaded and visible, collapse it
+  if (section.innerHTML.trim() !== '' && section.style.display !== 'none') {
+    section.style.display = 'none';
+    if (btn) { btn.innerHTML = '<i class="bi bi-clock-history me-1"></i>View Full Payment History (All Years)'; btn.classList.remove('btn-primary'); btn.classList.add('btn-outline-primary'); }
+    return;
+  }
+  // Load and show
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading history...'; }
+  section.style.display = 'block';
+  await finLoadStudentFullHistory(email);
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-chevron-up me-1"></i>Hide Full History'; btn.classList.remove('btn-outline-primary'); btn.classList.add('btn-primary'); }
 }
 
 async function finLoadStudentFullHistory(email) {
@@ -916,183 +945,237 @@ function finDownloadPaymentTemplate() {
 // ── Receipt PDF ────────────────────────────────────────────────
 async function finPrintFinanceReceipt(email, academicYear, calledBy) {
   calledBy = calledBy || 'FINANCE';
-  Swal.fire({ title: 'Generating Receipt...', html: '<div class="spinner-border text-primary"></div>', allowOutsideClick: false, showConfirmButton: false });
+  Swal.fire({ title: 'Generating Receipt...', html: '<div class="spinner-border text-primary" style="width:2.5rem;height:2.5rem;"></div>', allowOutsideClick: false, showConfirmButton: false });
 
   const em = email.toLowerCase().trim();
-  const [bioRows, sfRows, payRows] = await Promise.all([
-    sbFetch('student_bio?email=eq.'     + encodeURIComponent(em) + '&select=*&limit=1'),
-    sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(academicYear) + '&select=*&limit=1'),
-    sbFetch('payments?email=eq.'        + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(academicYear) + '&select=*&order=payment_date.asc')
+  const [[bioRows, sfRows, payRows], logoData] = await Promise.all([
+    Promise.all([
+      sbFetch('student_bio?email=eq.'     + encodeURIComponent(em) + '&select=*&limit=1'),
+      sbFetch('student_finance?email=eq.' + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(academicYear) + '&select=*&limit=1'),
+      sbFetch('payments?email=eq.'        + encodeURIComponent(em) + '&academic_year=eq.' + encodeURIComponent(academicYear) + '&select=*&order=payment_date.asc')
+    ]),
+    pceLoadLogoFin()
   ]);
 
   if (!bioRows || !bioRows.length || !sfRows || !sfRows.length) {
     Swal.fire({ icon: 'error', title: 'No Records', text: 'No records found for ' + academicYear }); return;
   }
-
-  const student  = bioRows[0];
-  const sf       = sfRows[0];
-  const payments = payRows || [];
-
-  if (!payments.length) {
+  if (!payRows || !payRows.length) {
     Swal.fire({ icon: 'warning', title: 'No Payments', text: 'No payment records found for ' + academicYear }); return;
   }
 
-  // ── Safe field access with fallbacks for varying DB column names ──
-  const studentName    = String(student.name || student.full_name || student.fullname || '').toUpperCase() || 'N/A';
-  const studentIndex   = String(student.index_number || student.index_no || student.indexnumber || '');
-  const studentProgram = String(student.program || student.programme || '').toUpperCase() || 'N/A';
+  const student = bioRows[0];
+  const sf      = sfRows[0];
+  const pays    = payRows;
+
+  const studentName    = String(student.name || '').toUpperCase() || 'N/A';
+  const studentIndex   = String(student.index_number || '');
+  const studentProgram = String(student.program || 'N/A').toUpperCase();
   const studentLevel   = String(sf.level || '');
 
-  // Live calculations — never use stale stored totals
-  const totalPaid  = payments.reduce((s, p) => s + Number(p.amount), 0);
+  const totalPaid  = pays.reduce((s, p) => s + Number(p.amount), 0);
   const baseFees   = Number(sf.base_fees      || 0);
   const carryOver  = Number(sf.carry_over     || 0);
   const totalReq   = Number(sf.total_required || 0);
   const balance    = totalReq - totalPaid;
   const percentage = totalReq > 0 ? parseFloat(((totalPaid / totalReq) * 100).toFixed(1)) : 0;
-  const statusLabel = percentage >= 100 ? 'FULLY PAID' : percentage >= 70 ? '70% CLEARED — ELIGIBLE TO REGISTER' : 'INSUFFICIENT PAYMENT';
-  const statusColor = percentage >= 70 ? '#166534' : '#991b1b';
-  const statusBg    = percentage >= 70 ? '#dcfce7'  : '#fee2e2';
+  const statusLabel = percentage >= 100 ? 'FULLY PAID' : percentage >= 70 ? '70% CLEARED \u2014 ELIGIBLE TO REGISTER' : 'INSUFFICIENT PAYMENT';
+  const statusRGB   = percentage >= 70 ? [22, 163, 74] : [220, 38, 38];
 
-  let logoBase64 = '';
-  try {
-    const proxyUrl = 'https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1';
-    const resp = await fetch(proxyUrl);
-    if (resp.ok) {
-      const blob = await resp.blob();
-      logoBase64 = await new Promise(resolve => {
-        const r = new FileReader();
-        r.onload  = () => resolve(r.result);
-        r.onerror = () => resolve('');
-        r.readAsDataURL(blob);
-      });
-    }
-  } catch(e) { logoBase64 = ''; }
+  const { jsPDF } = window.jspdf;
+  const doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pageW  = doc.internal.pageSize.getWidth();
+  const pageH  = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const usableW = pageW - margin * 2;
 
-  const logoCell      = logoBase64 ? `<td style="width:75px;vertical-align:middle;padding-right:10px;"><img src="${logoBase64}" width="65" height="65" style="display:block;object-fit:contain;"></td>` : `<td style="width:10px;"></td>`;
-  const watermarkHtml = logoBase64 ? `<img src="${logoBase64}" style="position:absolute;top:200px;left:50%;margin-left:-220px;width:440px;opacity:0.07;z-index:0;pointer-events:none;">` : '';
+  // ── Header ──
+  finDrawHeader(doc, logoData, pageW);
 
-  const recordedByTh = calledBy === 'STUDENT' ? '' : '<th style="padding:8px 10px;font-size:10px;color:white;text-align:left;">Recorded By</th>';
-  const paymentRows  = payments.map((p, idx) => {
-    const amt = Number(p.amount);
-    const rByTd = calledBy === 'STUDENT' ? '' : `<td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280;">${p.recorded_by || ''}</td>`;
-    return `<tr style="background:${idx % 2 === 0 ? '#f9fafb' : '#ffffff'};">
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">${idx + 1}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">${p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : 'N/A'}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;"><span style="background:${amt >= 0 ? '#dcfce7' : '#fee2e2'};color:${amt >= 0 ? '#166534' : '#991b1b'};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:bold;">${p.type || 'PAYMENT'}</span></td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:bold;color:${amt >= 0 ? '#166534' : '#dc2626'};">${amt >= 0 ? '+' : ''}GH&#8373; ${Math.abs(amt).toFixed(2)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280;">${p.reference || ''}</td>
-      ${rByTd}
-    </tr>`;
-  }).join('');
-
-  const carryOverRow = carryOver > 0
-    ? `<tr style="background:#fff7ed;"><td style="padding:8px 12px;">Carried Over from Previous Year</td><td style="padding:8px 12px;text-align:right;font-weight:bold;color:#c2410c;">GH&#8373; ${carryOver.toFixed(2)}</td></tr>`
-    : '';
-
-  const footerLeft = calledBy === 'STUDENT'
-    ? `<p style="font-size:10px;color:#9ca3af;font-style:italic;">* Computer generated statement. Not an official receipt without Finance Office stamp.</p>`
-    : `<div style="margin-top:45px;border-top:1px solid #000;width:200px;padding-top:5px;"><strong>FINANCE OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div>`;
-
-  const receiptHtml = `<div style="font-family:'Times New Roman',serif;font-size:11px;color:#111;width:720px;padding:28px;box-sizing:border-box;background:#ffffff;position:relative;">
-
-  ${watermarkHtml}
-
-  <div style="position:relative;z-index:1;">
-
-    <!-- HEADER -->
-    <table style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px;border-collapse:collapse;">
-      <tr>
-        ${logoCell}
-        <td style="vertical-align:middle;text-align:center;">
-          <div style="font-size:15px;font-weight:bold;text-transform:uppercase;line-height:1.4;">Presbyterian College of Education, Akropong-Akuapem</div>
-          <div style="font-size:10px;color:#555;margin-top:4px;">P.O. Box 27, Akropong-Akuapem &nbsp;|&nbsp; Tel: +233 (0) 256 977 765 &nbsp;|&nbsp; www.pce.edu.gh</div>
-        </td>
-      </tr>
-    </table>
-
-    <!-- TITLE -->
-    <div style="text-align:center;margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Official Payment Receipt</div>
-      <div style="font-size:11px;color:#555;margin-top:5px;">Academic Year: <strong>${academicYear}</strong></div>
-    </div>
-
-    <!-- STUDENT INFO -->
-    <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">
-      <tr style="background:#f1f5f9;"><td colspan="4" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Student Information</td></tr>
-      <tr>
-        <td style="padding:7px 12px;width:22%;"><strong>Full Name:</strong></td>
-        <td style="padding:7px 12px;width:28%;">${studentName}</td>
-        <td style="padding:7px 12px;width:22%;"><strong>Index Number:</strong></td>
-        <td style="padding:7px 12px;width:28%;">${studentIndex}</td>
-      </tr>
-      <tr style="background:#f9fafb;">
-        <td style="padding:7px 12px;"><strong>Program:</strong></td>
-        <td style="padding:7px 12px;">${studentProgram}</td>
-        <td style="padding:7px 12px;"><strong>Level (${academicYear}):</strong></td>
-        <td style="padding:7px 12px;">${studentLevel}</td>
-      </tr>
-    </table>
-
-    <!-- FEE SUMMARY -->
-    <table style="width:100%;border:1px solid #e5e7eb;margin-bottom:14px;border-collapse:collapse;">
-      <tr style="background:#f1f5f9;"><td colspan="2" style="padding:7px 12px;font-weight:bold;font-size:10px;border-bottom:1px solid #e5e7eb;text-transform:uppercase;letter-spacing:1px;color:#374151;">Fee Summary</td></tr>
-      <tr><td style="padding:7px 12px;width:65%;">Base Fees for ${academicYear}</td><td style="padding:7px 12px;text-align:right;font-weight:bold;">GH&#8373; ${baseFees.toFixed(2)}</td></tr>
-      ${carryOverRow}
-      <tr style="background:#f9fafb;"><td style="padding:7px 12px;font-weight:bold;">Total Required</td><td style="padding:7px 12px;text-align:right;font-weight:bold;">GH&#8373; ${totalReq.toFixed(2)}</td></tr>
-      <tr><td style="padding:7px 12px;">Total Amount Paid</td><td style="padding:7px 12px;text-align:right;font-weight:bold;color:#166534;">GH&#8373; ${totalPaid.toFixed(2)}</td></tr>
-      <tr><td style="padding:7px 12px;border-top:2px solid #000;">Outstanding Balance</td><td style="padding:7px 12px;text-align:right;font-weight:bold;border-top:2px solid #000;color:${balance > 0 ? '#dc2626' : '#166534'};">GH&#8373; ${balance.toFixed(2)}</td></tr>
-      <tr><td colspan="2" style="padding:9px 12px;"><span style="background:${statusBg};color:${statusColor};padding:4px 14px;border-radius:4px;font-weight:bold;font-size:11px;">${statusLabel} (${percentage}%)</span></td></tr>
-    </table>
-
-    <!-- PAYMENT HISTORY -->
-    <div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;color:#374151;">Payment Transaction History</div>
-    <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">
-      <thead><tr style="background:#1e3a5f;">
-        <th style="padding:8px 10px;font-size:10px;color:white;">#</th>
-        <th style="padding:8px 10px;font-size:10px;color:white;">Date</th>
-        <th style="padding:8px 10px;font-size:10px;color:white;">Type</th>
-        <th style="padding:8px 10px;font-size:10px;color:white;text-align:right;">Amount</th>
-        <th style="padding:8px 10px;font-size:10px;color:white;">Reference</th>
-        ${recordedByTh}
-      </tr></thead>
-      <tbody>${paymentRows}</tbody>
-    </table>
-
-    <!-- FOOTER -->
-    <div style="margin-top:35px;padding-top:10px;border-top:1px solid #000;">
-      <table style="width:100%;border-collapse:collapse;">
-        <tr>
-          <td style="width:50%;vertical-align:bottom;">${footerLeft}</td>
-          <td style="width:50%;text-align:right;vertical-align:bottom;">
-            <strong>Date of Issue:</strong> ${new Date().toLocaleDateString('en-GB')}<br>
-            <small style="color:#9ca3af;">Generated by PCE Finance System</small>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-  </div>
-</div>`;
-
-  Swal.close();
-
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:760px;';
-  wrap.innerHTML = receiptHtml;
-  document.body.appendChild(wrap);
-
-  try {
-    await html2pdf().set({
-      margin:      [0.4, 0.4, 0.4, 0.4],
-      filename:    'Receipt_' + (studentIndex || em) + '_' + String(academicYear).replace('/', '-') + '.pdf',
-      image:       { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
-      jsPDF:       { unit: 'in', format: 'a4', orientation: 'portrait' }
-    }).from(wrap.firstElementChild).save();
-  } finally {
-    document.body.removeChild(wrap);
+  let y = 32;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(15, 23, 42);
+  doc.text('OFFICIAL PAYMENT RECEIPT', pageW / 2, y, { align: 'center' });
+  y += 5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
+  doc.text('Academic Year: ' + academicYear, pageW / 2, y, { align: 'center' });
+  y += 4;
+  if (calledBy === 'STUDENT') {
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(156, 163, 175);
+    doc.text('* Computer generated. Not official without Finance Office stamp.', pageW / 2, y, { align: 'center' });
   }
+  y += 7;
+
+  // ── Student Info ──
+  y = finDrawSectionLabel(doc, 'Student Information', y, pageW);
+  y = finDrawInfoTable(doc, [
+    ['Full Name:',  studentName,    'Index Number:',        studentIndex],
+    ['Program:',    studentProgram, 'Level (' + academicYear + '):', studentLevel],
+  ], y, pageW);
+
+  // ── Fee Summary ──
+  y = finDrawSectionLabel(doc, 'Fee Summary', y, pageW);
+  const feeRows = [
+    ['Base Fees for ' + academicYear, 'GHS ' + baseFees.toFixed(2), false],
+    ...(carryOver > 0 ? [['Carried Over from Previous Year', 'GHS ' + carryOver.toFixed(2), false]] : []),
+    ['Total Required',                'GHS ' + totalReq.toFixed(2),   true],
+    ['Total Amount Paid',             'GHS ' + totalPaid.toFixed(2),  false],
+    ['Outstanding Balance',           'GHS ' + balance.toFixed(2),    true],
+  ];
+  feeRows.forEach((row, i) => {
+    const isBold = row[2];
+    const isBalance = row[0] === 'Outstanding Balance';
+    doc.setFillColor(...(i % 2 === 0 ? [249,250,251] : [255,255,255]));
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(isBold ? 0.5 : 0.2);
+    doc.rect(margin, y, usableW, 7, 'FD');
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal'); doc.setFontSize(8);
+    doc.setTextColor(...(isBalance && balance > 0 ? [220,38,38] : [55,65,81]));
+    doc.text(row[0], margin + 2, y + 5);
+    doc.text(row[1], margin + usableW - 2, y + 5, { align: 'right' });
+    y += 7;
+  });
+  y += 2;
+
+  // ── Payment Status Banner ──
+  doc.setFillColor(...statusRGB);
+  doc.roundedRect(margin, y, usableW, 8, 1.5, 1.5, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 255);
+  doc.text(statusLabel + ' (' + percentage + '%)', pageW / 2, y + 5.5, { align: 'center' });
+  y += 13;
+
+  // ── Payment History ──
+  y = finDrawSectionLabel(doc, 'Payment Transaction History', y, pageW);
+
+  const hasRecBy = calledBy !== 'STUDENT';
+  const refW     = hasRecBy ? (usableW - 8 - 26 - 28 - 35 - 30) : (usableW - 8 - 26 - 28 - 35);
+  const pCols    = hasRecBy ? [8, 26, 28, 35, refW, 30] : [8, 26, 28, 35, refW];
+  const pHdrs    = hasRecBy ? ['#', 'Date', 'Type', 'Amount', 'Reference', 'Rec. By'] : ['#', 'Date', 'Type', 'Amount', 'Reference'];
+  const pRowH    = 7;
+
+  doc.setFillColor(30, 58, 95); doc.rect(margin, y, usableW, pRowH, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255);
+  let cx = margin;
+  pHdrs.forEach((h, i) => {
+    const a = i === 3 ? 'right' : 'left';
+    doc.text(h, a === 'right' ? cx + pCols[i] - 2 : cx + 2, y + pRowH - 2, { align: a });
+    cx += pCols[i];
+  });
+  y += pRowH;
+
+  pays.forEach((p, idx) => {
+    const amt     = Number(p.amount);
+    const dateStr = p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : 'N/A';
+    const amtStr  = (amt >= 0 ? '+' : '') + 'GHS ' + Math.abs(amt).toFixed(2);
+
+    doc.setFillColor(...(idx % 2 === 0 ? [249,250,251] : [255,255,255]));
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
+    doc.rect(margin, y, usableW, pRowH, 'FD');
+
+    const cells = hasRecBy
+      ? [String(idx + 1), dateStr, p.type || 'PAYMENT', amtStr, p.reference || '\u2014', p.recorded_by || '\u2014']
+      : [String(idx + 1), dateStr, p.type || 'PAYMENT', amtStr, p.reference || '\u2014'];
+
+    cx = margin;
+    cells.forEach((val, i) => {
+      const a  = i === 3 ? 'right' : 'left';
+      const tx = a === 'right' ? cx + pCols[i] - 2 : cx + 2;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+      doc.setTextColor(...(i === 3 ? (amt >= 0 ? [22,163,74] : [220,38,38]) : [55,65,81]));
+      let t = val;
+      const maxW = pCols[i] - 4;
+      if (i !== 3) { while (doc.getTextWidth(t) > maxW && t.length > 1) t = t.slice(0,-1); if (t !== val) t = t.slice(0,-1) + '\u2026'; }
+      doc.text(t, tx, y + pRowH - 2, { align: a });
+      cx += pCols[i];
+    });
+    y += pRowH;
+    if (y > pageH - 30) { doc.addPage(); y = 20; }
+  });
+
+  // ── Footer signature area ──
+  y += 8;
+  if (calledBy !== 'STUDENT') {
+    doc.setDrawColor(15, 23, 42); doc.setLineWidth(0.4);
+    doc.line(margin, y + 15, margin + 55, y + 15);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(15, 23, 42);
+    doc.text('FINANCE OFFICER', margin, y + 20);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139);
+    doc.text('(Signature & Stamp)', margin, y + 25);
+  }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(55, 65, 81);
+  doc.text('Date of Issue: ' + new Date().toLocaleDateString('en-GB'), pageW - margin, y + 20, { align: 'right' });
+
+  finDrawFooter(doc, pageW, pageH);
+  Swal.close();
+  doc.save('Receipt_' + (studentIndex || em) + '_' + String(academicYear).replace('/', '-') + '.pdf');
+}
+
+// ── Finance PDF helpers (mirror student portal pce* helpers) ──
+async function pceLoadLogoFin() {
+  try {
+    const resp = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return await new Promise(resolve => {
+      const r = new FileReader();
+      r.onload  = () => resolve(r.result);
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(blob);
+    });
+  } catch { return null; }
+}
+
+function finDrawHeader(doc, logoData, pageW) {
+  if (logoData) {
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.06 }));
+    doc.addImage(logoData, 'PNG', (pageW - 90) / 2, 55, 90, 90);
+    doc.restoreGraphicsState();
+    doc.addImage(logoData, 'PNG', 14, 10, 18, 18);
+  }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(15, 23, 42);
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', pageW / 2, 16, { align: 'center' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
+  doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh', pageW / 2, 21, { align: 'center' });
+  doc.setDrawColor(15, 23, 42); doc.setLineWidth(0.5);
+  doc.line(14, 25, pageW - 14, 25);
+}
+
+function finDrawInfoTable(doc, rows, startY, pageW) {
+  const margin = 14;
+  const colW   = (pageW - margin * 2) / 2;
+  const cellH  = 7;
+  let y = startY;
+  rows.forEach((row, i) => {
+    doc.setFillColor(...(i % 2 === 0 ? [249,250,251] : [255,255,255]));
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
+    doc.rect(margin, y, colW * 2, cellH, 'FD');
+    doc.setFont('helvetica', 'bold');   doc.setFontSize(8); doc.setTextColor(55, 65, 81);
+    doc.text(row[0], margin + 2, y + cellH - 2);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(15, 23, 42);
+    doc.text(String(row[1] || 'N/A'), margin + colW * 0.38, y + cellH - 2);
+    if (row[2] !== undefined) {
+      doc.setFont('helvetica', 'bold');   doc.setTextColor(55, 65, 81);
+      doc.text(row[2], margin + colW + 2, y + cellH - 2);
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(15, 23, 42);
+      doc.text(String(row[3] || 'N/A'), margin + colW + colW * 0.38, y + cellH - 2);
+    }
+    y += cellH;
+  });
+  return y + 3;
+}
+
+function finDrawSectionLabel(doc, label, y, pageW) {
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(2, 132, 199);
+  doc.text(label.toUpperCase(), 14, y);
+  doc.setDrawColor(2, 132, 199); doc.setLineWidth(0.2);
+  doc.line(14, y + 1, pageW - 14, y + 1);
+  return y + 5;
+}
+
+function finDrawFooter(doc, pageW, pageH) {
+  doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+  doc.line(14, pageH - 11, pageW - 14, pageH - 11);
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(156, 163, 175);
+  doc.text('Generated by PCE Finance System  |  Date Printed: ' + new Date().toLocaleDateString('en-GB'), pageW / 2, pageH - 7, { align: 'center' });
 }
 
 // ── Reports ────────────────────────────────────────────────────
@@ -1110,6 +1193,102 @@ async function finRunDl() {
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
   a.download = 'Level_' + lvl + '_Registered.csv'; a.click();
+}
+
+// ── Debtors List ───────────────────────────────────────────────
+async function finDownloadDebtorsList() {
+  const status = document.getElementById('debtorsStatus');
+  status.style.display = 'block'; status.className = 'alert alert-info';
+  status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Fetching all financial records...';
+
+  try {
+    // Fetch all student_finance rows across ALL years (paginate past 1000 row limit)
+    let allSfRows = [], offset = 0, pageSize = 1000;
+    while (true) {
+      const page = await sbFetch('student_finance?select=email,academic_year,level,base_fees,carry_over,total_required,total_paid,balance&order=email.asc&limit=' + pageSize + '&offset=' + offset);
+      if (!page || !page.length) break;
+      allSfRows = allSfRows.concat(page);
+      if (page.length < pageSize) break;
+      offset += pageSize;
+    }
+    if (!allSfRows.length) { status.className = 'alert alert-warning'; status.innerHTML = '⚠️ No financial records found.'; return; }
+
+    // Group by student email — accumulate balance and collect year breakdown
+    const byStudent = {};
+    allSfRows.forEach(row => {
+      const em  = String(row.email || '').toLowerCase().trim();
+      const bal = Number(row.balance) || 0;
+      if (!em) return;
+      if (!byStudent[em]) byStudent[em] = { email: em, totalOwed: 0, years: [] };
+      byStudent[em].totalOwed += bal;
+      byStudent[em].years.push({
+        year:     String(row.academic_year || ''),
+        level:    String(row.level || ''),
+        required: Number(row.total_required) || 0,
+        paid:     Number(row.total_paid) || 0,
+        balance:  bal
+      });
+    });
+
+    // Keep only students who owe anything at all (balance > 0 across all years combined)
+    const debtors = Object.values(byStudent).filter(d => d.totalOwed > 0);
+    if (!debtors.length) { status.className = 'alert alert-success'; status.innerHTML = '✅ No debtors found — all students are fully paid!'; return; }
+
+    // Sort by total owed descending
+    debtors.sort((a, b) => b.totalOwed - a.totalOwed);
+
+    // Fetch ALL student_bio rows (paginate past 1000 row limit)
+    let bioRows = [], bioOffset = 0;
+    while (true) {
+      const bioPage = await sbFetch('student_bio?select=email,name,index_number,program,level,status&order=email.asc&limit=1000&offset=' + bioOffset);
+      if (!bioPage || !bioPage.length) break;
+      bioRows = bioRows.concat(bioPage);
+      if (bioPage.length < 1000) break;
+      bioOffset += 1000;
+    }
+    const bioMap = {};
+    bioRows.forEach(r => { bioMap[String(r.email||'').toLowerCase().trim()] = r; });
+
+    // Collect all unique academic years for column headers
+    const allYears = [...new Set(allSfRows.map(r => String(r.academic_year||'')).filter(Boolean))].sort();
+
+    // Build CSV
+    const headers = ['Email', 'Name', 'Index Number', 'Program', 'Level', 'Finance Status',
+      ...allYears.map(y => y + ' Balance (GHS)'),
+      'TOTAL OWED (GHS)'];
+
+    const csvRows = debtors.map(d => {
+      const bio = bioMap[d.email] || {};
+      const yearBalMap = {};
+      d.years.forEach(y => { yearBalMap[y.year] = (yearBalMap[y.year] || 0) + y.balance; });
+      return [
+        d.email,
+        bio.name || '',
+        bio.index_number || '',
+        bio.program || '',
+        bio.level || '',
+        bio.status || 'PENDING',
+        ...allYears.map(y => (yearBalMap[y] || 0).toFixed(2)),
+        d.totalOwed.toFixed(2)
+      ];
+    });
+
+    const csv = [headers, ...csvRows]
+      .map(row => row.map(c => '"' + String(c || '').replace(/"/g, '""') + '"').join(','))
+      .join('\n');
+
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'PCE_Debtors_List_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+
+    status.className = 'alert alert-success';
+    status.innerHTML = '✅ ' + debtors.length + ' debtor(s) exported. Total outstanding: GHS ' +
+      debtors.reduce((s, d) => s + d.totalOwed, 0).toFixed(2);
+  } catch(e) {
+    status.className = 'alert alert-danger';
+    status.innerHTML = '⚠️ Error: ' + e.message;
+  }
 }
 
 // ── Auto-init when fragment loads ──────────────────────────────
