@@ -420,9 +420,18 @@
   ══════════════════════════════════════════════════════ */
   async function hodPopulateYears() {
     try {
-      var rows = await sbFetch('results?select=academic_year&order=academic_year.desc');
-      var years = [...new Set((rows || []).map(function(r) { return r.academic_year; }).filter(Boolean))];
-      var sel   = document.getElementById('hodYearSelect');
+      // Paginate to get ALL result rows — years beyond row 1000 were silently missing
+      var allRows = [], offset = 0;
+      while (true) {
+        var page = await sbFetch('results?select=academic_year&order=academic_year.desc&limit=1000&offset=' + offset);
+        if (!page || !page.length) break;
+        allRows = allRows.concat(page);
+        if (page.length < 1000) break;
+        offset += 1000;
+      }
+      var years = [...new Set(allRows.map(function(r) { return r.academic_year; }).filter(Boolean))];
+      years.sort(function(a, b) { return String(b).localeCompare(String(a)); }); // newest first
+      var sel = document.getElementById('hodYearSelect');
       years.forEach(function(y) {
         var opt = document.createElement('option');
         opt.value = y; opt.textContent = y;
@@ -441,25 +450,39 @@
 
     try {
       // Get dept emails
-      var bioRows = await sbFetch(
-        'student_bio?department=eq.' + encodeURIComponent(hodDept) + '&select=email'
-      );
-      if (!bioRows || !bioRows.length) {
+      var bioAllRows = [], bioOffset = 0;
+      while (true) {
+        var bioPage = await sbFetch(
+          'student_bio?department=eq.' + encodeURIComponent(hodDept) +
+          '&select=email&limit=1000&offset=' + bioOffset
+        );
+        if (!bioPage || !bioPage.length) break;
+        bioAllRows = bioAllRows.concat(bioPage);
+        if (bioPage.length < 1000) break;
+        bioOffset += 1000;
+      }
+      if (!bioAllRows.length) {
         tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4 text-muted">No students in this department.</td></tr>';
         return;
       }
-      var deptEmails = new Set(bioRows.map(function(r) { return r.email.toLowerCase().trim(); }));
+      var deptEmails = new Set(bioAllRows.map(function(r) { return r.email.toLowerCase().trim(); }));
 
       // Build results query
-      var q = 'results?select=email,course_code,grade,semester,academic_year';
-      if (year) q += '&academic_year=eq.' + encodeURIComponent(year);
-      if (sem)  q += '&semester=eq.'      + encodeURIComponent(sem);
+     var baseQ = 'results?select=email,course_code,grade,semester,academic_year';
+      if (year) baseQ += '&academic_year=eq.' + encodeURIComponent(year);
+      if (sem)  baseQ += '&semester=eq.'      + encodeURIComponent(sem);
 
-      var [results, courses] = await Promise.all([
-        sbFetch(q),
-        sbFetch('courses?select=course_code,title')
-      ]);
+      var allResults = [], resOffset = 0;
+      while (true) {
+        var resPage = await sbFetch(baseQ + '&limit=1000&offset=' + resOffset);
+        if (!resPage || !resPage.length) break;
+        allResults = allResults.concat(resPage);
+        if (resPage.length < 1000) break;
+        resOffset += 1000;
+      }
+      var results = allResults;
 
+      var courses = await sbFetch('courses?select=course_code,title&limit=1000');
       var courseMap = {};
       (courses || []).forEach(function(c) { courseMap[c.course_code] = c.title; });
 
