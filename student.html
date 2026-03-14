@@ -989,11 +989,11 @@ async function printStudentReceipt() {
 
   y = pceDrawSectionLabel(doc, 'Fee Summary', y, pageW);
   const feeRows = [
-    ['Base Fees for ' + year,        'GH\u20B5 ' + baseFees.toFixed(2)],
-    ...(carryOver > 0 ? [['Carried Over from Previous Year', 'GH\u20B5 ' + carryOver.toFixed(2)]] : []),
-    ['Total Required',               'GH\u20B5 ' + totalReq.toFixed(2)],
-    ['Total Amount Paid',            'GH\u20B5 ' + totalPaid.toFixed(2)],
-    ['Outstanding Balance',          'GH\u20B5 ' + balance.toFixed(2)],
+    ['Base Fees for ' + year,        'GHS ' + baseFees.toFixed(2)],
+    ...(carryOver > 0 ? [['Carried Over from Previous Year', 'GHS ' + carryOver.toFixed(2)]] : []),
+    ['Total Required',               'GHS ' + totalReq.toFixed(2)],
+    ['Total Amount Paid',            'GHS ' + totalPaid.toFixed(2)],
+    ['Outstanding Balance',          'GHS ' + balance.toFixed(2)],
   ];
   feeRows.forEach((row, i) => {
     const isBold = i === feeRows.length - 1 || row[0] === 'Total Required';
@@ -1036,7 +1036,7 @@ async function printStudentReceipt() {
     doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
     doc.rect(margin, y, usableW, pRowH, 'FD');
     const dateStr = p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB') : 'N/A';
-    const cells   = [String(idx + 1), dateStr, p.type || 'PAYMENT', p.reference || '—', (amt >= 0 ? '+' : '') + 'GH\u20B5 ' + Math.abs(amt).toFixed(2)];
+    const cells   = [String(idx + 1), dateStr, p.type || 'PAYMENT', p.reference || '—', (amt >= 0 ? '+' : '') + 'GHS ' + Math.abs(amt).toFixed(2)];
     cx = margin;
     cells.forEach((val, i) => {
       const a  = i === 4 ? 'right' : 'left';
