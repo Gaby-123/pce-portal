@@ -1259,10 +1259,14 @@ async function _attPopulateCourses() {
           '&select=course_code,program';
 
   if (isUnified) {
-    q += '&program=in.(' + L100_UNIFIED.map(encodeURIComponent).join(',') + ')';
+    q += '&program=in.("PRIMARY EDUCATION","JHS EDUCATION")';
   } else {
     var prog = progSel.value;
-    if (prog) q += '&program=eq.' + encodeURIComponent(prog);
+    if (!prog) {
+      document.getElementById('attCourse').innerHTML = '<option value="">-- Select a Program first --</option>';
+      return;
+    }
+    q += '&program=eq.' + encodeURIComponent(prog);
   }
 
   var rows = await sbFetch(q);
@@ -1337,9 +1341,13 @@ document.getElementById('attCoursePDFBtn').addEventListener('click', async funct
           '&select=email,serial_no,program&order=serial_no.asc';
 
   if (isUnified) {
-    q += '&program=in.(' + L100_UNIFIED.map(encodeURIComponent).join(',') + ')';
+    q += '&program=in.("PRIMARY EDUCATION","JHS EDUCATION")';
   } else {
-    if (program) q += '&program=eq.' + encodeURIComponent(program);
+    if (!program) {
+      Swal.fire({ icon: 'warning', title: 'Select Program', text: 'Please select a program first.', confirmButtonColor: '#f59e0b' });
+      return;
+    }
+    q += '&program=eq.' + encodeURIComponent(program);
   }
 
   var regRows = await sbFetch(q);
