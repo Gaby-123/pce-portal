@@ -507,8 +507,42 @@ async function runStudentSubmitReg() {
   }
 
   var email = userSession.email.toLowerCase().trim();
-  var records = codes.map(function(code) {
-    return { email: email, level: String(lvl), semester: sem, course_code: code, academic_year: activeYear, registered_at: new Date().toISOString() };
+  // ── Compute serial numbers per course ─────────────────────
+  var bioForSerial = await sbFetch(
+    'student_bio?email=eq.' + encodeURIComponent(email) + '&select=program,level&limit=1'
+  );
+  var studentProgram = bioForSerial && bioForSerial.length ? String(bioForSerial[0].program || '').trim().toUpperCase() : '';
+  var studentLevel   = bioForSerial && bioForSerial.length ? String(bioForSerial[0].level   || '').trim() : lvl;
+
+  var L100_UNIFIED = ['PRIMARY EDUCATION', 'JHS EDUCATION'];
+  var isUnified    = L100_UNIFIED.includes(studentProgram) && String(studentLevel) === '100';
+
+  // Fetch existing serial numbers for each course in parallel
+  var serialQueries = codes.map(function(code) {
+    var q = 'registrations?course_code=eq.' + encodeURIComponent(code) +
+            '&academic_year=eq.' + encodeURIComponent(activeYear) +
+            '&select=serial_no&order=serial_no.desc&limit=1';
+    if (!isUnified) {
+      q += '&program=eq.' + encodeURIComponent(studentProgram);
+    }
+    return sbFetch(q);
+  });
+  var serialResults = await Promise.all(serialQueries);
+
+  var records = codes.map(function(code, i) {
+    var existing   = serialResults[i];
+    var lastSerial = existing && existing.length && existing[0].serial_no ? Number(existing[0].serial_no) : 0;
+    var mySerial   = lastSerial + 1;
+    return {
+      email:        email,
+      level:        String(lvl),
+      semester:     sem,
+      course_code:  code,
+      academic_year: activeYear,
+      registered_at: new Date().toISOString(),
+      serial_no:    mySerial,
+      program:      studentProgram
+    };
   });
 
   var res = await fetch(SUPABASE_URL + '/rest/v1/registrations', {
@@ -570,7 +604,7 @@ async function handleDownloadSlip(btnEl) {
   const [[bioRows, regRows], logoData] = await Promise.all([
     Promise.all([
       sbFetch('student_bio?email=eq.' + encodeURIComponent(email) + '&select=*&limit=1'),
-      sbFetch('registrations?email=eq.' + encodeURIComponent(email) + '&level=eq.' + encodeURIComponent(lvl) + '&semester=eq.' + encodeURIComponent(sem) + '&select=course_code,registered_at&order=course_code')
+      sbFetch('registrations?email=eq.' + encodeURIComponent(email) + '&level=eq.' + encodeURIComponent(lvl) + '&semester=eq.' + encodeURIComponent(sem) + '&select=course_code,registered_at,serial_no&order=course_code')
     ]),
     pceLoadLogo()
   ]);
@@ -582,6 +616,8 @@ async function handleDownloadSlip(btnEl) {
   }
 
   const codes      = regRows.map(r => r.course_code);
+  const serialMap  = {};
+  regRows.forEach(r => { serialMap[r.course_code] = r.serial_no || '—'; });
   const courseData = await sbFetch('courses?course_code=in.(' + codes.map(encodeURIComponent).join(',') + ')&select=course_code,title,credits&order=course_code');
   const courseMap  = {};
   (courseData || []).forEach(c => { courseMap[c.course_code] = c; });
@@ -615,8 +651,8 @@ async function handleDownloadSlip(btnEl) {
 
   y = pceDrawSectionLabel(doc, 'Registered Courses', y, pageW);
 
-  const cols  = [8, 28, usableW - 8 - 28 - 14, 14];
-  const hdrs  = ['#', 'Code', 'Course Title', 'Credits'];
+ const cols  = [8, 28, usableW - 8 - 28 - 14 - 16, 14, 16];
+  const hdrs  = ['#', 'Code', 'Course Title', 'Credits', 'Serial'];
   const rowH  = 7;
   let totalCr = 0;
 
@@ -639,7 +675,7 @@ async function handleDownloadSlip(btnEl) {
     doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
     doc.rect(margin, y, usableW, rowH, 'FD');
 
-    const cells = [String(idx + 1), code, c.title || code, String(cr)];
+    const cells = [String(idx + 1), code, c.title || code, String(cr), String(serialMap[code] || '—')];
     cx = margin;
     cells.forEach((val, i) => {
       const a  = i === 3 ? 'center' : 'left';
@@ -658,9 +694,23 @@ async function handleDownloadSlip(btnEl) {
   doc.setFillColor(241, 245, 249); doc.setDrawColor(15, 23, 42); doc.setLineWidth(0.4);
   doc.rect(margin, y, usableW, rowH, 'FD');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(15, 23, 42);
-  doc.text('Total Credit Hours:', margin + usableW - cols[3] - 2, y + rowH - 2, { align: 'right' });
-  doc.text(String(totalCr), margin + usableW - cols[3] / 2, y + rowH - 2, { align: 'center' });
+  doc.text('Total Credit Hours:', margin + usableW - cols[3] - cols[4] - 2, y + rowH - 2, { align: 'right' });
+  doc.text(String(totalCr), margin + usableW - cols[4] - cols[3] / 2, y + rowH - 2, { align: 'center' });
   y += rowH + 6;
+
+  // ── Signature section ──────────────────────────────────────
+  y += 10;
+  const sigLineW = 60;
+  doc.setDrawColor(15, 23, 42); doc.setLineWidth(0.4);
+  doc.line(margin, y, margin + sigLineW, y);
+  doc.line(margin + usableW - sigLineW, y, margin + usableW, y);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(15, 23, 42);
+  doc.text('STUDENT SIGNATURE', margin, y + 4);
+  doc.text('HOD SIGNATURE', margin + usableW - sigLineW, y + 4);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139);
+  doc.text('(Sign above)', margin, y + 8);
+  doc.text('(Sign & Stamp)', margin + usableW - sigLineW, y + 8);
+  y += 15;
 
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
   doc.text('Date Registered: ' + regDate, margin, y);
