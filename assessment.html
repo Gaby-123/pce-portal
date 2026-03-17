@@ -1258,26 +1258,25 @@ async function _asmPrintTrans(){
   }
 
   // ── DRAW PAGE 1 HEADER ────────────────────────────────────
-  // Logo
+  // Logo left
   if (logo) {
-    doc.addImage(logo, 'PNG', mL, y, 18, 18);
+    doc.addImage(logo, 'PNG', mL, y, 20, 20);
   }
 
-  // College name and address to the right of logo
-  var hx = mL + 22;
+  // College name and address — centered on full page width
   doc.setFont('times', 'bold');
   doc.setFontSize(15);
   doc.setTextColor(0, 0, 0);
-  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', hx, y + 6);
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', pageW / 2, y + 6, { align:'center' });
   doc.setFont('times', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(30, 30, 30);
-  doc.text('P. O. Box 27, Akropong-Akuapem', hx, y + 11);
-  doc.text('Tel: +233 (0) 256 977 765 | Email: gabrielodameamfo@gmail.com', hx, y + 15);
-  doc.text('Website: www.pce.edu.gh', hx, y + 19);
+  doc.text('P. O. Box 27, Akropong-Akuapem', pageW / 2, y + 12, { align:'center' });
+  doc.text('Tel: +233 (0) 256 977 765 | Email: gabrielodameamfo@gmail.com', pageW / 2, y + 17, { align:'center' });
+  doc.text('Website: www.pce.edu.gh', pageW / 2, y + 22, { align:'center' });
 
   // Thick bottom line under header
-  y += 22;
+  y += 26;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(1.0);
   doc.line(mL, y, pageW - mR, y);
@@ -1417,39 +1416,45 @@ async function _asmPrintTrans(){
       'CCR: ' + runCreds + '   CGV: ' + runPts.toFixed(2) + '   CGPA: ' + semFinalCGPA,
       pageW - mR - 2, y + 5, { align:'right' }
     );
-    y += 10;
+    y += 14; 
   });
 
   // ── Class designation ─────────────────────────────────────
-  checkSpace(12);
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.5);
-  doc.rect(mL, y, 82, 8, 'S');
+  checkSpace(20);
+  // Measure text width to size box correctly
   doc.setFont('times', 'bold');
   doc.setFontSize(10);
+  var classText  = 'CLASS DESIGNATION: ' + classD;
+  var classTextW = doc.getTextWidth(classText);
+  var boxW       = classTextW + 8; // 4mm padding each side
+  var boxH       = 10;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(mL, y, boxW, boxH, 'S');
   doc.setTextColor(0, 0, 0);
-  doc.text('CLASS DESIGNATION: ' + classD, mL + 3, y + 5.5);
-  y += 16;
+  doc.text(classText, mL + 4, y + 7);
+  y += 22; // generous space between box and signature
 
   // ── Signature block ───────────────────────────────────────
-  checkSpace(18);
+  checkSpace(22);
   var sigW = 65;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
   doc.line(mL, y, mL + sigW, y);
   doc.line(pageW - mR - sigW, y, pageW - mR, y);
+  y += 5;
   doc.setFont('times', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
-  doc.text('COLLEGE REGISTRAR', mL, y + 5);
-  doc.text('DATE OF ISSUE', pageW - mR - sigW, y + 5);
+  doc.text('COLLEGE REGISTRAR', mL, y);
+  doc.text('DATE OF ISSUE', pageW - mR - sigW, y);
+  y += 5;
   doc.setFont('times', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
-  doc.text('(Signature & Official Stamp)', mL, y + 10);
-  doc.text(new Date().toLocaleDateString('en-GB'), pageW - mR - sigW, y + 10);
+  doc.text('(Signature & Official Stamp)', mL, y);
+  doc.text(new Date().toLocaleDateString('en-GB'), pageW - mR - sigW, y);
   y += 14;
-
   drawFooter();
 
   // ── Grading scheme page ───────────────────────────────────
