@@ -1324,7 +1324,6 @@ document.getElementById('attCoursePDFBtn').addEventListener('click', async funct
   var courseEl   = document.getElementById('attCourse');
   var selOpt     = courseEl.options[courseEl.selectedIndex];
   var courseTitle   = selOpt ? (selOpt.getAttribute('data-title') || courseCode) : courseCode;
-  var courseCredits = selOpt ? Number(selOpt.getAttribute('data-credits') || 3) : 3;
   var st         = document.getElementById('attCourseStatus');
 
   if (!p.level || !p.sem || !p.year) {
@@ -1336,44 +1335,38 @@ document.getElementById('attCoursePDFBtn').addEventListener('click', async funct
     return;
   }
 
-  var semLabel    = p.sem === 'SEMESTER1' ? 'FIRST' : 'SECOND';
-  var semDisplay  = p.sem === 'SEMESTER1' ? 'SEMESTER 1' : 'SEMESTER 2';
-  var L100_UNIFIED = ['PRIMARY EDUCATION', 'JHS EDUCATION'];
-  var isUnified   = String(p.level) === '100';
+  var semLabel   = p.sem === 'SEMESTER1' ? 'FIRST' : 'SECOND';
+  var semDisplay = p.sem === 'SEMESTER1' ? 'SEMESTER 1' : 'SEMESTER 2';
+  var isUnified  = String(p.level) === '100';
 
   Swal.fire({
     title: 'Generating Attendance PDF…',
-    html: '<div class="spinner-border text-danger mb-3" style="width:3rem;height:3rem;"></div>' +
-          '<p class="small text-muted">Building attendance sheet for ' + courseCode + '…</p>',
+    html: '<div class="spinner-border text-danger mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Building attendance sheet for ' + courseCode + '…</p>',
     allowOutsideClick: false,
     showConfirmButton: false
   });
 
-  // Fetch registrations for this course
-  var q = 'registrations?course_code=eq.' + encodeURIComponent(courseCode) +
-          '&level=eq.'        + encodeURIComponent(p.level) +
-          '&semester=eq.'     + encodeURIComponent(p.sem) +
-          '&academic_year=eq.' + encodeURIComponent(p.year) +
-          '&select=email,serial_no,program&order=serial_no.asc';
+  // ── Fetch registrations ───────────────────────────────────
+  var baseQ = 'registrations?course_code=eq.' + encodeURIComponent(courseCode) +
+              '&level=eq.'         + encodeURIComponent(p.level) +
+              '&semester=eq.'      + encodeURIComponent(p.sem) +
+              '&academic_year=eq.' + encodeURIComponent(p.year) +
+              '&select=email,serial_no,program&order=serial_no.asc';
 
   var regRows = [];
   if (isUnified) {
-    var rq1 = await sbFetch(q + '&program=eq.' + encodeURIComponent('PRIMARY EDUCATION'));
-    var rq2 = await sbFetch(q + '&program=eq.' + encodeURIComponent('JHS EDUCATION'));
+    var rq1 = await sbFetch(baseQ + '&program=eq.' + encodeURIComponent('PRIMARY EDUCATION'));
+    var rq2 = await sbFetch(baseQ + '&program=eq.' + encodeURIComponent('JHS EDUCATION'));
     regRows = (rq1 || []).concat(rq2 || []);
-    // Re-sort by serial_no after merging
-    regRows.sort(function(a, b) {
-      return (Number(a.serial_no) || 0) - (Number(b.serial_no) || 0);
-    });
+    regRows.sort(function(a, b) { return (Number(a.serial_no) || 0) - (Number(b.serial_no) || 0); });
   } else {
     if (!program) {
       Swal.close();
       Swal.fire({ icon: 'warning', title: 'Select Program', text: 'Please select a program first.', confirmButtonColor: '#f59e0b' });
       return;
     }
-    regRows = await sbFetch(q + '&program=eq.' + encodeURIComponent(program)) || [];
+    regRows = await sbFetch(baseQ + '&program=eq.' + encodeURIComponent(program)) || [];
   }
-
 
   if (!regRows || !regRows.length) {
     Swal.close();
@@ -1383,214 +1376,110 @@ document.getElementById('attCoursePDFBtn').addEventListener('click', async funct
     return;
   }
 
-  // Get student bio for all registered students
-  var emails   = regRows.map(function(r) { return r.email; });
-  var bioData  = await sbFetch(
+  // ── Fetch student bio ─────────────────────────────────────
+  var emails  = regRows.map(function(r) { return r.email; });
+  var bioData = await sbFetch(
     'student_bio?email=in.(' + emails.map(encodeURIComponent).join(',') + ')' +
     '&select=email,name,index_number,program'
   );
   var bioMap = {};
   (bioData || []).forEach(function(b) { bioMap[b.email] = b; });
 
-  // Display program label
   var displayProgram = isUnified
-    ? 'PRIMARY EDUCATION & JHS EDUCATION'
-    : (program || regRows[0].program || '');
+    ? 'B.ED JHS AND PRIMARY EDUCATION'
+    : (program || (regRows[0] && regRows[0].program) || '');
 
-  // Load logo
+  // ── Load logo ─────────────────────────────────────────────
   var logo = await _asmLogo();
 
-  // ── BUILD PDF using jsPDF ─────────────────────────────────
-  var { jsPDF } = window.jspdf;
-  var doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  var pageW  = doc.internal.pageSize.getWidth();
-  var pageH  = doc.internal.pageSize.getHeight();
-  var margin = 14;
-  var usableW = pageW - margin * 2;
+  // ── Build HTML for pdf2html ───────────────────────────────
+  var lc = logo
+    ? '<img src="' + logo + '" width="70" height="70" style="display:block;object-fit:contain;">'
+    : '';
 
-  // ── HEADER ────────────────────────────────────────────────
-  var y = 10;
+  var tableRows = regRows.map(function(reg, idx) {
+    var bio     = bioMap[reg.email] || {};
+    var name    = String(bio.name || '').toUpperCase();
+    var indexNo = bio.index_number || '—';
+    var serial  = reg.serial_no || (idx + 1);
+    var bg      = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+    return '<tr style="background:' + bg + ';">' +
+      '<td style="padding:6px 8px;border:1px solid #333;text-align:center;width:60px;">' + serial + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid #333;width:120px;">' + indexNo + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid #333;">' + name + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid #333;width:160px;"></td>' +
+      '<td style="padding:6px 8px;border:1px solid #333;width:60px;"></td>' +
+      '</tr>';
+  }).join('');
 
-  // Logo left
-  if (logo) {
-    doc.addImage(logo, 'PNG', margin, y, 20, 20);
-    doc.addImage(logo, 'PNG', pageW - margin - 20, y, 20, 20);
+  var yearDisplay = new Date().getFullYear();
+  var monthDisplay = semLabel === 'FIRST' ? 'DECEMBER' : 'JULY';
+
+  var pdfH = '<div style="font-family:Arial,sans-serif;font-size:11px;color:#000;width:740px;padding:20px;box-sizing:border-box;background:#fff;">' +
+
+    // ── HEADER ──
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:4px;"><tr>' +
+    '<td style="width:80px;vertical-align:middle;text-align:left;">' + lc + '</td>' +
+    '<td style="text-align:center;vertical-align:middle;">' +
+      '<div style="font-size:18px;font-weight:bold;text-transform:uppercase;line-height:1.3;">PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG</div>' +
+      '<div style="font-size:12px;font-weight:bold;margin-top:4px;">ITECPD-UEW</div>' +
+    '</td>' +
+    '<td style="width:80px;vertical-align:middle;text-align:right;">' + lc + '</td>' +
+    '</tr></table>' +
+
+    // ── EXAM TITLE ──
+    '<div style="border-top:2px solid #000;border-bottom:2px solid #000;text-align:center;padding:6px 0;margin:8px 0;font-size:12px;font-weight:bold;">' +
+      'END OF ' + semLabel + ' SEMESTER EXAMINATION, ' + monthDisplay + ' - ' + yearDisplay +
+    '</div>' +
+
+    // ── LEVEL LABEL ──
+    '<div style="border-bottom:2px solid #000;text-align:center;padding:5px 0;margin-bottom:10px;font-size:12px;font-weight:bold;">' +
+      'LEVEL - ' + p.level + ' ATTENDANCE SHEET' +
+    '</div>' +
+
+    // ── COURSE DETAILS ──
+    '<p style="margin:4px 0;font-size:11px;"><strong>PROGRAM:</strong> ' + displayProgram.toUpperCase() + ' (' + p.level + ' - ' + semDisplay + ')</p>' +
+    '<p style="margin:4px 0;font-size:11px;"><strong>COURSE TITLE:</strong> ' + courseTitle.toUpperCase() + '</p>' +
+    '<p style="margin:4px 0 10px 0;font-size:11px;"><strong>COURSE CODE:</strong> ' + courseCode + '</p>' +
+
+    // ── TABLE ──
+    '<table style="width:100%;border-collapse:collapse;font-size:10px;">' +
+    '<thead><tr style="background:#fff;">' +
+    '<th style="padding:6px 8px;border:1px solid #333;text-align:left;width:60px;">SERIAL<br>NUMBER</th>' +
+    '<th style="padding:6px 8px;border:1px solid #333;text-align:left;width:120px;">INDEX<br>NUMBER</th>' +
+    '<th style="padding:6px 8px;border:1px solid #333;text-align:left;">FULL NAME</th>' +
+    '<th style="padding:6px 8px;border:1px solid #333;text-align:left;width:160px;">SIGNATURE</th>' +
+    '<th style="padding:6px 8px;border:1px solid #333;text-align:left;width:60px;">SCORE</th>' +
+    '</tr></thead>' +
+    '<tbody>' + tableRows + '</tbody>' +
+    '</table>' +
+
+    '</div>';
+
+  // ── Generate PDF via html2pdf ─────────────────────────────
+  Swal.close();
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:780px;';
+  wrap.innerHTML = pdfH;
+  document.body.appendChild(wrap);
+
+  var fname = 'Attendance_' + courseCode + '_L' + p.level + '_' + p.sem + '_' + p.year.replace('/', '-') + '.pdf';
+
+  try {
+    await html2pdf().set({
+      margin: 0,
+      filename: fname,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    }).from(wrap.firstElementChild).save();
+  } finally {
+    document.body.removeChild(wrap);
   }
 
-  // College name
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(15, 23, 42);
-  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG', pageW / 2, y + 7, { align: 'center' });
-
-  // ITECPD line
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(55, 65, 81);
-  doc.text('INSTITUTE OF TEACHER EDUCATION AND CONTINUOUS PROFESSIONAL DEVELOPMENT (ITECPD-UEW)', pageW / 2, y + 13, { align: 'center' });
-
-  // Divider
-  doc.setDrawColor(15, 23, 42);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y + 16, pageW - margin, y + 16);
-  y += 20;
-
-  // Exam title
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.text('END OF ' + semLabel + ' SEMESTER EXAMINATION — ' + p.year, pageW / 2, y + 4, { align: 'center' });
-  y += 10;
-
-  // Divider
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, pageW - margin, y);
-  y += 6;
-
-  // Level attendance sheet label
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(15, 23, 42);
-  doc.text('LEVEL ' + p.level + ' ATTENDANCE SHEET', pageW / 2, y + 4, { align: 'center' });
-  y += 10;
-
-  // Course details
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(15, 23, 42);
-  doc.text('PROGRAM: ' + displayProgram.toUpperCase() + ' (' + p.level + ' — ' + semDisplay + ')', margin, y);
-  y += 6;
-  doc.text('COURSE TITLE: ' + courseTitle.toUpperCase(), margin, y);
-  y += 6;
-  doc.text('COURSE CODE: ' + courseCode, margin, y);
-  y += 8;
-
-  // ── TABLE ─────────────────────────────────────────────────
-  var colWidths = [14, 32, usableW - 14 - 32 - 35, 35];
-  var headers   = ['SERIAL NO.', 'INDEX NO.', 'FULL NAME', 'SIGNATURE'];
-  var rowH      = 9;
-
-  // Table header
-  doc.setFillColor(30, 58, 95);
-  doc.rect(margin, y, usableW, rowH, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(255, 255, 255);
-  var cx = margin;
-  headers.forEach(function(h, i) {
-    var align = i === 0 ? 'center' : 'left';
-    var tx    = align === 'center' ? cx + colWidths[i] / 2 : cx + 2;
-    doc.text(h, tx, y + rowH - 2.5, { align: align });
-    cx += colWidths[i];
-  });
-  y += rowH;
-
-  // Table rows
-  regRows.forEach(function(reg, idx) {
-    var bio      = bioMap[reg.email] || {};
-    var name     = String(bio.name || '').toUpperCase();
-    var indexNo  = bio.index_number || '—';
-    var serialNo = reg.serial_no || (idx + 1);
-
-    // Page break
-    if (y > pageH - 45) {
-      doc.addPage();
-      y = 20;
-      // Reprint header on new page
-      doc.setFillColor(30, 58, 95);
-      doc.rect(margin, y, usableW, rowH, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(255, 255, 255);
-      cx = margin;
-      headers.forEach(function(h, i) {
-        var align = i === 0 ? 'center' : 'left';
-        var tx    = align === 'center' ? cx + colWidths[i] / 2 : cx + 2;
-        doc.text(h, tx, y + rowH - 2.5, { align: align });
-        cx += colWidths[i];
-      });
-      y += rowH;
-    }
-
-    doc.setFillColor(idx % 2 === 0 ? 249 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 251 : 255);
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.2);
-    doc.rect(margin, y, usableW, rowH, 'FD');
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(55, 65, 81);
-
-    cx = margin;
-    var cells = [String(serialNo), indexNo, name, ''];
-    cells.forEach(function(val, i) {
-      var align = i === 0 ? 'center' : 'left';
-      var tx    = align === 'center' ? cx + colWidths[i] / 2 : cx + 2;
-      // Truncate long names
-      if (i === 2) {
-        while (doc.getTextWidth(val) > colWidths[2] - 4 && val.length) val = val.slice(0, -1);
-      }
-      doc.text(val, tx, y + rowH - 2.5, { align: align });
-      cx += colWidths[i];
-    });
-    y += rowH;
-  });
-
-  // ── TOTALS ROW ────────────────────────────────────────────
-  y += 3;
-  doc.setFillColor(241, 245, 249);
-  doc.setDrawColor(15, 23, 42);
-  doc.setLineWidth(0.4);
-  doc.rect(margin, y, usableW, rowH, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(15, 23, 42);
-  doc.text('TOTAL STUDENTS: ' + regRows.length, margin + 2, y + rowH - 2.5);
-  doc.text('TOTAL CREDITS: ' + courseCredits, margin + usableW - 2, y + rowH - 2.5, { align: 'right' });
-  y += rowH + 15;
-
-  // ── SIGNATURE SECTION ─────────────────────────────────────
-  // Page break check for signatures
-  if (y > pageH - 35) { doc.addPage(); y = 20; }
-
-  var sigW = 65;
-  doc.setDrawColor(15, 23, 42);
-  doc.setLineWidth(0.4);
-
-  // Left sig — Student Rep
-  doc.line(margin, y, margin + sigW, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(15, 23, 42);
-  doc.text('STUDENT REPRESENTATIVE', margin, y + 5);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(100, 116, 139);
-  doc.text('(Signature & Date)', margin, y + 9);
-
-  // Right sig — HOD
-  doc.line(pageW - margin - sigW, y, pageW - margin, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(15, 23, 42);
-  doc.text('HEAD OF DEPARTMENT (HOD)', pageW - margin - sigW, y + 5);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(100, 116, 139);
-  doc.text('(Signature & Stamp)', pageW - margin - sigW, y + 9);
-
-  // ── FOOTER ────────────────────────────────────────────────
-  _attPceFooter(doc, pageW, pageH);
-
-  // ── SAVE ──────────────────────────────────────────────────
-  Swal.close();
-  var fname = 'Attendance_' + courseCode + '_L' + p.level + '_' + p.sem + '_' + p.year.replace('/', '-') + '.pdf';
-  doc.save(fname);
-
-  st.className    = 'alert alert-success small mt-2';
+  st.className = 'alert alert-success small mt-2';
   st.style.display = 'block';
-  st.innerHTML    = '&#10003; Attendance PDF downloaded for ' + courseCode + ' — ' + regRows.length + ' students.';
+  st.innerHTML = '&#10003; Attendance PDF downloaded for ' + courseCode + ' — ' + regRows.length + ' students.';
 });
 function _attPceFooter(doc, pageW, pageH) {
   doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
