@@ -59,6 +59,9 @@
       </a>
       <a class="menu-item" data-section="student-lookup">
         <i class="bi bi-search"></i><span>Student Financial Lookup</span>
+        <a class="menu-item" data-section="debt-upload">
+        <i class="bi bi-exclamation-triangle"></i><span>Pre-System Debt Upload</span>
+      </a>
       </a>
       <a class="menu-item" data-section="reports">
         <i class="bi bi-file-earmark-bar-graph"></i><span>Reports &amp; Export</span>
@@ -256,7 +259,84 @@
       </div>
       <div id="financeHistorySection"></div>
     </section>
+<!-- 6. PRE-SYSTEM DEBT UPLOAD -->
+    <section id="debt-upload" class="finance-section">
+      <div class="section-header">
+        <h4><i class="bi bi-exclamation-triangle me-2"></i>Pre-System Debt Upload</h4>
+        <p class="text-muted mb-0">Upload outstanding balances from before the system was deployed</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="stat-card">
+            <h6 class="text-primary small fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>UPLOAD DEBT CSV</h6>
+            <div class="alert alert-warning py-2 px-3 small mb-3">
+              <strong>⚠ Important:</strong> This creates a <code>PRE-SYSTEM</code> financial record for each student.
+              When the next academic year is activated, these balances will automatically be added as carry-over fees.<br><br>
+              <strong>CSV Format:</strong> Email, Amount<br>
+              <strong>Example:</strong> student@pce.edu.gh, 1500.00
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Select CSV File</label>
+              <input type="file" id="debtUploadFile" class="form-control" accept=".csv">
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-primary flex-fill" onclick="finDownloadDebtTemplate()">
+                <i class="bi bi-download me-1"></i>Download Template
+              </button>
+              <button class="btn btn-warning flex-fill fw-bold" onclick="finPreviewDebtUpload()">
+                <i class="bi bi-eye me-1"></i>Preview & Upload
+              </button>
+            </div>
+            <div id="debtUploadStatus" class="mt-3" style="display:none;"></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <h6 class="text-primary small fw-bold mb-3"><i class="bi bi-table me-2"></i>EXISTING PRE-SYSTEM RECORDS</h6>
+            <p class="small text-muted mb-3">Students who already have a pre-system debt record.</p>
+            <button class="btn btn-outline-secondary btn-sm mb-3 w-100" onclick="finLoadPreSystemRecords()">
+              <i class="bi bi-arrow-clockwise me-1"></i>Refresh Records
+            </button>
+            <div style="max-height:400px;overflow-y:auto;">
+              <table class="table table-sm table-hover mb-0">
+                <thead class="table-light sticky-top">
+                  <tr><th>Email</th><th>Name</th><th class="text-end">Debt (GH₵)</th></tr>
+                </thead>
+                <tbody id="preSystemRecordsTable">
+                  <tr><td colspan="3" class="text-center text-muted p-3">Click Refresh to load</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="preSystemTotal" class="mt-2 text-end small fw-bold text-danger"></div>
+          </div>
+        </div>
+      </div>
 
+      <!-- Preview Modal -->
+      <div class="modal fade" id="debtPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header bg-warning">
+              <h5 class="modal-title fw-bold"><i class="bi bi-eye me-2"></i>Debt Upload Preview</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+              <div class="alert alert-warning m-3 mb-0 small">
+                <strong>Review carefully:</strong> <span id="debtPreviewCount">0</span> records detected.
+                Existing <code>PRE-SYSTEM</code> records will be <strong>overwritten</strong>.
+              </div>
+              <div id="debtPreviewContent" style="max-height:400px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button class="btn btn-warning fw-bold px-4" onclick="finConfirmDebtUpload()">
+                <i class="bi bi-check-circle me-1"></i>Confirm Upload
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     <!-- 6. REPORTS -->
     <section id="reports" class="finance-section">
       <div class="section-header">
@@ -344,8 +424,9 @@ function finShowSection(id) {
   document.querySelectorAll('#finSidebarMenu .menu-item').forEach(n => {
     n.classList.toggle('active', n.getAttribute('data-section') === id);
   });
-  if (id === 'fee-setup')  finLoadFeeStructure();
-  if (id === 'year-setup') { finLoadActiveYearDisplay(); finLoadYearFeeStatusTable(); }
+  if (id === 'fee-setup')   finLoadFeeStructure();
+  if (id === 'year-setup')  { finLoadActiveYearDisplay(); finLoadYearFeeStatusTable(); }
+  if (id === 'debt-upload') finLoadPreSystemRecords();
 }
 
 // Attach sidebar clicks via JS — no onclick attributes needed
@@ -1197,70 +1278,125 @@ async function finRunDl() {
 
 // ── Debtors List ───────────────────────────────────────────────
 async function finDownloadDebtorsList() {
-  const status = document.getElementById('debtorsStatus');
-  status.style.display = 'block'; status.className = 'alert alert-info';
-  status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Fetching all financial records...';
+  var status = document.getElementById('debtorsStatus');
+  status.style.display = 'block';
+  status.className = 'alert alert-info';
+  status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Fetching financial records...';
 
   try {
-    // Fetch all student_finance rows across ALL years (paginate past 1000 row limit)
-    let allSfRows = [], offset = 0, pageSize = 1000;
-    while (true) {
-      const page = await sbFetch('student_finance?select=email,academic_year,level,base_fees,carry_over,total_required,total_paid,balance&order=email.asc&limit=' + pageSize + '&offset=' + offset);
-      if (!page || !page.length) break;
-      allSfRows = allSfRows.concat(page);
-      if (page.length < pageSize) break;
-      offset += pageSize;
-    }
-    if (!allSfRows.length) { status.className = 'alert alert-warning'; status.innerHTML = '⚠️ No financial records found.'; return; }
-
-    // Group by student email — accumulate balance and collect year breakdown
-    const byStudent = {};
-    allSfRows.forEach(row => {
-      const em  = String(row.email || '').toLowerCase().trim();
-      const bal = Number(row.balance) || 0;
-      if (!em) return;
-      if (!byStudent[em]) byStudent[em] = { email: em, totalOwed: 0, years: [] };
-      byStudent[em].totalOwed += bal;
-      byStudent[em].years.push({
-        year:     String(row.academic_year || ''),
-        level:    String(row.level || ''),
-        required: Number(row.total_required) || 0,
-        paid:     Number(row.total_paid) || 0,
-        balance:  bal
-      });
+    // Prompt Finance Officer to select a level
+    var levelResult = await Swal.fire({
+      title: 'Select Level for Debtors List',
+      html:
+        '<select id="swalDebtLevel" class="form-select mt-2">' +
+        '<option value="ALL">All Levels</option>' +
+        '<option value="100">Level 100</option>' +
+        '<option value="200">Level 200</option>' +
+        '<option value="300">Level 300</option>' +
+        '<option value="400">Level 400</option>' +
+        '</select>',
+      showCancelButton: true,
+      confirmButtonText: 'Generate',
+      confirmButtonColor: '#dc2626',
+      preConfirm: function() {
+        return document.getElementById('swalDebtLevel').value;
+      }
     });
 
-    // Keep only students who owe anything at all (balance > 0 across all years combined)
-    const debtors = Object.values(byStudent).filter(d => d.totalOwed > 0);
-    if (!debtors.length) { status.className = 'alert alert-success'; status.innerHTML = '✅ No debtors found — all students are fully paid!'; return; }
+    if (!levelResult.isConfirmed) {
+      status.style.display = 'none';
+      return;
+    }
 
-    // Sort by total owed descending
-    debtors.sort((a, b) => b.totalOwed - a.totalOwed);
+    var selectedLevel = levelResult.value;
+    status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Fetching records for ' + (selectedLevel === 'ALL' ? 'all levels' : 'Level ' + selectedLevel) + '...';
 
-    // Fetch ALL student_bio rows (paginate past 1000 row limit)
-    let bioRows = [], bioOffset = 0;
+    // Fetch ALL student_bio rows — paginated
+    var bioRows = [], bioOffset = 0;
     while (true) {
-      const bioPage = await sbFetch('student_bio?select=email,name,index_number,program,level,status&order=email.asc&limit=1000&offset=' + bioOffset);
+      var bioQ = 'student_bio?select=email,name,index_number,program,level,status&order=email.asc&limit=1000&offset=' + bioOffset;
+      if (selectedLevel !== 'ALL') bioQ += '&level=eq.' + encodeURIComponent(selectedLevel);
+      var bioPage = await sbFetch(bioQ);
       if (!bioPage || !bioPage.length) break;
       bioRows = bioRows.concat(bioPage);
       if (bioPage.length < 1000) break;
       bioOffset += 1000;
     }
-    const bioMap = {};
-    bioRows.forEach(r => { bioMap[String(r.email||'').toLowerCase().trim()] = r; });
 
-    // Collect all unique academic years for column headers
-    const allYears = [...new Set(allSfRows.map(r => String(r.academic_year||'')).filter(Boolean))].sort();
+    if (!bioRows.length) {
+      status.className = 'alert alert-warning';
+      status.innerHTML = '⚠️ No students found for ' + (selectedLevel === 'ALL' ? 'all levels' : 'Level ' + selectedLevel) + '.';
+      return;
+    }
+
+    var bioMap = {};
+    bioRows.forEach(function(r){ bioMap[r.email.toLowerCase().trim()] = r; });
+    var levelEmails = new Set(bioRows.map(function(r){ return r.email.toLowerCase().trim(); }));
+
+    // Fetch ALL student_finance rows — paginated
+    var allSfRows = [], sfOffset = 0;
+    while (true) {
+      var sfPage = await sbFetch('student_finance?select=email,academic_year,level,base_fees,carry_over,total_required,total_paid,balance&order=email.asc&limit=1000&offset=' + sfOffset);
+      if (!sfPage || !sfPage.length) break;
+      allSfRows = allSfRows.concat(sfPage);
+      if (sfPage.length < 1000) break;
+      sfOffset += 1000;
+    }
+
+    // Filter to only students at the selected level
+    var filteredSf = allSfRows.filter(function(r){
+      return levelEmails.has(String(r.email||'').toLowerCase().trim());
+    });
+
+    if (!filteredSf.length) {
+      status.className = 'alert alert-warning';
+      status.innerHTML = '⚠️ No financial records found for ' + (selectedLevel === 'ALL' ? 'all levels' : 'Level ' + selectedLevel) + '.';
+      return;
+    }
+
+    // Group by student email
+    var byStudent = {};
+    filteredSf.forEach(function(row) {
+      var em  = String(row.email||'').toLowerCase().trim();
+      var bal = Number(row.balance)||0;
+      if (!em) return;
+      if (!byStudent[em]) byStudent[em] = { email:em, totalOwed:0, years:[] };
+      byStudent[em].totalOwed += bal;
+      byStudent[em].years.push({
+        year:     String(row.academic_year||''),
+        level:    String(row.level||''),
+        required: Number(row.total_required)||0,
+        paid:     Number(row.total_paid)||0,
+        balance:  bal
+      });
+    });
+
+    // Keep only students who owe anything
+    var debtors = Object.values(byStudent).filter(function(d){ return d.totalOwed > 0; });
+
+    if (!debtors.length) {
+      status.className = 'alert alert-success';
+      status.innerHTML = '✅ No debtors found for ' + (selectedLevel === 'ALL' ? 'all levels' : 'Level ' + selectedLevel) + ' — all students are fully paid!';
+      return;
+    }
+
+    // Sort by total owed descending
+    debtors.sort(function(a,b){ return b.totalOwed - a.totalOwed; });
+
+    // Collect all unique academic years for columns
+    var allYears = [...new Set(filteredSf.map(function(r){ return String(r.academic_year||''); }).filter(Boolean))].sort();
 
     // Build CSV
-    const headers = ['Email', 'Name', 'Index Number', 'Program', 'Level', 'Finance Status',
-      ...allYears.map(y => y + ' Balance (GHS)'),
-      'TOTAL OWED (GHS)'];
+    var headers = [
+      'Email', 'Name', 'Index Number', 'Program', 'Level', 'Finance Status',
+      ...allYears.map(function(y){ return y + ' Balance (GHS)'; }),
+      'TOTAL OWED (GHS)'
+    ];
 
-    const csvRows = debtors.map(d => {
-      const bio = bioMap[d.email] || {};
-      const yearBalMap = {};
-      d.years.forEach(y => { yearBalMap[y.year] = (yearBalMap[y.year] || 0) + y.balance; });
+    var csvRows = debtors.map(function(d) {
+      var bio        = bioMap[d.email] || {};
+      var yearBalMap = {};
+      d.years.forEach(function(y){ yearBalMap[y.year] = (yearBalMap[y.year]||0) + y.balance; });
       return [
         d.email,
         bio.name || '',
@@ -1268,27 +1404,248 @@ async function finDownloadDebtorsList() {
         bio.program || '',
         bio.level || '',
         bio.status || 'PENDING',
-        ...allYears.map(y => (yearBalMap[y] || 0).toFixed(2)),
+        ...allYears.map(function(y){ return (yearBalMap[y]||0).toFixed(2); }),
         d.totalOwed.toFixed(2)
       ];
     });
 
-    const csv = [headers, ...csvRows]
-      .map(row => row.map(c => '"' + String(c || '').replace(/"/g, '""') + '"').join(','))
-      .join('\n');
+    var csv = [headers, ...csvRows]
+      .map(function(row){
+        return row.map(function(c){ return '"' + String(c||'').replace(/"/g,'""') + '"'; }).join(',');
+      }).join('\n');
 
-    const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-    a.download = 'PCE_Debtors_List_' + new Date().toISOString().slice(0,10) + '.csv';
+    var fname = 'PCE_Debtors_' +
+      (selectedLevel === 'ALL' ? 'AllLevels' : 'Level' + selectedLevel) +
+      '_' + new Date().toISOString().slice(0,10) + '.csv';
+
+    var a   = document.createElement('a');
+    a.href  = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = fname;
     a.click();
 
     status.className = 'alert alert-success';
-    status.innerHTML = '✅ ' + debtors.length + ' debtor(s) exported. Total outstanding: GHS ' +
-      debtors.reduce((s, d) => s + d.totalOwed, 0).toFixed(2);
+    status.innerHTML = '✅ ' + debtors.length + ' debtor(s) exported for ' +
+      (selectedLevel === 'ALL' ? 'all levels' : 'Level ' + selectedLevel) +
+      '. Total outstanding: GHS ' + debtors.reduce(function(s,d){ return s+d.totalOwed; }, 0).toFixed(2);
+
   } catch(e) {
     status.className = 'alert alert-danger';
     status.innerHTML = '⚠️ Error: ' + e.message;
   }
+}
+
+  // ── Pre-System Debt Upload ─────────────────────────────────────
+var _debtPendingRecords = [];
+
+function finDownloadDebtTemplate() {
+  var csv = 'Email,Amount\nstudent@pce.edu.gh,1500.00\nstudent2@pce.edu.gh,2300.50';
+  var a   = document.createElement('a');
+  a.href  = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'Pre_System_Debt_Template.csv';
+  a.click();
+  Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Template downloaded!', showConfirmButton:false, timer:2500 });
+}
+
+async function finPreviewDebtUpload() {
+  var file   = document.getElementById('debtUploadFile').files[0];
+  var status = document.getElementById('debtUploadStatus');
+  if (!file) {
+    Swal.fire({ icon:'info', title:'No File', text:'Please select a CSV file first.', confirmButtonColor:'#0284c7' });
+    return;
+  }
+
+  Swal.fire({ title:'Reading CSV...', allowOutsideClick:false, didOpen: function(){ Swal.showLoading(); } });
+
+  var text = await file.text();
+  var lines = text.trim().split('\n').filter(function(l){ return l.trim(); });
+
+  if (lines.length < 2) {
+    Swal.close();
+    Swal.fire({ icon:'error', title:'Empty File', text:'CSV has no data rows.' });
+    return;
+  }
+
+  // Parse rows — skip header
+  var parsed = [];
+  var errors = [];
+  lines.slice(1).forEach(function(line, i) {
+    var cols   = line.split(',');
+    var email  = String(cols[0]||'').trim().toLowerCase().replace(/"/g,'');
+    var amount = parseFloat(String(cols[1]||'0').replace(/"/g,'').trim());
+
+    if (!email || !email.includes('@')) {
+      errors.push('Row ' + (i+2) + ': Invalid email — ' + (cols[0]||'empty'));
+      return;
+    }
+    if (!amount || amount <= 0) {
+      errors.push('Row ' + (i+2) + ': Invalid amount — ' + (cols[1]||'empty'));
+      return;
+    }
+    parsed.push({ email:email, amount:amount });
+  });
+
+  Swal.close();
+
+  if (!parsed.length) {
+    Swal.fire({ icon:'warning', title:'No Valid Records', html: errors.length ? '<ul class="text-start small">' + errors.map(function(e){ return '<li>' + e + '</li>'; }).join('') + '</ul>' : 'No valid rows found.' });
+    return;
+  }
+
+  // Fetch student names for preview
+  Swal.fire({ title:'Loading student names...', allowOutsideClick:false, didOpen: function(){ Swal.showLoading(); } });
+
+  var emails   = parsed.map(function(r){ return r.email; });
+  var bioData  = [];
+  for (var i = 0; i < emails.length; i += 100) {
+    var batch = emails.slice(i, i+100);
+    var bp    = await sbFetch('student_bio?email=in.(' + batch.map(encodeURIComponent).join(',') + ')&select=email,name,index_number,level');
+    if (bp) bioData = bioData.concat(bp);
+  }
+  var bioMap = {};
+  bioData.forEach(function(b){ bioMap[b.email.toLowerCase().trim()] = b; });
+
+  Swal.close();
+
+  // Build preview table
+  var notFound = [];
+  var tableRows = parsed.map(function(r, i) {
+    var bio  = bioMap[r.email];
+    var name = bio ? bio.name : '⚠️ NOT FOUND';
+    var idx  = bio ? (bio.index_number||'—') : '—';
+    var lvl  = bio ? (bio.level||'—') : '—';
+    if (!bio) notFound.push(r.email);
+    return '<tr class="' + (!bio ? 'table-warning' : '') + '">' +
+      '<td class="small">' + (i+1) + '</td>' +
+      '<td class="small">' + r.email + '</td>' +
+      '<td class="small fw-bold">' + name + '</td>' +
+      '<td class="small text-center">' + idx + '</td>' +
+      '<td class="small text-center">' + lvl + '</td>' +
+      '<td class="small text-end fw-bold text-danger">GH₵ ' + r.amount.toFixed(2) + '</td>' +
+      '</tr>';
+  }).join('');
+
+  var warningHtml = notFound.length
+    ? '<div class="alert alert-warning m-3 mb-0 small"><strong>⚠ ' + notFound.length + ' email(s) not found in student_bio:</strong><br>' + notFound.join(', ') + '<br><small>These records will still be uploaded but won\'t link to a student profile until they register.</small></div>'
+    : '';
+
+  document.getElementById('debtPreviewCount').innerText = parsed.length;
+  document.getElementById('debtPreviewContent').innerHTML =
+    warningHtml +
+    '<table class="table table-sm table-hover mb-0">' +
+    '<thead class="table-dark sticky-top"><tr><th>#</th><th>Email</th><th>Name</th><th class="text-center">Index</th><th class="text-center">Level</th><th class="text-end">Debt Amount</th></tr></thead>' +
+    '<tbody>' + tableRows + '</tbody>' +
+    '<tfoot class="table-light"><tr><td colspan="5" class="fw-bold text-end">Total:</td><td class="fw-bold text-danger text-end">GH₵ ' + parsed.reduce(function(s,r){ return s+r.amount; }, 0).toFixed(2) + '</td></tr></tfoot>' +
+    '</table>';
+
+  _debtPendingRecords = parsed;
+  new bootstrap.Modal(document.getElementById('debtPreviewModal')).show();
+}
+
+async function finConfirmDebtUpload() {
+  var modal = bootstrap.Modal.getInstance(document.getElementById('debtPreviewModal'));
+  if (modal) modal.hide();
+
+  var status = document.getElementById('debtUploadStatus');
+  status.style.display = 'block';
+  status.className = 'alert alert-info';
+  status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Uploading debt records...';
+
+  var PRE_SYSTEM_YEAR = 'PRE-SYSTEM';
+  var ok = 0, fail = 0;
+
+  try {
+    for (var i = 0; i < _debtPendingRecords.length; i++) {
+      var r = _debtPendingRecords[i];
+
+      // Always upsert — overwrite existing PRE-SYSTEM record for this email
+      var res = await fetch(SUPABASE_URL + '/rest/v1/student_finance?on_conflict=email,academic_year', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify({
+          email:          r.email,
+          name:           '',
+          level:          'PRE-SYSTEM',
+          academic_year:  PRE_SYSTEM_YEAR,
+          base_fees:      0,
+          carry_over:     0,
+          total_required: r.amount,
+          total_paid:     0,
+          balance:        r.amount,
+          percentage:     0,
+          can_register:   false
+        })
+      });
+
+      if (res.ok) ok++;
+      else fail++;
+    }
+
+    status.className = 'alert alert-' + (fail === 0 ? 'success' : 'warning');
+    status.innerHTML = fail === 0
+      ? '✅ ' + ok + ' debt record(s) uploaded successfully. These will be included as carry-over when the next academic year is activated.'
+      : '⚠️ ' + ok + ' uploaded, ' + fail + ' failed. Check your data and try again.';
+
+    if (ok > 0) {
+      document.getElementById('debtUploadFile').value = '';
+      _debtPendingRecords = [];
+      finLoadPreSystemRecords();
+      Swal.fire({
+        icon: 'success',
+        title: 'Debt Records Uploaded!',
+        html: '<strong>' + ok + '</strong> records saved.<br><small class="text-muted">These will automatically become carry-over fees when the next academic year is activated.</small>',
+        confirmButtonColor: '#0284c7'
+      });
+    }
+  } catch(e) {
+    status.className = 'alert alert-danger';
+    status.innerHTML = '⚠️ Error: ' + e.message;
+  }
+}
+
+async function finLoadPreSystemRecords() {
+  var tbody = document.getElementById('preSystemRecordsTable');
+  var total = document.getElementById('preSystemTotal');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3"><div class="spinner-border spinner-border-sm"></div></td></tr>';
+
+  var rows = await sbFetch('student_finance?academic_year=eq.PRE-SYSTEM&select=email,balance&order=balance.desc');
+
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted p-3">No pre-system debt records found</td></tr>';
+    if (total) total.innerText = '';
+    return;
+  }
+
+  // Fetch names in batches
+  var emails  = rows.map(function(r){ return r.email; });
+  var bioData = [];
+  for (var i = 0; i < emails.length; i += 100) {
+    var batch = emails.slice(i, i+100);
+    var bp    = await sbFetch('student_bio?email=in.(' + batch.map(encodeURIComponent).join(',') + ')&select=email,name');
+    if (bp) bioData = bioData.concat(bp);
+  }
+  var bioMap = {};
+  bioData.forEach(function(b){ bioMap[b.email.toLowerCase().trim()] = b; });
+
+  var grandTotal = 0;
+  tbody.innerHTML = rows.map(function(r) {
+    var bio  = bioMap[r.email.toLowerCase().trim()];
+    var name = bio ? bio.name : '<span class="text-warning small">Not in system yet</span>';
+    grandTotal += Number(r.balance)||0;
+    return '<tr>' +
+      '<td class="small">' + r.email + '</td>' +
+      '<td class="small">' + name + '</td>' +
+      '<td class="text-end fw-bold text-danger small">GH₵ ' + Number(r.balance).toFixed(2) + '</td>' +
+      '</tr>';
+  }).join('');
+
+  if (total) total.innerHTML = 'Total Pre-System Debt: <span class="text-danger">GH₵ ' + grandTotal.toFixed(2) + '</span>';
 }
 
 // ── Auto-init when fragment loads ──────────────────────────────
