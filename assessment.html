@@ -1373,7 +1373,7 @@ document.getElementById('attCoursePDFBtn').addEventListener('click', async funct
     }
     regRows = await sbFetch(q + '&program=eq.' + encodeURIComponent(program)) || [];
   }
-  var regRows = await sbFetch(q);
+
 
   if (!regRows || !regRows.length) {
     Swal.close();
