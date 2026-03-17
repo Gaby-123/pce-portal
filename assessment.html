@@ -1151,7 +1151,7 @@ async function _asmPrintTrans(){
 
   Swal.fire({
     title: 'Generating Official Transcript',
-    html:  '<div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Compiling academic records…</p>',
+    html: '<div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Compiling academic records…</p>',
     allowOutsideClick: false, showConfirmButton: false
   });
 
@@ -1168,323 +1168,305 @@ async function _asmPrintTrans(){
 
   var student = bioRows[0];
   var crsMap  = {};
-  (crsData||[]).forEach(function(c){ crsMap[c.course_code] = c; });
+  (crsData||[]).forEach(function(c){
+    crsMap[String(c.course_code||'').trim().toUpperCase()] = c;
+  });
   var logo = await _asmLogo();
 
-  // ── Build semester groups ─────────────────────────────────
+  // ── Grade scale ───────────────────────────────────────────
+  var gradeScale = {'A':4.0,'B+':3.5,'B':3.0,'C+':2.5,'C':2.0,'D+':1.5,'D':1.0,'E':0,'IC':0,'F':0};
+  function getGP(g){ return gradeScale[String(g||'').toUpperCase().trim()] || 0; }
+
+  // ── Build semester groups (same logic as GAS) ─────────────
   var grouped = {}, gPts = 0, gCreds = 0;
   results.forEach(function(r) {
-    var info  = crsMap[r.course_code] || { credits:3, level:'—', title:r.course_code };
-    var key   = (r.academic_year||'N/A') + '|' + (r.semester||'');
-    if (!grouped[key]) grouped[key] = { year:r.academic_year||'N/A', sem:r.semester||'', level:info.level||'—', courses:[], pts:0, creds:0 };
-    var creds = Number(info.credits)||3;
-    var gp    = _asmGP(r.grade) * creds;
-    grouped[key].courses.push({ code:r.course_code, title:info.title||r.course_code, credits:creds, grade:r.grade||'—', gp:gp });
-    grouped[key].pts   += gp;
-    grouped[key].creds += creds;
+    var code    = String(r.course_code||'').trim().toUpperCase();
+    var grade   = String(r.grade||'').toUpperCase().trim();
+    var resSem  = String(r.semester||'').trim().toUpperCase();
+    var resYear = String(r.academic_year||'N/A').trim();
+    var info    = crsMap[code];
+    if (!info) return;
+    var credits = Number(info.credits)||3;
+    var gp      = getGP(grade) * credits;
     gPts   += gp;
-    gCreds += creds;
+    gCreds += credits;
+    var key = String(info.level).padStart(3,'0') + '|' + resSem + '|' + resYear;
+    if (!grouped[key]) grouped[key] = { year:resYear, level:info.level, sem:resSem, courses:[], pts:0, creds:0 };
+    grouped[key].courses.push({ code:code, title:info.title||code, grade:grade, credits:credits, gp:gp });
+    grouped[key].pts   += gp;
+    grouped[key].creds += credits;
   });
 
-  var fcgpa  = gCreds > 0 ? (gPts / gCreds).toFixed(2) : '0.00';
-  var classD = _asmClass(fcgpa);
+  if (!Object.keys(grouped).length) {
+    Swal.fire({ icon:'error', title:'No Data', text:'No grouped results found.' });
+    return;
+  }
 
   var sortedKeys = Object.keys(grouped).sort(function(a,b) {
-    var ga = grouped[a], gb = grouped[b];
-    return ga.year !== gb.year ? ga.year.localeCompare(gb.year) : ga.sem.localeCompare(gb.sem);
+    var pa = a.split('|'), pb = b.split('|');
+    var la = parseInt(pa[0])||0, lb = parseInt(pb[0])||0;
+    if (la !== lb) return la - lb;
+    if (pa[1] !== pb[1]) return pa[1].localeCompare(pb[1]);
+    return pa[2].localeCompare(pb[2]);
   });
 
-  // ── jsPDF setup ───────────────────────────────────────────
+  // ── Class designation ─────────────────────────────────────
+  var finalCGPA = gCreds > 0 ? (gPts / gCreds).toFixed(2) : '0.00';
+  var gpaNum    = parseFloat(finalCGPA);
+  var classD    = gpaNum>=3.50?'FIRST CLASS':gpaNum>=3.00?'SECOND CLASS UPPER':gpaNum>=2.50?'SECOND CLASS LOWER':gpaNum>=2.00?'THIRD CLASS':gpaNum>=1.00?'PASS':'FAIL';
+
+  // ── jsPDF setup — 0.5in margins = 12.7mm ─────────────────
   var { jsPDF } = window.jspdf;
   var doc     = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
   var pageW   = doc.internal.pageSize.getWidth();
   var pageH   = doc.internal.pageSize.getHeight();
-  var mL      = 14;
-  var mR      = 14;
+  var mL      = 12.7;
+  var mR      = 12.7;
+  var mT      = 12.7;
+  var mB      = 12.7;
   var usableW = pageW - mL - mR;
+  var y       = mT;
 
-  // ── HELPER: draw watermark ────────────────────────────────
-  function drawWatermark() {
-    if (!logo) return;
-    doc.saveGraphicsState();
-    doc.setGState(new doc.GState({ opacity: 0.07 }));
-    doc.addImage(logo, 'PNG', (pageW - 100) / 2, (pageH - 100) / 2, 100, 100);
-    doc.restoreGraphicsState();
-  }
+  // ── Column widths for course table ────────────────────────
+  // CODE(20) | TITLE(fill) | CREDIT(16) | GRADE(16) | GP(18)
+  var cW = [20, usableW - 20 - 16 - 16 - 18, 16, 16, 18];
 
-  // ── HELPER: draw header (logo + college name + address) ───
-  function drawHeader() {
-    var y = 10;
-    if (logo) {
-      doc.addImage(logo, 'PNG', mL, y, 22, 22);
-    }
-    var tx = mL + 26;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', tx, y + 7);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(50, 50, 50);
-    doc.text('P. O. Box 27, Akropong-Akuapem', tx, y + 13);
-    doc.text('Tel: +233 (0) 256 977 765 | Email: gabrielodameamfo@gmail.com', tx, y + 18);
-    doc.text('Website: www.pce.edu.gh', tx, y + 23);
-
-    // Thick bottom line
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(1.2);
-    doc.line(mL, y + 27, pageW - mR, y + 27);
-
-    return y + 32;
-  }
-
-  // ── HELPER: draw footer ───────────────────────────────────
+  // ── HELPER: footer line on current page ───────────────────
   function drawFooter() {
-    doc.setDrawColor(150, 150, 150);
+    doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
-    doc.line(mL, pageH - 10, pageW - mR, pageH - 10);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(100, 100, 100);
+    doc.line(mL, pageH - mB - 2, pageW - mR, pageH - mB - 2);
+    doc.setFont('times', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(80, 80, 80);
     doc.text(
       'Presbyterian College of Education | P. O. Box 27, Akropong-Akuapem | Phone: +233 (0) 256 977 765',
-      pageW / 2, pageH - 6, { align:'center' }
+      pageW / 2, pageH - mB + 1, { align:'center' }
     );
   }
 
-  // ── HELPER: new page with header + watermark ──────────────
-  function newPage() {
+  // ── HELPER: add new page, reset y ─────────────────────────
+  function addPage() {
+    drawFooter();
     doc.addPage();
-    drawWatermark();
-    return drawHeader();
+    y = mT;
   }
 
-  // ── PAGE 1 ────────────────────────────────────────────────
-  drawWatermark();
-  var y = drawHeader();
+  // ── HELPER: check space, add page if needed ───────────────
+  function checkSpace(needed) {
+    if (y + needed > pageH - mB - 8) addPage();
+  }
 
-  // Title
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  // ── DRAW PAGE 1 HEADER ────────────────────────────────────
+  // Logo
+  if (logo) {
+    doc.addImage(logo, 'PNG', mL, y, 18, 18);
+  }
+
+  // College name and address to the right of logo
+  var hx = mL + 22;
+  doc.setFont('times', 'bold');
+  doc.setFontSize(15);
   doc.setTextColor(0, 0, 0);
-  doc.text('OFFICIAL ACADEMIC TRANSCRIPT', pageW / 2, y + 5, { align:'center' });
-  // Underline
-  var titleW = doc.getTextWidth('OFFICIAL ACADEMIC TRANSCRIPT');
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.4);
-  doc.line((pageW - titleW) / 2, y + 6, (pageW + titleW) / 2, y + 6);
-  y += 11;
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', hx, y + 6);
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(30, 30, 30);
+  doc.text('P. O. Box 27, Akropong-Akuapem', hx, y + 11);
+  doc.text('Tel: +233 (0) 256 977 765 | Email: gabrielodameamfo@gmail.com', hx, y + 15);
+  doc.text('Website: www.pce.edu.gh', hx, y + 19);
 
-  // Red notice
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(200, 0, 0);
-  doc.text('A BLACK AND WHITE DOCUMENT IS NOT OFFICIAL', pageW / 2, y + 1, { align:'center' });
+  // Thick bottom line under header
+  y += 22;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(1.0);
+  doc.line(mL, y, pageW - mR, y);
   y += 8;
 
-  // Thin separator
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.3);
-  doc.line(mL, y, pageW - mR, y);
-  y += 5;
+  // Title
+  doc.setFont('times', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(0, 0, 0);
+  doc.text('OFFICIAL ACADEMIC TRANSCRIPT', pageW / 2, y, { align:'center' });
+  // Underline title
+  var tw = doc.getTextWidth('OFFICIAL ACADEMIC TRANSCRIPT');
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.line((pageW - tw) / 2, y + 1, (pageW + tw) / 2, y + 1);
+  y += 7;
 
-  // Student info — clean 2-column plain text, no boxes
-  var col1 = mL;
-  var col2 = pageW / 2 + 5;
-  var lbW1 = 30; // label width col1
-  var lbW2 = 28; // label width col2
+  // Red notice
+  doc.setFont('times', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(200, 0, 0);
+  doc.text('A BLACK AND WHITE DOCUMENT IS NOT OFFICIAL', pageW / 2, y, { align:'center' });
+  y += 8;
 
-  function infoRow(label1, val1, label2, val2, yPos) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.setTextColor(0, 0, 0);
-    doc.text(label1, col1, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(String(val1||''), col1 + lbW1, yPos);
-    if (label2) {
-      doc.setFont('helvetica', 'bold');
-      doc.text(label2, col2, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(val2||''), col2 + lbW2, yPos);
-    }
-    return yPos + 6;
+  // Student info — 2 column plain text, no borders, no backgrounds
+  doc.setTextColor(0, 0, 0);
+  var c1x = mL, c2x = pageW / 2;
+
+  function infoLine(lbl, val, x, yPos) {
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
+    doc.text(lbl, x, yPos);
+    doc.setFont('times', 'normal');
+    doc.text(String(val||''), x + doc.getTextWidth(lbl) + 1, yPos);
   }
 
-  y = infoRow('NAME:', String(student.name||'').toUpperCase(), 'LEVEL:', String(student.level||'N/A'), y);
-  y = infoRow('INDEX NUMBER:', String(student.index_number||''), 'Date of Birth:', String(student.dob||'N/A'), y);
-  y = infoRow('PROGRAM:', String(student.program||'').toUpperCase(), 'GENDER:', String(student.gender||'N/A'), y);
-  y += 4;
-
-  // Separator
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.3);
-  doc.line(mL, y, pageW - mR, y);
-  y += 6;
+  infoLine('NAME:', String(student.name||'').toUpperCase(), c1x, y);
+  infoLine('LEVEL:', String(student.level||'N/A'), c2x, y);
+  y += 5;
+  infoLine('INDEX NUMBER:', String(student.index_number||''), c1x, y);
+  infoLine('Date of Birth:', String(student.dob||'N/A'), c2x, y);
+  y += 5;
+  infoLine('PROGRAM:', String(student.program||'').toUpperCase(), c1x, y);
+  infoLine('GENDER:', String(student.gender||'N/A'), c2x, y);
+  y += 8;
 
   // ── Semester sections ─────────────────────────────────────
-  var runGP = 0, runCR = 0;
-
-  // Column widths for course table
-  var cW = [22, usableW - 22 - 18 - 20 - 22, 18, 20, 22];
+  var runPts = 0, runCreds = 0, semFinalCGPA = '0.00';
 
   sortedKeys.forEach(function(key) {
     var g       = grouped[key];
-    runGP      += g.pts;
-    runCR      += g.creds;
     var semGPA  = g.creds > 0 ? (g.pts  / g.creds).toFixed(2) : '0.00';
-    var curCGPA = runCR   > 0 ? (runGP  / runCR  ).toFixed(2) : '0.00';
-    var semNum  = g.sem === 'SEMESTER1' ? 'SEM1' : 'SEM2';
-    var lvlLbl  = g.level && g.level !== '—' ? 'LEVEL ' + g.level : '';
+    runPts     += g.pts;
+    runCreds   += g.creds;
+    semFinalCGPA = runCreds > 0 ? (runPts / runCreds).toFixed(2) : '0.00';
 
     g.courses.sort(function(a,b){ return a.code.localeCompare(b.code); });
 
-    // Estimate section height: header(8) + col header(7) + rows(6 each) + summary(8) + gap(6)
-    var sectionH = 8 + 7 + (g.courses.length * 6) + 8 + 6;
-    if (y + sectionH > pageH - 18) {
-      drawFooter();
-      y = newPage();
-    }
+    // Estimate space: section heading(8) + col header(7) + rows(6 each) + summary(8)
+    var needed = 8 + 7 + (g.courses.length * 6) + 8;
+    checkSpace(needed);
 
-    // Section heading — bold underlined, NO background
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
+    // Section heading — bold, bottom line only, NO background
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    var secTitle = g.year + ' ACADEMIC YEAR, ' + semNum + ' (' + lvlLbl + ')';
-    doc.text(secTitle, mL, y + 5);
-    // Underline
-    var secW = doc.getTextWidth(secTitle);
+    doc.text(g.year + ' ACADEMIC YEAR, ' + g.sem + ' (LEVEL ' + g.level + ')', mL, y);
     doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.line(mL, y + 6, mL + secW, y + 6);
-    y += 8;
+    doc.setLineWidth(0.4);
+    doc.line(mL, y + 1, pageW - mR, y + 1);
+    y += 6;
 
-    // Table column headers — bold, bottom line only
+    // Column headers — bold, thick bottom line, light grey background like GAS (#f2f2f2)
+    doc.setFillColor(242, 242, 242);
+    doc.rect(mL, y, usableW, 6, 'F');
+    doc.setFont('times', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    var thLabels = ['CODE','TITLE','CREDIT','GRADE','GP'];
     var cx = mL;
-    var thLabels = ['CODE', 'TITLE', 'CREDIT', 'GRADE', 'GP'];
     thLabels.forEach(function(h, i) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(0, 0, 0);
       var align = i >= 2 ? 'center' : 'left';
-      var tx    = align === 'center' ? cx + cW[i] / 2 : cx;
-      doc.text(h, tx, y + 5, { align: align });
+      var tx    = align === 'center' ? cx + cW[i]/2 : cx + 1;
+      doc.text(h, tx, y + 4.5, { align:align });
       cx += cW[i];
     });
-    // Bottom line under column headers
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.line(mL, y + 6.5, pageW - mR, y + 6.5);
+    // Thick bottom line under column headers
+    doc.setDrawColor(51, 51, 51);
+    doc.setLineWidth(0.6);
+    doc.line(mL, y + 6, pageW - mR, y + 6);
     y += 7;
 
-    // Course rows — NO borders, NO backgrounds, just plain text rows
+    // Course rows — NO cell borders, only light bottom separator per row
     g.courses.forEach(function(c) {
-      if (y + 6 > pageH - 18) {
-        drawFooter();
-        y = newPage();
-        // Reprint column headers on new page
-        cx = mL;
-        thLabels.forEach(function(h, i) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(8.5);
-          doc.setTextColor(0, 0, 0);
-          var align = i >= 2 ? 'center' : 'left';
-          var tx    = align === 'center' ? cx + cW[i] / 2 : cx;
-          doc.text(h, tx, y + 5, { align: align });
-          cx += cW[i];
-        });
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
-        doc.line(mL, y + 6.5, pageW - mR, y + 6.5);
-        y += 7;
-      }
-
+      checkSpace(6);
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
       cx = mL;
-      var cells = [c.code, c.title, String(c.credits), c.grade, c.gp.toFixed(2)];
+      var gpStr = c.gp.toFixed(2);
+      var cells = [c.code, String(c.title||'').toUpperCase(), String(c.credits), c.grade, gpStr];
       cells.forEach(function(val, i) {
-        doc.setFont('helvetica', i === 3 ? 'bold' : 'normal');
-        doc.setFontSize(8.5);
-        doc.setTextColor(0, 0, 0);
         var align = i >= 2 ? 'center' : 'left';
-        var tx    = align === 'center' ? cx + cW[i] / 2 : cx;
-        // Truncate title
+        var tx    = align === 'center' ? cx + cW[i]/2 : cx + 1;
+        if (i === 3) doc.setFont('times', 'bold');
+        else doc.setFont('times', 'normal');
+        // Truncate title if too long
         var text = val;
         if (i === 1) {
           while (doc.getTextWidth(text) > cW[1] - 2 && text.length > 1) text = text.slice(0,-1);
           if (text !== val) text = text.slice(0,-1) + '…';
         }
-        doc.text(text, tx, y + 5, { align: align });
+        doc.text(text, tx, y + 4.5, { align:align });
         cx += cW[i];
       });
-      // Very light bottom separator per row
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.15);
-      doc.line(mL, y + 6, pageW - mR, y + 6);
+      // Very light bottom border — #eee = rgb(238,238,238)
+      doc.setDrawColor(238, 238, 238);
+      doc.setLineWidth(0.2);
+      doc.line(mL, y + 5.5, pageW - mR, y + 5.5);
       y += 6;
     });
 
-    // Summary line — thick top line, TCR left CCR right
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.line(mL, y, pageW - mR, y);
-    y += 1;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
+    // Summary row — bordered box, TCR left CCR right, white background
+    checkSpace(8);
+    doc.setDrawColor(238, 238, 238);
+    doc.setFillColor(255, 255, 255);
+    doc.setLineWidth(0.3);
+    doc.rect(mL, y, usableW, 7, 'FD');
+    doc.setFont('times', 'bold');
+    doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
-    doc.text('TCR: ' + g.creds + '   TGP: ' + g.pts.toFixed(2) + '   SGPA: ' + semGPA, mL, y + 5);
-    doc.text('CCR: ' + runCR + '   CGV: ' + runGP.toFixed(2) + '   CGPA: ' + curCGPA, pageW - mR, y + 5, { align:'right' });
+    doc.text(
+      'TCR: ' + g.creds + '   TGP: ' + g.pts.toFixed(2) + '   SGPA: ' + semGPA,
+      mL + 2, y + 5
+    );
+    doc.text(
+      'CCR: ' + runCreds + '   CGV: ' + runPts.toFixed(2) + '   CGPA: ' + semFinalCGPA,
+      pageW - mR - 2, y + 5, { align:'right' }
+    );
     y += 10;
   });
 
   // ── Class designation ─────────────────────────────────────
-  if (y + 12 > pageH - 45) { drawFooter(); y = newPage(); }
+  checkSpace(12);
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
-  doc.rect(mL, y, 80, 9, 'S');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
+  doc.rect(mL, y, 82, 8, 'S');
+  doc.setFont('times', 'bold');
+  doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
-  doc.text('CLASS DESIGNATION: ' + classD.toUpperCase(), mL + 3, y + 6.5);
-  y += 18;
+  doc.text('CLASS DESIGNATION: ' + classD, mL + 3, y + 5.5);
+  y += 16;
 
   // ── Signature block ───────────────────────────────────────
-  if (y + 20 > pageH - 18) { drawFooter(); y = newPage(); }
-  var sigLineW = 65;
+  checkSpace(18);
+  var sigW = 65;
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.5);
-  doc.line(mL, y, mL + sigLineW, y);
-  doc.line(pageW - mR - sigLineW, y, pageW - mR, y);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setLineWidth(0.4);
+  doc.line(mL, y, mL + sigW, y);
+  doc.line(pageW - mR - sigW, y, pageW - mR, y);
+  doc.setFont('times', 'bold');
+  doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
   doc.text('COLLEGE REGISTRAR', mL, y + 5);
-  doc.text('DATE OF ISSUE', pageW - mR - sigLineW, y + 5);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.text('DATE OF ISSUE', pageW - mR - sigW, y + 5);
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
   doc.text('(Signature & Official Stamp)', mL, y + 10);
-  doc.text(new Date().toLocaleDateString('en-GB'), pageW - mR - sigLineW, y + 10);
+  doc.text(new Date().toLocaleDateString('en-GB'), pageW - mR - sigW, y + 10);
+  y += 14;
 
   drawFooter();
 
-  // ── GRADING SCHEME PAGE ───────────────────────────────────
+  // ── Grading scheme page ───────────────────────────────────
   doc.addPage();
-  drawWatermark();
-  // No header on grading scheme page — just the table centered
+  y = mT + 10;
 
-  var gy = 30;
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('times', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
-  doc.text('GRADING SCHEME', pageW / 2, gy, { align:'center' });
+  doc.text('GRADING SCHEME', pageW / 2, y, { align:'center' });
   var gsW = doc.getTextWidth('GRADING SCHEME');
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
-  doc.line((pageW - gsW) / 2, gy + 1, (pageW + gsW) / 2, gy + 1);
-  gy += 10;
+  doc.line((pageW - gsW) / 2, y + 1, (pageW + gsW) / 2, y + 1);
+  y += 10;
 
-  var gCols  = [18, 20, 14, 28, 30, 42];
+  var gCols  = [18, 20, 14, 30, 30, 45];
   var gTotal = gCols.reduce(function(a,b){ return a+b; }, 0);
   var gX     = (pageW - gTotal) / 2;
   var gHdrs  = ['GRADE','SCORE','GP','REMARKS','CGPA RANGE','CLASS'];
@@ -1499,48 +1481,58 @@ async function _asmPrintTrans(){
   ];
 
   // Header row
-  doc.setFillColor(240, 240, 240);
+  doc.setFillColor(238, 238, 238);
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.4);
-  doc.rect(gX, gy, gTotal, 8, 'FD');
+  doc.rect(gX, y, gTotal, 7, 'FD');
   var cx = gX;
   gHdrs.forEach(function(h, i) {
-    if (i > 0) {
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.3);
-      doc.line(cx, gy, cx, gy + 8);
-    }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
+    if (i > 0) doc.line(cx, y, cx, y + 7);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
-    doc.text(h, cx + gCols[i] / 2, gy + 5.5, { align:'center' });
+    doc.text(h, cx + gCols[i]/2, y + 5, { align:'center' });
     cx += gCols[i];
   });
-  gy += 8;
+  y += 7;
 
   // Data rows
   gRows.forEach(function(row, ri) {
-    doc.setFillColor(ri % 2 === 0 ? 255 : 248, ri % 2 === 0 ? 255 : 248, ri % 2 === 0 ? 255 : 248);
+    doc.setFillColor(ri % 2 === 0 ? 255 : 250, ri % 2 === 0 ? 255 : 250, ri % 2 === 0 ? 255 : 250);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
-    doc.rect(gX, gy, gTotal, 7, 'FD');
+    doc.rect(gX, y, gTotal, 7, 'FD');
     cx = gX;
     row.forEach(function(cell, i) {
       if (i > 0) {
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.line(cx, gy, cx, gy + 7);
+        doc.line(cx, y, cx, y + 7);
       }
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
       doc.setTextColor(0, 0, 0);
-      doc.text(String(cell), cx + gCols[i] / 2, gy + 5, { align:'center' });
+      doc.text(String(cell), cx + gCols[i]/2, y + 5, { align:'center' });
       cx += gCols[i];
     });
-    gy += 7;
+    y += 7;
   });
 
   drawFooter();
+
+  // ── Watermark on EVERY page ───────────────────────────────
+  // Done last so it doesn't interfere with content drawing
+  if (logo) {
+    var totalPages = doc.internal.getNumberOfPages();
+    for (var pg = 1; pg <= totalPages; pg++) {
+      doc.setPage(pg);
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({ opacity: 0.07 }));
+      var wmSize = 120;
+      doc.addImage(logo, 'PNG', (pageW - wmSize) / 2, (pageH - wmSize) / 2, wmSize, wmSize);
+      doc.restoreGraphicsState();
+    }
+  }
 
   // ── Save ──────────────────────────────────────────────────
   Swal.close();
