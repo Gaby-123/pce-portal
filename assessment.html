@@ -1146,91 +1146,202 @@ async function _asmPrintTrans(){
   var email=_asmEmail||document.getElementById('transInput').value.trim();
   if(!email){Swal.fire({icon:'info',title:'Search First',text:'Please search for a student before printing.'});return;}
   Swal.fire({title:'Generating Official Transcript',html:'<div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Compiling academic records…<br>This may take 15–20 seconds</p>',allowOutsideClick:false,showConfirmButton:false});
+
   var [bioRows,results,crsData]=await Promise.all([
     sbFetch('student_bio?email=eq.'+encodeURIComponent(email.toLowerCase())+'&select=*&limit=1'),
     sbFetch('results?email=eq.'+encodeURIComponent(email.toLowerCase())+'&select=course_code,grade,semester,academic_year&order=academic_year,semester'),
     sbFetch('courses?select=course_code,title,credits,level,semester')
   ]);
-  if(!bioRows||!bioRows.length||!results||!results.length){Swal.fire({icon:'error',title:'Cannot Generate Transcript',text:'No academic records found.',confirmButtonColor:'#dc2626'});return;}
+
+  if(!bioRows||!bioRows.length||!results||!results.length){
+    Swal.fire({icon:'error',title:'Cannot Generate Transcript',text:'No academic records found.',confirmButtonColor:'#dc2626'});
+    return;
+  }
+
   var student=bioRows[0];
   var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c;});
   var logo=await _asmLogo();
-  var lc=logo?'<td style="width:80px;vertical-align:middle;"><img src="'+logo+'" width="70" style="display:block;"></td>':'<td style="width:10px;"></td>';
-  var wm=logo?'<img src="'+logo+'" style="position:absolute;top:200px;left:50%;margin-left:-210px;width:420px;opacity:0.07;z-index:0;pointer-events:none;">':'';
+
+  // ── Build semester groups ─────────────────────────────────
   var grouped={},gPts=0,gCreds=0;
   results.forEach(function(r){
     var info=crsMap[r.course_code]||{credits:3,level:'—',title:r.course_code};
     var key=(r.academic_year||'N/A')+'|'+(r.semester||'');
     if(!grouped[key])grouped[key]={year:r.academic_year||'N/A',sem:r.semester||'',level:info.level||'—',courses:[],pts:0,creds:0};
     var creds=Number(info.credits)||3,gp=_asmGP(r.grade)*creds;
-    grouped[key].courses.push({code:r.course_code,title:info.title,credits:creds,grade:r.grade||'—'});
+    grouped[key].courses.push({code:r.course_code,title:info.title||r.course_code,credits:creds,grade:r.grade||'—',gp:gp});
     grouped[key].pts+=gp; grouped[key].creds+=creds; gPts+=gp; gCreds+=creds;
   });
-  var fcgpa=gCreds>0?(gPts/gCreds).toFixed(2):'0.00', classD=_asmClass(fcgpa);
-  var sortedKeys=Object.keys(grouped).sort(function(a,b){var ga=grouped[a],gb=grouped[b];return ga.year!==gb.year?ga.year.localeCompare(gb.year):ga.sem.localeCompare(gb.sem);});
+
+  var fcgpa=gCreds>0?(gPts/gCreds).toFixed(2):'0.00';
+  var classD=_asmClass(fcgpa);
+
+  var sortedKeys=Object.keys(grouped).sort(function(a,b){
+    var ga=grouped[a],gb=grouped[b];
+    return ga.year!==gb.year?ga.year.localeCompare(gb.year):ga.sem.localeCompare(gb.sem);
+  });
+
+  // ── Watermark HTML ────────────────────────────────────────
+  var wmStyle='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:420px;opacity:0.07;z-index:0;pointer-events:none;';
+  var wm=logo?'<img src="'+logo+'" style="'+wmStyle+'">':'';
+
+  // ── Header HTML (reused on page 1) ────────────────────────
+  var logoImg=logo?'<img src="'+logo+'" width="75" height="75" style="display:block;object-fit:contain;">':'';
+  var headerHtml=
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:0;"><tr>'+
+    '<td style="width:85px;vertical-align:middle;">'+logoImg+'</td>'+
+    '<td style="vertical-align:middle;padding-left:10px;">'+
+      '<div style="font-size:17px;font-weight:bold;text-transform:uppercase;">PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM</div>'+
+      '<div style="font-size:10px;margin-top:3px;">P. O. Box 27, Akropong-Akuapem</div>'+
+      '<div style="font-size:10px;">Tel: +233 (0) 256 977 765 | Email: gabrielodameamfo@gmail.com | Website: www.pce.edu.gh</div>'+
+    '</td>'+
+    '</tr></table>'+
+    '<div style="border-top:3px solid #000;margin:8px 0 12px 0;"></div>';
+
+  // ── Build running cumulative ──────────────────────────────
   var rGP=0,rCR=0;
-  var dynContent=sortedKeys.map(function(key){
-    var g=grouped[key]; rGP+=g.pts; rCR+=g.creds;
+  var semSections=sortedKeys.map(function(key){
+    var g=grouped[key];
+    rGP+=g.pts; rCR+=g.creds;
     var semGPA=g.creds>0?(g.pts/g.creds).toFixed(2):'0.00';
     var curCGPA=rCR>0?(rGP/rCR).toFixed(2):'0.00';
-    var sl=g.sem==='SEMESTER1'?'SEMESTER 1':'SEMESTER 2';
+    var semNum=g.sem==='SEMESTER1'?'SEMESTER1':'SEMESTER2';
+    var levelLabel=g.level&&g.level!=='—'?'LEVEL '+g.level:'';
+
     g.courses.sort(function(a,b){return a.code.localeCompare(b.code);});
-    var rows=g.courses.map(function(c){
-      var gp=(_asmGP(c.grade)*c.credits).toFixed(2);
-      return '<tr><td style="padding:5px;border-bottom:1px solid #eee;">'+c.code+'</td>' +
-        '<td style="padding:5px;border-bottom:1px solid #eee;">'+String(c.title||'').toUpperCase()+'</td>' +
-        '<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;">'+c.credits+'</td>' +
-        '<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;font-weight:bold;">'+c.grade+'</td>' +
-        '<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;">'+gp+'</td></tr>';
+
+    var courseRows=g.courses.map(function(c){
+      return '<tr>'+
+        '<td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:10px;">'+c.code+'</td>'+
+        '<td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:10px;">'+String(c.title||'').toUpperCase()+'</td>'+
+        '<td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:10px;">'+c.credits+'</td>'+
+        '<td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;font-size:10px;">'+c.grade+'</td>'+
+        '<td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:10px;">'+c.gp.toFixed(2)+'</td>'+
+        '</tr>';
     }).join('');
-    return '<div style="margin-top:20px;page-break-inside:avoid;">' +
-      '<div style="font-weight:bold;font-size:11px;margin-bottom:5px;border-bottom:1px solid #000;background:rgba(255,255,255,0.8);">'+g.year+' ACADEMIC YEAR, '+sl+' (LEVEL '+g.level+')</div>' +
-      '<table style="width:100%;border-collapse:collapse;font-size:10px;"><thead><tr style="border-bottom:2px solid #333;background:#f2f2f2;">' +
-      '<th style="text-align:left;padding:5px;">CODE</th><th style="text-align:left;padding:5px;">TITLE</th>' +
-      '<th style="text-align:center;padding:5px;">CREDIT</th><th style="text-align:center;padding:5px;">GRADE</th><th style="text-align:center;padding:5px;">GP</th>' +
-      '</tr></thead><tbody>'+rows+'</tbody></table>' +
-      '<div style="margin-top:5px;font-size:10px;font-weight:bold;padding:5px;border:1px solid #eee;background:rgba(255,255,255,0.9);">' +
-      '<span>TCR: '+g.creds+' &nbsp;&nbsp; TGP: '+g.pts.toFixed(2)+' &nbsp;&nbsp; SGPA: '+semGPA+'</span>' +
-      '<span style="float:right;">CCR: '+rCR+' &nbsp;&nbsp; CGV: '+rGP.toFixed(2)+' &nbsp;&nbsp; CGPA: '+curCGPA+'</span></div></div>';
+
+    return '<div style="margin-bottom:20px;page-break-inside:avoid;">'+
+      '<div style="background:#f0f0f0;border-top:2px solid #333;border-bottom:1px solid #333;padding:5px 8px;font-weight:bold;font-size:11px;margin-bottom:0;">'+
+        g.year+' ACADEMIC YEAR, '+semNum+' ('+levelLabel+')'+
+      '</div>'+
+      '<table style="width:100%;border-collapse:collapse;">'+
+      '<thead><tr style="border-bottom:2px solid #333;">'+
+      '<th style="padding:5px 8px;text-align:left;font-size:10px;width:80px;">CODE</th>'+
+      '<th style="padding:5px 8px;text-align:left;font-size:10px;">TITLE</th>'+
+      '<th style="padding:5px 8px;text-align:center;font-size:10px;width:55px;">CREDIT</th>'+
+      '<th style="padding:5px 8px;text-align:center;font-size:10px;width:55px;">GRADE</th>'+
+      '<th style="padding:5px 8px;text-align:center;font-size:10px;width:55px;">GP</th>'+
+      '</tr></thead>'+
+      '<tbody>'+courseRows+'</tbody>'+
+      '</table>'+
+      '<div style="border-top:1px solid #333;padding:5px 8px;font-size:10px;font-weight:bold;display:flex;justify-content:space-between;">'+
+        '<span>TCR: '+g.creds+' &nbsp;&nbsp; TGP: '+g.pts.toFixed(2)+' &nbsp;&nbsp; SGPA: '+semGPA+'</span>'+
+        '<span>CCR: '+rCR+' &nbsp;&nbsp; CGV: '+rGP.toFixed(2)+' &nbsp;&nbsp; CGPA: '+curCGPA+'</span>'+
+      '</div>'+
+      '</div>';
   }).join('');
-  var pdfH='<div style="font-family:Times New Roman,serif;font-size:11px;color:#000;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;">'+wm+
-    '<div style="position:relative;z-index:1;">' +
-    '<table style="width:100%;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;border-collapse:collapse;"><tr>'+lc+
-    '<td style="vertical-align:middle;"><div style="font-size:18px;font-weight:bold;text-align:center;text-transform:uppercase;">PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM</div>' +
-    '<div style="text-align:center;font-size:10px;margin-top:2px;">P. O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | Website: www.pce.edu.gh</div></td></tr></table>' +
-    '<div style="text-align:center;font-size:14px;font-weight:bold;text-decoration:underline;margin-bottom:15px;text-transform:uppercase;">OFFICIAL ACADEMIC TRANSCRIPT</div>' +
-    '<div style="color:red;text-align:center;font-weight:bold;font-size:9px;margin-bottom:10px;">A BLACK AND WHITE DOCUMENT IS NOT OFFICIAL</div>' +
-    '<table style="width:100%;margin-bottom:15px;border-collapse:collapse;"><tr>' +
-    '<td style="width:60%;"><div><strong>NAME:</strong> '+String(student.name||'').toUpperCase()+'</div>' +
-    '<div><strong>INDEX NUMBER:</strong> '+(student.index_number||'')+'</div>' +
-    '<div><strong>PROGRAM:</strong> '+String(student.program||'').toUpperCase()+'</div></td>' +
-    '<td style="width:40%;"><div><strong>LEVEL:</strong> '+(student.level||'N/A')+'</div>' +
-    '<div><strong>DATE OF BIRTH:</strong> '+(student.dob||'N/A')+'</div>' +
-    '<div><strong>GENDER:</strong> '+(student.gender||'N/A')+'</div></td></tr></table>' +
-    dynContent +
-    '<div style="margin-top:30px;display:inline-block;border:1px solid #000;padding:5px 10px;font-weight:bold;">CLASS DESIGNATION: '+classD+'</div>' +
-    '<div style="margin-top:40px;page-break-inside:avoid;"><table style="width:100%;font-size:11px;"><tr>' +
-    '<td style="width:50%;border-top:1px solid #000;padding-top:5px;"><strong>COLLEGE REGISTRAR</strong><br>(Signature &amp; Official Stamp)</td>' +
-    '<td style="width:10%;"></td>' +
-    '<td style="width:40%;border-top:1px solid #000;padding-top:5px;text-align:center;"><strong>DATE OF ISSUE</strong><br>'+new Date().toLocaleDateString('en-GB')+'</td>' +
-    '</tr></table></div>' +
-    '<div style="page-break-before:always;"></div>' +
-    '<div style="text-align:center;font-weight:bold;text-decoration:underline;margin-bottom:20px;">GRADING SCHEME</div>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:10px;text-align:center;"><tr style="background:#eee;">' +
-    '<th style="border:1px solid #000;padding:5px;">GRADE</th><th style="border:1px solid #000;padding:5px;">SCORE</th><th style="border:1px solid #000;padding:5px;">GP</th>' +
-    '<th style="border:1px solid #000;padding:5px;">REMARKS</th><th style="border:1px solid #000;padding:5px;">CGPA RANGE</th><th style="border:1px solid #000;padding:5px;">CLASS</th></tr>' +
-    '<tr><td style="border:1px solid #000;">A</td><td style="border:1px solid #000;">80-100</td><td style="border:1px solid #000;">4.0</td><td style="border:1px solid #000;">Excellent</td><td style="border:1px solid #000;">3.50-4.00</td><td style="border:1px solid #000;">First Class</td></tr>' +
-    '<tr><td style="border:1px solid #000;">B+</td><td style="border:1px solid #000;">75-79</td><td style="border:1px solid #000;">3.5</td><td style="border:1px solid #000;">Very Good</td><td style="border:1px solid #000;">3.00-3.49</td><td style="border:1px solid #000;">Second Class Upper</td></tr>' +
-    '<tr><td style="border:1px solid #000;">B</td><td style="border:1px solid #000;">70-74</td><td style="border:1px solid #000;">3.0</td><td style="border:1px solid #000;">Good</td><td style="border:1px solid #000;">2.50-2.99</td><td style="border:1px solid #000;">Second Class Lower</td></tr>' +
-    '<tr><td style="border:1px solid #000;">C+</td><td style="border:1px solid #000;">65-69</td><td style="border:1px solid #000;">2.5</td><td style="border:1px solid #000;">Very Fair</td><td style="border:1px solid #000;">2.00-2.49</td><td style="border:1px solid #000;">Third Class</td></tr>' +
-    '<tr><td style="border:1px solid #000;">C</td><td style="border:1px solid #000;">60-64</td><td style="border:1px solid #000;">2.0</td><td style="border:1px solid #000;">Fair</td><td style="border:1px solid #000;">1.00-1.99</td><td style="border:1px solid #000;">Pass</td></tr>' +
-    '<tr><td style="border:1px solid #000;">D+</td><td style="border:1px solid #000;">55-59</td><td style="border:1px solid #000;">1.5</td><td style="border:1px solid #000;">Satisfactory</td><td style="border:1px solid #000;">Below 1.00</td><td style="border:1px solid #000;">Fail</td></tr>' +
-    '<tr><td style="border:1px solid #000;">E</td><td style="border:1px solid #000;">0-49</td><td style="border:1px solid #000;">0.0</td><td style="border:1px solid #000;">Fail</td><td style="border:1px solid #000;"></td><td style="border:1px solid #000;"></td></tr>' +
-    '</table></div></div>';
+
+  // ── Page 1 HTML ───────────────────────────────────────────
+  var page1=
+    '<div style="font-family:Arial,sans-serif;font-size:11px;color:#000;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;">'+
+    wm+
+    '<div style="position:relative;z-index:1;">'+
+    headerHtml+
+
+    '<div style="text-align:center;font-size:14px;font-weight:bold;text-decoration:underline;margin-bottom:8px;text-transform:uppercase;">OFFICIAL ACADEMIC TRANSCRIPT</div>'+
+    '<div style="color:red;text-align:center;font-weight:bold;font-size:9px;margin-bottom:14px;">A BLACK AND WHITE DOCUMENT IS NOT OFFICIAL</div>'+
+
+    // Student info block
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:11px;">'+
+    '<tr>'+
+    '<td style="width:55%;padding:2px 0;"><strong>NAME:</strong> '+String(student.name||'').toUpperCase()+'</td>'+
+    '<td style="width:45%;padding:2px 0;"><strong>LEVEL:</strong> '+(student.level||'N/A')+'</td>'+
+    '</tr><tr>'+
+    '<td style="padding:2px 0;"><strong>INDEX NUMBER:</strong> '+(student.index_number||'')+'</td>'+
+    '<td style="padding:2px 0;"><strong>Date of Birth:</strong> '+(student.dob||'N/A')+'</td>'+
+    '</tr><tr>'+
+    '<td style="padding:2px 0;"><strong>PROGRAM:</strong> '+String(student.program||'').toUpperCase()+'</td>'+
+    '<td style="padding:2px 0;"><strong>GENDER:</strong> '+String(student.gender||'N/A').toUpperCase()+'</td>'+
+    '</tr>'+
+    '</table>'+
+
+    // Semester sections
+    semSections+
+
+    // Class designation box
+    '<div style="display:inline-block;border:1px solid #000;padding:5px 12px;font-weight:bold;font-size:11px;margin-top:10px;margin-bottom:25px;">'+
+    'CLASS DESIGNATION: '+classD.toUpperCase()+
+    '</div>'+
+
+    // Signature block
+    '<table style="width:100%;border-collapse:collapse;margin-top:15px;font-size:11px;">'+
+    '<tr>'+
+    '<td style="width:45%;border-top:1px solid #000;padding-top:5px;"><strong>COLLEGE REGISTRAR</strong><br><small>(Signature &amp; Official Stamp)</small></td>'+
+    '<td style="width:10%;"></td>'+
+    '<td style="width:45%;border-top:1px solid #000;padding-top:5px;"><strong>DATE OF ISSUE</strong><br>'+new Date().toLocaleDateString('en-GB')+'</td>'+
+    '</tr>'+
+    '</table>'+
+
+    // Footer
+    '<div style="margin-top:30px;border-top:1px solid #ccc;padding-top:6px;font-size:9px;color:#555;text-align:center;">'+
+    'Presbyterian College of Education | P. O. Box 27, Akropong-Akuapem | Phone: +233 (0) 256 977 765'+
+    '</div>'+
+
+    '</div></div>';
+
+  // ── Page 2 — Grading Scheme ───────────────────────────────
+  var page2=
+    '<div style="font-family:Arial,sans-serif;font-size:11px;color:#000;width:720px;padding:28px;box-sizing:border-box;background:#fff;position:relative;page-break-before:always;">'+
+    wm+
+    '<div style="position:relative;z-index:1;">'+
+
+    '<div style="text-align:center;font-size:13px;font-weight:bold;text-decoration:underline;margin-bottom:16px;">GRADING SCHEME</div>'+
+
+    '<table style="width:100%;border-collapse:collapse;font-size:10px;text-align:center;">'+
+    '<thead><tr style="border:1px solid #000;">'+
+    '<th style="border:1px solid #000;padding:6px;">GRADE</th>'+
+    '<th style="border:1px solid #000;padding:6px;">SCORE</th>'+
+    '<th style="border:1px solid #000;padding:6px;">GP</th>'+
+    '<th style="border:1px solid #000;padding:6px;">REMARKS</th>'+
+    '<th style="border:1px solid #000;padding:6px;">CGPA RANGE</th>'+
+    '<th style="border:1px solid #000;padding:6px;">CLASS</th>'+
+    '</tr></thead>'+
+    '<tbody>'+
+    '<tr><td style="border:1px solid #000;padding:5px;">A</td><td style="border:1px solid #000;padding:5px;">80-100</td><td style="border:1px solid #000;padding:5px;">4.0</td><td style="border:1px solid #000;padding:5px;">Excellent</td><td style="border:1px solid #000;padding:5px;">3.50-4.00</td><td style="border:1px solid #000;padding:5px;">First Class</td></tr>'+
+    '<tr><td style="border:1px solid #000;padding:5px;">B+</td><td style="border:1px solid #000;padding:5px;">75-79</td><td style="border:1px solid #000;padding:5px;">3.5</td><td style="border:1px solid #000;padding:5px;">Very Good</td><td style="border:1px solid #000;padding:5px;">3.00-3.49</td><td style="border:1px solid #000;padding:5px;">Second Class Upper</td></tr>'+
+    '<tr><td style="border:1px solid #000;padding:5px;">B</td><td style="border:1px solid #000;padding:5px;">70-74</td><td style="border:1px solid #000;padding:5px;">3.0</td><td style="border:1px solid #000;padding:5px;">Good</td><td style="border:1px solid #000;padding:5px;">2.50-2.99</td><td style="border:1px solid #000;padding:5px;">Second Class Lower</td></tr>'+
+    '<tr><td style="border:1px solid #000;padding:5px;">C+</td><td style="border:1px solid #000;padding:5px;">65-69</td><td style="border:1px solid #000;padding:5px;">2.5</td><td style="border:1px solid #000;padding:5px;">Very Fair</td><td style="border:1px solid #000;padding:5px;">2.00-2.49</td><td style="border:1px solid #000;padding:5px;">Third Class</td></tr>'+
+    '<tr><td style="border:1px solid #000;padding:5px;">C</td><td style="border:1px solid #000;padding:5px;">60-64</td><td style="border:1px solid #000;padding:5px;">2.0</td><td style="border:1px solid #000;padding:5px;">Fair</td><td style="border:1px solid #000;padding:5px;">1.00-1.99</td><td style="border:1px solid #000;padding:5px;">Pass</td></tr>'+
+    '<tr><td style="border:1px solid #000;padding:5px;">D+</td><td style="border:1px solid #000;padding:5px;">55-59</td><td style="border:1px solid #000;padding:5px;">1.5</td><td style="border:1px solid #000;padding:5px;">Satisfactory</td><td style="border:1px solid #000;padding:5px;">0.00-0.99</td><td style="border:1px solid #000;padding:5px;">Fail</td></tr>'+
+    '<tr><td style="border:1px solid #000;padding:5px;">E</td><td style="border:1px solid #000;padding:5px;">0-49</td><td style="border:1px solid #000;padding:5px;">0.0</td><td style="border:1px solid #000;padding:5px;">Fail</td><td style="border:1px solid #000;padding:5px;"></td><td style="border:1px solid #000;padding:5px;"></td></tr>'+
+    '</tbody></table>'+
+
+    // Footer
+    '<div style="margin-top:30px;border-top:1px solid #ccc;padding-top:6px;font-size:9px;color:#555;text-align:center;">'+
+    'Presbyterian College of Education | P. O. Box 27, Akropong-Akuapem | Phone: +233 (0) 256 977 765'+
+    '</div>'+
+
+    '</div></div>';
+
+  // ── Render & Save ─────────────────────────────────────────
   Swal.close();
-  var wrap=document.createElement('div'); wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;width:760px;'; wrap.innerHTML=pdfH; document.body.appendChild(wrap);
-  try{await html2pdf().set({margin:[0.4,0.4,0.4,0.4],filename:'Transcript_'+(student.index_number||email)+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'},jsPDF:{unit:'in',format:'a4',orientation:'portrait'}}).from(wrap.firstElementChild).save();}
-  finally{document.body.removeChild(wrap);}
+  var wrap=document.createElement('div');
+  wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;width:760px;';
+  wrap.innerHTML=page1+page2;
+  document.body.appendChild(wrap);
+
+  try{
+    await html2pdf().set({
+      margin:[0.4,0.4,0.4,0.4],
+      filename:'Transcript_'+(student.index_number||email)+'.pdf',
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'in',format:'a4',orientation:'portrait'}
+    }).from(wrap).save();
+  } finally {
+    document.body.removeChild(wrap);
+  }
+
   Swal.fire({icon:'success',title:'Transcript Generated!',text:'Official transcript downloaded.',timer:3000,showConfirmButton:false});
 }
 
