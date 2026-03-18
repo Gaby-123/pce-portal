@@ -765,9 +765,10 @@ async function regConfirmUpload() {
 
   // If students were uploaded, also create their login accounts
   if (regPendingUploadType === 'students') {
+    const hashedPwd = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848')).then(buf => Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''));
     for (let i = 0; i < regPendingUploadRows.length; i += 100) {
       const batch = regPendingUploadRows.slice(i, i+100).map(r => ({
-        email: r.email, password: await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848')).then(buf => Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('')), role: 'STUDENT', is_first_login: true, failed_attempts: 0, locked_until: null
+        email: r.email, password: hashedPwd, role: 'STUDENT', is_first_login: true, failed_attempts: 0, locked_until: null
       }));
       await fetch(SUPABASE_URL + '/rest/v1/users?on_conflict=email', {
         method: 'POST',
