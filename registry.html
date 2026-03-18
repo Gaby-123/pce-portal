@@ -1,10 +1,3 @@
-<!-- PCE Registry Portal — Fixed
-     CHANGES vs original:
-     1. parseCSVLine() replaces line.split(',') — handles quoted fields with commas inside
-     2. index_number guard — if column shift causes a non-numeric value (e.g. "JHS EDUCATION"), 
-        it is set to null instead of crashing on the unique constraint
-     3. Per-row student upload with auto-retry — a single bad row never kills the whole batch
--->
 <style>
   :root { --pce-blue: #0284c7; --sidebar-width: 260px; }
   .registry-container { display:flex; height:calc(100vh - 62px); background:#f8fafc; overflow:hidden; }
@@ -26,6 +19,8 @@
 </style>
 
 <div class="registry-container">
+
+  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-header">
       <h5><i class="bi bi-folder-check me-2"></i>Registry Portal</h5>
@@ -41,32 +36,96 @@
     </nav>
   </aside>
 
+  <!-- MAIN CONTENT -->
   <main class="main-content">
 
-    <!-- DASHBOARD -->
+    <!-- ① DASHBOARD -->
     <section id="reg-dashboard" class="reg-section">
       <div class="section-header">
         <h4><i class="bi bi-speedometer2 me-2"></i>Registry Dashboard</h4>
         <p class="text-muted mb-0">Real-time system overview and statistics</p>
       </div>
+
+      <!-- Overall stats -->
       <div class="row mb-4">
-        <div class="col-md-2"><div class="stat-card text-center"><i class="bi bi-people-fill text-primary" style="font-size:2rem;"></i><h3 class="mt-2 mb-0" id="regTotalStudents"><div class="spinner-border spinner-border-sm text-primary"></div></h3><p class="text-muted small mb-0">Total Students</p></div></div>
-        <div class="col-md-2"><div class="stat-card text-center"><i class="bi bi-check-circle-fill text-success" style="font-size:2rem;"></i><h3 class="mt-2 mb-0" id="regClearedStudents"><div class="spinner-border spinner-border-sm text-success"></div></h3><p class="text-muted small mb-0">Cleared</p></div></div>
-        <div class="col-md-3"><div class="stat-card text-center"><i class="bi bi-patch-check-fill text-warning" style="font-size:2rem;"></i><h3 class="mt-2 mb-0" id="regEligibleStudents"><div class="spinner-border spinner-border-sm text-warning"></div></h3><p class="text-muted small mb-0">Eligible (70%+)</p></div></div>
-        <div class="col-md-3"><div class="stat-card text-center"><i class="bi bi-clock-fill text-danger" style="font-size:2rem;"></i><h3 class="mt-2 mb-0" id="regPendingStudents"><div class="spinner-border spinner-border-sm text-danger"></div></h3><p class="text-muted small mb-0">Pending</p></div></div>
-        <div class="col-md-2"><div class="stat-card text-center"><i class="bi bi-book-fill text-info" style="font-size:2rem;"></i><h3 class="mt-2 mb-0" id="regTotalCourses"><div class="spinner-border spinner-border-sm text-info"></div></h3><p class="text-muted small mb-0">Total Courses</p></div></div>
+        <div class="col-md-2">
+          <div class="stat-card text-center">
+            <i class="bi bi-people-fill text-primary" style="font-size:2rem;"></i>
+            <h3 class="mt-2 mb-0" id="regTotalStudents"><div class="spinner-border spinner-border-sm text-primary"></div></h3>
+            <p class="text-muted small mb-0">Total Students</p>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="stat-card text-center">
+            <i class="bi bi-check-circle-fill text-success" style="font-size:2rem;"></i>
+            <h3 class="mt-2 mb-0" id="regClearedStudents"><div class="spinner-border spinner-border-sm text-success"></div></h3>
+            <p class="text-muted small mb-0">Cleared</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card text-center">
+            <i class="bi bi-patch-check-fill text-warning" style="font-size:2rem;"></i>
+            <h3 class="mt-2 mb-0" id="regEligibleStudents"><div class="spinner-border spinner-border-sm text-warning"></div></h3>
+            <p class="text-muted small mb-0">Eligible (70%+)</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card text-center">
+            <i class="bi bi-clock-fill text-danger" style="font-size:2rem;"></i>
+            <h3 class="mt-2 mb-0" id="regPendingStudents"><div class="spinner-border spinner-border-sm text-danger"></div></h3>
+            <p class="text-muted small mb-0">Pending</p>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="stat-card text-center">
+            <i class="bi bi-book-fill text-info" style="font-size:2rem;"></i>
+            <h3 class="mt-2 mb-0" id="regTotalCourses"><div class="spinner-border spinner-border-sm text-info"></div></h3>
+            <p class="text-muted small mb-0">Total Courses</p>
+          </div>
+        </div>
       </div>
+
+      <!-- Program breakdown -->
       <div class="row mb-4">
-        <div class="col-md-6"><div class="stat-card"><h6 class="text-uppercase fw-bold mb-3 pb-2 border-bottom" style="color:#059669;"><i class="bi bi-mortarboard-fill me-2"></i>JHS PROGRAM</h6><div class="row text-center"><div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-success" id="regJhsTotal"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Total</small></div></div><div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-primary" id="regJhsRegistered"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Registered</small></div></div><div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-danger" id="regJhsUnregistered"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Not Reg</small></div></div></div></div></div>
-        <div class="col-md-6"><div class="stat-card"><h6 class="text-uppercase fw-bold mb-3 pb-2 border-bottom" style="color:#dc2626;"><i class="bi bi-book-half me-2"></i>PRIMARY PROGRAM</h6><div class="row text-center"><div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-success" id="regPrimaryTotal"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Total</small></div></div><div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-primary" id="regPrimaryRegistered"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Registered</small></div></div><div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-danger" id="regPrimaryUnregistered"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Not Reg</small></div></div></div></div></div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <h6 class="text-uppercase fw-bold mb-3 pb-2 border-bottom" style="color:#059669;"><i class="bi bi-mortarboard-fill me-2"></i>JHS PROGRAM</h6>
+            <div class="row text-center">
+              <div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-success" id="regJhsTotal"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Total</small></div></div>
+              <div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-primary" id="regJhsRegistered"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Registered</small></div></div>
+              <div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-danger" id="regJhsUnregistered"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Not Reg</small></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <h6 class="text-uppercase fw-bold mb-3 pb-2 border-bottom" style="color:#dc2626;"><i class="bi bi-book-half me-2"></i>PRIMARY PROGRAM</h6>
+            <div class="row text-center">
+              <div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-success" id="regPrimaryTotal"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Total</small></div></div>
+              <div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-primary" id="regPrimaryRegistered"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Registered</small></div></div>
+              <div class="col-4"><div class="p-2 bg-light rounded"><h4 class="mb-0 text-danger" id="regPrimaryUnregistered"><div class="spinner-border spinner-border-sm"></div></h4><small class="text-muted">Not Reg</small></div></div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- Level breakdown -->
       <div class="stat-card">
         <h6 class="text-uppercase fw-bold mb-3 pb-2 border-bottom text-primary"><i class="bi bi-graph-up me-2"></i>LEVEL-BY-LEVEL BREAKDOWN</h6>
-        <div class="table-responsive"><table class="table table-sm table-hover mb-0"><thead class="table-light"><tr><th>Level</th><th class="text-center">JHS Total</th><th class="text-center">JHS Reg</th><th class="text-center">JHS Unreg</th><th class="text-center">Primary Total</th><th class="text-center">Primary Reg</th><th class="text-center">Primary Unreg</th></tr></thead><tbody id="regLevelBreakdownTable"><tr><td colspan="7" class="text-center p-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted small">Loading statistics...</p></td></tr></tbody></table></div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr><th>Level</th><th class="text-center">JHS Total</th><th class="text-center">JHS Reg</th><th class="text-center">JHS Unreg</th><th class="text-center">Primary Total</th><th class="text-center">Primary Reg</th><th class="text-center">Primary Unreg</th></tr>
+            </thead>
+            <tbody id="regLevelBreakdownTable">
+              <tr><td colspan="7" class="text-center p-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted small">Loading statistics...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
-    <!-- BULK UPLOAD -->
+    <!-- ② BULK UPLOAD -->
     <section id="reg-bulk-upload" class="reg-section">
       <div class="section-header">
         <h4><i class="bi bi-cloud-upload me-2"></i>Bulk Data Upload</h4>
@@ -77,29 +136,25 @@
           <div class="stat-card">
             <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-people me-2"></i>Student Data Upload</h6>
             <p class="small text-muted mb-2">CSV columns: <code>Email, FirstName, Surname, OtherName, IndexNumber, Level, Gender, DOB, Phone, Program, Department, Specialization</code></p>
-            <div class="alert alert-warning py-2 px-3 small mb-2">
-              <i class="bi bi-exclamation-triangle me-1"></i>
-              <strong>Tip:</strong> If any field contains a comma (e.g. a program name), wrap it in double quotes in your CSV file.
-            </div>
             <button class="btn btn-outline-primary btn-sm w-100 mb-2" id="regStuTemplateBtn"><i class="bi bi-download me-1"></i>Download Template</button>
             <input type="file" id="regStuFile" class="form-control form-control-sm mb-2" accept=".csv">
-            <button class="btn btn-primary btn-sm w-100" id="regStuPreviewBtn" onclick="regPreviewUpload('students')"><i class="bi bi-eye me-1"></i>Preview &amp; Upload</button>
+            <button class="btn btn-primary btn-sm w-100" id="regStuPreviewBtn"><i class="bi bi-eye me-1"></i>Preview &amp; Upload</button>
           </div>
         </div>
         <div class="col-md-6">
           <div class="stat-card">
             <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-journal-bookmark me-2"></i>Course Data Upload</h6>
-            <p class="small text-muted mb-2">CSV columns: <code>CourseCode, Title, Level, Semester, Credits</code></p>
+            <p class="small text-muted mb-2">CSV columns: <code>CourseCode, CourseName, Level, Department, Semester, CreditHours</code></p>
             <button class="btn btn-outline-primary btn-sm w-100 mb-2" id="regCrsTemplateBtn"><i class="bi bi-download me-1"></i>Download Template</button>
             <input type="file" id="regCrsFile" class="form-control form-control-sm mb-2" accept=".csv">
-            <button class="btn btn-primary btn-sm w-100" id="regCrsPreviewBtn" onclick="regPreviewUpload('courses')"><i class="bi bi-eye me-1"></i>Preview &amp; Upload</button>
+            <button class="btn btn-primary btn-sm w-100" id="regCrsPreviewBtn"><i class="bi bi-eye me-1"></i>Preview &amp; Upload</button>
           </div>
         </div>
       </div>
       <div id="regStatusLog"><i class="bi bi-terminal me-2"></i>&gt; System Ready</div>
     </section>
 
-    <!-- MANUAL ENTRY -->
+    <!-- ③ MANUAL ENTRY -->
     <section id="reg-manual-entry" class="reg-section">
       <div class="section-header">
         <h4><i class="bi bi-person-plus me-2"></i>Manual Student Entry</h4>
@@ -107,26 +162,73 @@
       </div>
       <div class="stat-card" style="max-width:900px;margin:0 auto;">
         <div class="row g-3">
-          <div class="col-md-6"><label class="form-label small fw-bold">Institutional Email *</label><input type="email" id="regManualEmail" class="form-control" placeholder="student@pce.edu.gh"></div>
-          <div class="col-md-6"><label class="form-label small fw-bold">Index Number *</label><input type="text" id="regManualIndex" class="form-control" placeholder="PCE/2024/001"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">First Name *</label><input type="text" id="regManualFirstName" class="form-control"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Surname *</label><input type="text" id="regManualSurname" class="form-control"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Other Name</label><input type="text" id="regManualOtherName" class="form-control"></div>
-          <div class="col-12"><div id="regNamePreview" class="alert alert-light border py-2 px-3 small" style="display:none;"><span class="text-muted">Full name: </span><strong id="regNamePreviewText" class="text-primary"></strong></div></div>
-          <div class="col-md-3"><label class="form-label small fw-bold">Level *</label><select id="regManualLevel" class="form-select"><option value="100">100</option><option value="200">200</option><option value="300">300</option><option value="400">400</option></select></div>
-          <div class="col-md-3"><label class="form-label small fw-bold">Gender *</label><select id="regManualGender" class="form-select"><option value="">-- Select --</option><option value="MALE">Male</option><option value="FEMALE">Female</option></select></div>
-          <div class="col-md-3"><label class="form-label small fw-bold">Date of Birth</label><input type="date" id="regManualDOB" class="form-control"></div>
-          <div class="col-md-3"><label class="form-label small fw-bold">Phone Number</label><input type="tel" id="regManualPhone" class="form-control" placeholder="0241234567"></div>
-          <div class="col-md-6"><label class="form-label small fw-bold">Program *</label><input type="text" id="regManualProgram" class="form-control" placeholder="B.Ed in Basic Education"></div>
-          <div class="col-md-6"><label class="form-label small fw-bold">Department *</label><select id="regManualDepartment" class="form-select"><option value="">-- Select --</option><option>SOCIAL SCIENCE</option><option>MATHS AND ICT</option><option>SCIENCES</option><option>CREATIVE ARTS</option><option>LANGUAGES</option><option>EDUCATIONAL STUDIES</option><option>VOCATIONAL-TECHNICAL</option></select></div>
-          <div class="col-12"><label class="form-label small fw-bold">Specialization</label><input type="text" id="regManualSpec" class="form-control" placeholder="e.g., Mathematics"></div>
-          <div class="col-12"><button class="btn btn-primary w-100 py-2" id="regManualSubmitBtn"><i class="bi bi-check-circle me-2"></i>Register Student</button></div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Institutional Email *</label>
+            <input type="email" id="regManualEmail" class="form-control" placeholder="student@pce.edu.gh">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Index Number *</label>
+            <input type="text" id="regManualIndex" class="form-control" placeholder="PCE/2024/001">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">First Name *</label>
+            <input type="text" id="regManualFirstName" class="form-control" placeholder="e.g. John">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Surname *</label>
+            <input type="text" id="regManualSurname" class="form-control" placeholder="e.g. Doe">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Other Name <span class="text-muted">(optional)</span></label>
+            <input type="text" id="regManualOtherName" class="form-control" placeholder="e.g. James">
+          </div>
+          <div class="col-12">
+            <div id="regNamePreview" class="alert alert-light border py-2 px-3 small" style="display:none;">
+              <span class="text-muted">Full name: </span><strong id="regNamePreviewText" class="text-primary"></strong>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold">Level *</label>
+            <select id="regManualLevel" class="form-select"><option value="100">100</option><option value="200">200</option><option value="300">300</option><option value="400">400</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold">Gender *</label>
+            <select id="regManualGender" class="form-select"><option value="">-- Select --</option><option value="MALE">Male</option><option value="FEMALE">Female</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold">Date of Birth</label>
+            <input type="date" id="regManualDOB" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold">Phone Number</label>
+            <input type="tel" id="regManualPhone" class="form-control" placeholder="0241234567">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Program *</label>
+            <input type="text" id="regManualProgram" class="form-control" placeholder="B.Ed in Basic Education">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Department *</label>
+            <select id="regManualDepartment" class="form-select">
+              <option value="">-- Select --</option>
+              <option>SOCIAL SCIENCE</option><option>MATHS AND ICT</option><option>SCIENCES</option>
+              <option>CREATIVE ARTS</option><option>LANGUAGES</option>
+              <option>EDUCATIONAL STUDIES</option><option>VOCATIONAL-TECHNICAL</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-bold">Specialization</label>
+            <input type="text" id="regManualSpec" class="form-control" placeholder="e.g., Mathematics">
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary w-100 py-2" id="regManualSubmitBtn"><i class="bi bi-check-circle me-2"></i>Register Student</button>
+          </div>
         </div>
         <div id="regManualStatus" class="mt-3" style="display:none;"></div>
       </div>
     </section>
 
-    <!-- STUDENT SEARCH -->
+    <!-- ④ STUDENT SEARCH -->
     <section id="reg-student-search" class="reg-section">
       <div class="section-header">
         <h4><i class="bi bi-search me-2"></i>Student Search</h4>
@@ -137,10 +239,12 @@
         <input type="text" id="regSearchInput" class="form-control" placeholder="Search by name, email, or index number...">
         <button class="btn btn-primary" id="regSearchBtn">Search</button>
       </div>
-      <div id="regResultsTable" class="stat-card" style="min-height:400px;max-height:600px;overflow-y:auto;"><p class="text-center text-muted py-5"><i class="bi bi-search" style="font-size:3rem;opacity:0.3;"></i><br>Search results will appear here</p></div>
+      <div id="regResultsTable" class="stat-card" style="min-height:400px;max-height:600px;overflow-y:auto;">
+        <p class="text-center text-muted py-5"><i class="bi bi-search" style="font-size:3rem;opacity:0.3;"></i><br>Search results will appear here</p>
+      </div>
     </section>
 
-    <!-- REPORTS -->
+    <!-- ⑤ REPORTS -->
     <section id="reg-reports" class="reg-section">
       <div class="section-header">
         <h4><i class="bi bi-file-earmark-bar-graph me-2"></i>Reports &amp; Exports</h4>
@@ -153,15 +257,27 @@
       </div>
     </section>
 
-    <!-- MAINTENANCE -->
+    <!-- ⑥ MAINTENANCE -->
     <section id="reg-maintenance" class="reg-section">
       <div class="section-header">
         <h4><i class="bi bi-gear me-2"></i>System Maintenance</h4>
         <p class="text-danger mb-0">Restricted operations — use with caution</p>
       </div>
       <div class="row">
-        <div class="col-md-6"><div class="stat-card border-warning"><h6 class="text-warning fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>Backup Database</h6><p class="small text-muted">Download complete student bio data as CSV</p><button class="btn btn-warning w-100" id="regBackupBtn"><i class="bi bi-download me-2"></i>Create Backup</button></div></div>
-        <div class="col-md-6"><div class="stat-card border-danger"><h6 class="text-danger fw-bold mb-3"><i class="bi bi-arrow-repeat me-2"></i>Academic Year Reset</h6><p class="small text-muted">Promote all students one level and reset clearance to PENDING</p><button class="btn btn-danger w-100" id="regResetBtn"><i class="bi bi-exclamation-triangle me-2"></i>Execute Reset</button></div></div>
+        <div class="col-md-6">
+          <div class="stat-card border-warning">
+            <h6 class="text-warning fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>Backup Database</h6>
+            <p class="small text-muted">Download complete student bio data as CSV</p>
+            <button class="btn btn-warning w-100" id="regBackupBtn"><i class="bi bi-download me-2"></i>Create Backup</button>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card border-danger">
+            <h6 class="text-danger fw-bold mb-3"><i class="bi bi-arrow-repeat me-2"></i>Academic Year Reset</h6>
+            <p class="small text-muted">Promote all students one level and reset clearance to PENDING</p>
+            <button class="btn btn-danger w-100" id="regResetBtn"><i class="bi bi-exclamation-triangle me-2"></i>Execute Reset</button>
+          </div>
+        </div>
       </div>
       <div id="regStatusLog" class="mt-3"><i class="bi bi-terminal me-2"></i>&gt; System Ready</div>
     </section>
@@ -171,50 +287,80 @@
 
 <!-- CSV PREVIEW MODAL -->
 <div class="modal fade" id="regCsvPreviewModal" tabindex="-1">
-  <div class="modal-dialog modal-xl"><div class="modal-content">
-    <div class="modal-header bg-primary text-white"><h5 class="modal-title"><i class="bi bi-file-earmark-spreadsheet me-2"></i><span id="regPreviewTitle">Upload Preview</span></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body p-0"><div class="alert alert-info m-3 mb-0"><strong>Review carefully:</strong> <span id="regPreviewCount">0</span> records detected.</div><div id="regCsvPreviewContent" style="max-height:500px;overflow-y:auto;"></div></div>
-    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success fw-bold px-4" id="regConfirmUploadBtn" onclick="regConfirmUpload()"><i class="bi bi-check-circle me-1"></i>Confirm &amp; Upload</button></div>
-  </div></div>
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-file-earmark-spreadsheet me-2"></i><span id="regPreviewTitle">Upload Preview</span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="alert alert-info m-3 mb-0"><strong>Review carefully:</strong> <span id="regPreviewCount">0</span> records detected.</div>
+        <div id="regCsvPreviewContent" style="max-height:500px;overflow-y:auto;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success fw-bold px-4" id="regConfirmUploadBtn"><i class="bi bi-check-circle me-1"></i>Confirm &amp; Upload</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- STUDENT EDIT MODAL -->
 <div class="modal fade" id="regStudentModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
-    <div class="modal-header bg-primary text-white"><h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>Student Record</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body p-4">
-      <div id="regModalLoading" class="text-center p-4"><div class="spinner-border text-primary"></div><p class="mt-2">Loading student record...</p></div>
-      <div id="regModalForm" style="display:none;">
-        <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-light rounded"><div><h5 id="regModalFullName" class="mb-0 text-primary fw-bold"></h5><small id="regModalIndex" class="text-muted"></small></div><span id="regModalStatusBadge" class="badge fs-6"></span></div>
-        <div class="row g-3">
-          <div class="col-12"><p class="fw-bold text-uppercase small text-muted border-bottom pb-1">Personal Information</p></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">First Name *</label><input type="text" id="regEditFirstName" class="form-control form-control-sm"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Surname *</label><input type="text" id="regEditSurname" class="form-control form-control-sm"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Other Name</label><input type="text" id="regEditOtherName" class="form-control form-control-sm"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Gender</label><select id="regEditGender" class="form-select form-select-sm"><option value="MALE">Male</option><option value="FEMALE">Female</option></select></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Date of Birth</label><input type="text" id="regEditDob" class="form-control form-control-sm"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Phone Number</label><input type="tel" id="regEditPhone" class="form-control form-control-sm"></div>
-          <div class="col-12 mt-2"><p class="fw-bold text-uppercase small text-muted border-bottom pb-1">Academic Information</p></div>
-          <div class="col-md-6"><label class="form-label small fw-bold">Email</label><input type="email" id="regEditEmail" class="form-control form-control-sm" readonly style="background:#f8f9fa;"><small class="text-muted">Email cannot be changed</small></div>
-          <div class="col-md-3"><label class="form-label small fw-bold">Index Number</label><input type="text" id="regEditIndex" class="form-control form-control-sm"></div>
-          <div class="col-md-3"><label class="form-label small fw-bold">Level</label><select id="regEditLevel" class="form-select form-select-sm"><option value="100">100</option><option value="200">200</option><option value="300">300</option><option value="400">400</option><option value="GRADUATED">GRADUATED</option></select></div>
-          <div class="col-md-6"><label class="form-label small fw-bold">Program</label><input type="text" id="regEditProgram" class="form-control form-control-sm"></div>
-          <div class="col-md-6"><label class="form-label small fw-bold">Specialization</label><input type="text" id="regEditSpec" class="form-control form-control-sm"></div>
-          <div class="col-md-6"><label class="form-label small fw-bold">Department</label><select id="regEditDepartment" class="form-select form-select-sm"><option>SOCIAL SCIENCE</option><option>MATHS AND ICT</option><option>SCIENCES</option><option>CREATIVE ARTS</option><option>LANGUAGES</option><option>EDUCATIONAL STUDIES</option><option>VOCATIONAL-TECHNICAL</option></select></div>
-          <div class="col-md-6"><label class="form-label small fw-bold">Finance Status</label><input type="text" id="regEditStatus" class="form-control form-control-sm" readonly style="background:#f8f9fa;font-weight:bold;"><small class="text-muted">Only Finance Office can modify status</small></div>
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>Student Record</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="regModalLoading" class="text-center p-4"><div class="spinner-border text-primary"></div><p class="mt-2">Loading student record...</p></div>
+        <div id="regModalForm" style="display:none;">
+          <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-light rounded">
+            <div><h5 id="regModalFullName" class="mb-0 text-primary fw-bold"></h5><small id="regModalIndex" class="text-muted"></small></div>
+            <span id="regModalStatusBadge" class="badge fs-6"></span>
+          </div>
+          <div class="row g-3">
+            <div class="col-12"><p class="fw-bold text-uppercase small text-muted border-bottom pb-1">Personal Information</p></div>
+            <div class="col-md-4"><label class="form-label small fw-bold">First Name *</label><input type="text" id="regEditFirstName" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small fw-bold">Surname *</label><input type="text" id="regEditSurname" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small fw-bold">Other Name</label><input type="text" id="regEditOtherName" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small fw-bold">Gender</label><select id="regEditGender" class="form-select form-select-sm"><option value="MALE">Male</option><option value="FEMALE">Female</option></select></div>
+            <div class="col-md-4"><label class="form-label small fw-bold">Date of Birth</label><input type="text" id="regEditDob" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small fw-bold">Phone Number</label><input type="tel" id="regEditPhone" class="form-control form-control-sm"></div>
+            <div class="col-12 mt-2"><p class="fw-bold text-uppercase small text-muted border-bottom pb-1">Academic Information</p></div>
+            <div class="col-md-6"><label class="form-label small fw-bold">Email</label><input type="email" id="regEditEmail" class="form-control form-control-sm" readonly style="background:#f8f9fa;"><small class="text-muted">Email cannot be changed</small></div>
+            <div class="col-md-3"><label class="form-label small fw-bold">Index Number</label><input type="text" id="regEditIndex" class="form-control form-control-sm"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold">Level</label><select id="regEditLevel" class="form-select form-select-sm"><option value="100">100</option><option value="200">200</option><option value="300">300</option><option value="400">400</option><option value="GRADUATED">GRADUATED</option></select></div>
+            <div class="col-md-6"><label class="form-label small fw-bold">Program</label><input type="text" id="regEditProgram" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small fw-bold">Specialization</label><input type="text" id="regEditSpec" class="form-control form-control-sm"></div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Department</label>
+              <select id="regEditDepartment" class="form-select form-select-sm">
+                <option>SOCIAL SCIENCE</option><option>MATHS AND ICT</option><option>SCIENCES</option>
+                <option>CREATIVE ARTS</option><option>LANGUAGES</option>
+                <option>EDUCATIONAL STUDIES</option><option>VOCATIONAL-TECHNICAL</option>
+              </select>
+            </div>
+            <div class="col-md-6"><label class="form-label small fw-bold">Finance Status</label><input type="text" id="regEditStatus" class="form-control form-control-sm" readonly style="background:#f8f9fa;font-weight:bold;"><small class="text-muted">Only Finance Office can modify status</small></div>
+          </div>
+          <div id="regEditStatusMsg" class="mt-3" style="display:none;"></div>
         </div>
-        <div id="regEditStatusMsg" class="mt-3" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+        <button class="btn btn-primary btn-sm fw-bold px-4" id="regSaveEditBtn"><i class="bi bi-save me-1"></i>Save Changes</button>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button><button class="btn btn-primary btn-sm fw-bold px-4" id="regSaveEditBtn"><i class="bi bi-save me-1"></i>Save Changes</button></div>
-  </div></div>
+  </div>
 </div>
 
 <script>
-window.regPendingUploadType = null;
-window.regPendingUploadRows = [];
+// ── State ──────────────────────────────────────────────────────
+let regPendingUploadType = null;
+let regPendingUploadRows = [];
 
-// ── Navigation ──────────────────────────────────────────────────
+// ── Navigation ─────────────────────────────────────────────────
 function regShowSection(id) {
   document.querySelectorAll('.reg-section').forEach(s => { s.style.display = s.id === id ? 'block' : 'none'; });
   document.querySelectorAll('#regSidebarMenu .menu-item').forEach(n => { n.classList.toggle('active', n.getAttribute('data-section') === id); });
@@ -224,421 +370,510 @@ document.querySelectorAll('#regSidebarMenu .menu-item').forEach(item => {
   item.addEventListener('click', function() { regShowSection(this.getAttribute('data-section')); });
 });
 
+// ── Helpers ────────────────────────────────────────────────────
 function regSetLog(msg, color) {
   const el = document.getElementById('regStatusLog');
   if (el) { el.innerHTML = '<i class="bi bi-terminal me-2"></i>&gt; ' + msg; el.style.color = color || '#38bdf8'; }
 }
 function regSet(id, val) { const el = document.getElementById(id); if (el) el.innerText = val; }
 
-// ── RFC-4180 CSV parser ─────────────────────────────────────────
-// FIX: replaces naive line.split(',') which broke whenever a field
-// contained a comma (e.g. "B.Ed in Basic Education, JHS" or "Akuapem, Akropong").
-// The old split caused ALL subsequent columns to shift right, putting the
-// program/department value into the index_number column and triggering the
-// duplicate key error: Key (index_number)=(JHS EDUCATION) already exists.
-function parseCSVLine(line) {
-  const result = [];
-  let cur = '', inQuote = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuote && line[i + 1] === '"') { cur += '"'; i++; } // escaped ""
-      else inQuote = !inQuote;
-    } else if (ch === ',' && !inQuote) {
-      result.push(cur.trim()); cur = '';
-    } else {
-      cur += ch;
-    }
-  }
-  result.push(cur.trim());
-  return result;
-}
-
-// ── Dashboard Stats ─────────────────────────────────────────────
+// ── Dashboard Stats ────────────────────────────────────────────
 async function regLoadDashboardStats() {
   const [bioRows, regRows, courseRows] = await Promise.all([
     sbFetch('student_bio?select=email,level,program,status'),
     sbFetch('registrations?select=email'),
     sbFetch('courses?select=course_code')
   ]);
-  const registeredEmails = new Set((regRows||[]).map(r => r.email.toLowerCase().trim()));
-  let total=0,cleared=0,eligible=0,pending=0,jhsTotal=0,jhsReg=0,primaryTotal=0,primaryReg=0;
-  const lvlStats={'100':{jhs:0,jhsReg:0,primary:0,primaryReg:0},'200':{jhs:0,jhsReg:0,primary:0,primaryReg:0},'300':{jhs:0,jhsReg:0,primary:0,primaryReg:0},'400':{jhs:0,jhsReg:0,primary:0,primaryReg:0}};
-  (bioRows||[]).forEach(row=>{
+
+  const registeredEmails = new Set((regRows || []).map(r => r.email.toLowerCase().trim()));
+  let total=0, cleared=0, eligible=0, pending=0;
+  let jhsTotal=0, jhsReg=0, primaryTotal=0, primaryReg=0;
+  const lvlStats = { '100':{jhs:0,jhsReg:0,primary:0,primaryReg:0}, '200':{jhs:0,jhsReg:0,primary:0,primaryReg:0}, '300':{jhs:0,jhsReg:0,primary:0,primaryReg:0}, '400':{jhs:0,jhsReg:0,primary:0,primaryReg:0} };
+
+  (bioRows || []).forEach(row => {
     total++;
-    const status=String(row.status||'PENDING').toUpperCase().trim();
-    const level=String(row.level||'').trim();
-    const program=String(row.program||'').toUpperCase().trim();
-    const email=row.email.toLowerCase().trim();
-    const isReg=registeredEmails.has(email);
-    if(status==='CLEARED')cleared++;else if(status==='ELIGIBLE')eligible++;else pending++;
-    const isJHS=program.includes('JHS')||program.includes('J.H.S')||program.includes('JUNIOR');
-    const isPrimary=program.includes('PRIMARY')||program.includes('PRIM')||program.includes('BASIC');
-    if(isJHS){jhsTotal++;if(isReg)jhsReg++;}
-    if(isPrimary){primaryTotal++;if(isReg)primaryReg++;}
-    if(lvlStats[level]){if(isJHS){lvlStats[level].jhs++;if(isReg)lvlStats[level].jhsReg++;}if(isPrimary){lvlStats[level].primary++;if(isReg)lvlStats[level].primaryReg++;}}
+    const status  = String(row.status  || 'PENDING').toUpperCase().trim();
+    const level   = String(row.level   || '').trim();
+    const program = String(row.program || '').toUpperCase().trim();
+    const email   = row.email.toLowerCase().trim();
+    const isReg   = registeredEmails.has(email);
+
+    if (status === 'CLEARED')       cleared++;
+    else if (status === 'ELIGIBLE') eligible++;
+    else                            pending++;
+
+    const isJHS     = program.includes('JHS') || program.includes('J.H.S') || program.includes('JUNIOR');
+    const isPrimary = program.includes('PRIMARY') || program.includes('PRIM') || program.includes('BASIC');
+
+    if (isJHS)     { jhsTotal++;     if (isReg) jhsReg++; }
+    if (isPrimary) { primaryTotal++; if (isReg) primaryReg++; }
+
+    if (lvlStats[level]) {
+      if (isJHS)     { lvlStats[level].jhs++;     if (isReg) lvlStats[level].jhsReg++; }
+      if (isPrimary) { lvlStats[level].primary++;  if (isReg) lvlStats[level].primaryReg++; }
+    }
   });
-  regSet('regTotalStudents',total);regSet('regClearedStudents',cleared);regSet('regEligibleStudents',eligible);regSet('regPendingStudents',pending);
-  regSet('regTotalCourses',(courseRows||[]).length);regSet('regJhsTotal',jhsTotal);regSet('regJhsRegistered',jhsReg);regSet('regJhsUnregistered',jhsTotal-jhsReg);
-  regSet('regPrimaryTotal',primaryTotal);regSet('regPrimaryRegistered',primaryReg);regSet('regPrimaryUnregistered',primaryTotal-primaryReg);
-  const tbody=document.getElementById('regLevelBreakdownTable');
-  if(tbody){tbody.innerHTML=['100','200','300','400'].map(level=>{const d=lvlStats[level];return`<tr><td class="fw-bold">Level ${level}</td><td class="text-center">${d.jhs}</td><td class="text-center text-primary fw-bold">${d.jhsReg}</td><td class="text-center text-danger">${d.jhs-d.jhsReg}</td><td class="text-center">${d.primary}</td><td class="text-center text-primary fw-bold">${d.primaryReg}</td><td class="text-center text-danger">${d.primary-d.primaryReg}</td></tr>`;}).join('')||'<tr><td colspan="7" class="text-center text-muted p-3">No data available</td></tr>';}
+
+  regSet('regTotalStudents',       total);
+  regSet('regClearedStudents',     cleared);
+  regSet('regEligibleStudents',    eligible);
+  regSet('regPendingStudents',     pending);
+  regSet('regTotalCourses',        (courseRows || []).length);
+  regSet('regJhsTotal',            jhsTotal);
+  regSet('regJhsRegistered',       jhsReg);
+  regSet('regJhsUnregistered',     jhsTotal - jhsReg);
+  regSet('regPrimaryTotal',        primaryTotal);
+  regSet('regPrimaryRegistered',   primaryReg);
+  regSet('regPrimaryUnregistered', primaryTotal - primaryReg);
+
+  const tbody = document.getElementById('regLevelBreakdownTable');
+  if (tbody) {
+    tbody.innerHTML = ['100','200','300','400'].map(level => {
+      const d = lvlStats[level];
+      return `<tr>
+        <td class="fw-bold">Level ${level}</td>
+        <td class="text-center">${d.jhs}</td>
+        <td class="text-center text-primary fw-bold">${d.jhsReg}</td>
+        <td class="text-center text-danger">${d.jhs - d.jhsReg}</td>
+        <td class="text-center">${d.primary}</td>
+        <td class="text-center text-primary fw-bold">${d.primaryReg}</td>
+        <td class="text-center text-danger">${d.primary - d.primaryReg}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="7" class="text-center text-muted p-3">No data available</td></tr>';
+  }
 }
 
-// ── Student Search ──────────────────────────────────────────────
-document.getElementById('regSearchInput').addEventListener('keydown',function(e){if(e.key==='Enter')regDoSearch();});
-document.getElementById('regSearchBtn').addEventListener('click',regDoSearch);
-async function regDoSearch(){
-  const query=document.getElementById('regSearchInput').value.trim();
-  const display=document.getElementById('regResultsTable');
-  if(!query){alert('Please enter a name, email or index number');return;}
-  display.innerHTML='<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2">Searching...</p></div>';
-  const [a,b,c]=await Promise.all([
-    sbFetch('student_bio?email=ilike.*'+encodeURIComponent(query)+'*&select=email,name,index_number,level,program,department,status&limit=40'),
-    sbFetch('student_bio?name=ilike.*'+encodeURIComponent(query)+'*&select=email,name,index_number,level,program,department,status&limit=40'),
-    sbFetch('student_bio?index_number=ilike.*'+encodeURIComponent(query)+'*&select=email,name,index_number,level,program,department,status&limit=40')
+// ── Student Search ─────────────────────────────────────────────
+document.getElementById('regSearchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') regDoSearch();
+});
+document.getElementById('regSearchBtn').addEventListener('click', regDoSearch);
+
+async function regDoSearch() {
+  const query   = document.getElementById('regSearchInput').value.trim();
+  const display = document.getElementById('regResultsTable');
+  if (!query) { alert('Please enter a name, email or index number'); return; }
+
+  display.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2">Searching...</p></div>';
+
+  const [a, b, c] = await Promise.all([
+    sbFetch('student_bio?email=ilike.*'        + encodeURIComponent(query) + '*&select=email,name,index_number,level,program,department,status&limit=40'),
+    sbFetch('student_bio?name=ilike.*'         + encodeURIComponent(query) + '*&select=email,name,index_number,level,program,department,status&limit=40'),
+    sbFetch('student_bio?index_number=ilike.*' + encodeURIComponent(query) + '*&select=email,name,index_number,level,program,department,status&limit=40')
   ]);
-  const seen=new Set(),merged=[];
-  [...(a||[]),...(b||[]),...(c||[])].forEach(r=>{if(!seen.has(r.email)){seen.add(r.email);merged.push(r);}});
-  if(!merged.length){display.innerHTML='<div class="text-center text-muted p-5"><i class="bi bi-search" style="font-size:3rem;opacity:0.3;"></i><p class="mt-2">No student found for "'+query+'"</p></div>';return;}
-  let html=`<div class="p-2 small text-success fw-bold mb-2">✅ Found ${merged.length} student(s)</div><table class="table table-hover table-sm mb-0"><thead class="table-dark"><tr><th>Name</th><th>Email</th><th>Index</th><th>Level</th><th>Status</th><th>Action</th></tr></thead><tbody>`;
-  merged.forEach(stu=>{
-    const status=String(stu.status||'PENDING').toUpperCase();
-    const bc=status==='CLEARED'?'bg-success':status==='ELIGIBLE'?'bg-warning text-dark':'bg-danger';
-    html+=`<tr><td><strong>${stu.name||''}</strong></td><td><small class="text-muted">${stu.email}</small></td><td><code>${stu.index_number||''}</code></td><td>${stu.level||''}</td><td><span class="badge ${bc}">${status}</span></td><td><button class="btn btn-sm btn-outline-primary py-0 reg-view-btn" data-email="${stu.email}">View</button></td></tr>`;
+
+  const seen = new Set(), merged = [];
+  [...(a||[]),...(b||[]),...(c||[])].forEach(r => { if (!seen.has(r.email)) { seen.add(r.email); merged.push(r); } });
+
+  if (!merged.length) { display.innerHTML = '<div class="text-center text-muted p-5"><i class="bi bi-search" style="font-size:3rem;opacity:0.3;"></i><p class="mt-2">No student found for "' + query + '"</p></div>'; return; }
+
+  let html = `<div class="p-2 small text-success fw-bold mb-2">✅ Found ${merged.length} student(s)</div>
+    <table class="table table-hover table-sm mb-0"><thead class="table-dark">
+      <tr><th>Name</th><th>Email</th><th>Index</th><th>Level</th><th>Status</th><th>Action</th></tr>
+    </thead><tbody>`;
+
+  merged.forEach(stu => {
+    const status = String(stu.status || 'PENDING').toUpperCase();
+    const badgeClass = status==='CLEARED'?'bg-success':status==='ELIGIBLE'?'bg-warning text-dark':'bg-danger';
+    // Use data-email attribute — no onclick string interpolation
+    html += `<tr>
+      <td><strong>${stu.name || ''}</strong></td>
+      <td><small class="text-muted">${stu.email}</small></td>
+      <td><code>${stu.index_number || ''}</code></td>
+      <td>${stu.level || ''}</td>
+      <td><span class="badge ${badgeClass}">${status}</span></td>
+      <td><button class="btn btn-sm btn-outline-primary py-0 reg-view-btn" data-email="${stu.email}">View</button></td>
+    </tr>`;
   });
-  html+='</tbody></table>';
-  display.innerHTML=html;
-  display.querySelectorAll('.reg-view-btn').forEach(btn=>{btn.addEventListener('click',function(){regViewStudentRecord(this.getAttribute('data-email'));});});
+  html += '</tbody></table>';
+  display.innerHTML = html;
+
+  // Attach listeners after render
+  display.querySelectorAll('.reg-view-btn').forEach(btn => {
+    btn.addEventListener('click', function() { regViewStudentRecord(this.getAttribute('data-email')); });
+  });
 }
 
-// ── View / Edit Modal ───────────────────────────────────────────
-async function regViewStudentRecord(email){
-  const modal=new bootstrap.Modal(document.getElementById('regStudentModal'));modal.show();
-  document.getElementById('regModalLoading').style.display='block';
-  document.getElementById('regModalForm').style.display='none';
-  document.getElementById('regEditStatusMsg').style.display='none';
-  const rows=await sbFetch('student_bio?email=eq.'+encodeURIComponent(email.toLowerCase().trim())+'&select=*&limit=1');
-  if(!rows||!rows.length){document.getElementById('regModalLoading').innerHTML='<div class="alert alert-danger">Student record not found!</div>';return;}
+// ── View / Edit Student Modal ──────────────────────────────────
+async function regViewStudentRecord(email) {
+  const modal = new bootstrap.Modal(document.getElementById('regStudentModal'));
+  modal.show();
+  document.getElementById('regModalLoading').style.display = 'block';
+  document.getElementById('regModalForm').style.display    = 'none';
+  document.getElementById('regEditStatusMsg').style.display = 'none';
+
+  const rows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(email.toLowerCase().trim()) + '&select=*&limit=1');
+  if (!rows || !rows.length) {
+    document.getElementById('regModalLoading').innerHTML = '<div class="alert alert-danger">Student record not found!</div>'; return;
+  }
   regPopulateEditModal(rows[0]);
 }
-function regPopulateEditModal(r){
-  const nameParts=String(r.name||'').split(' ');
-  const firstName=r.first_name||nameParts[0]||'';
-  const surname=r.surname||nameParts[1]||'';
-  const otherName=r.other_name||nameParts.slice(2).join(' ')||'';
-  document.getElementById('regModalFullName').innerText=String(r.name||'').toUpperCase();
-  document.getElementById('regModalIndex').innerText='Index: '+(r.index_number||'');
-  const badge=document.getElementById('regModalStatusBadge');
-  const status=String(r.status||'PENDING').toUpperCase();
-  badge.innerText=status;badge.className='badge fs-6 '+(status==='CLEARED'?'bg-success':status==='ELIGIBLE'?'bg-warning text-dark':'bg-danger');
-  document.getElementById('regEditFirstName').value=firstName;document.getElementById('regEditSurname').value=surname;document.getElementById('regEditOtherName').value=otherName;
-  document.getElementById('regEditGender').value=r.gender||'MALE';document.getElementById('regEditDob').value=r.dob||'';document.getElementById('regEditPhone').value=r.phone||'';
-  document.getElementById('regEditEmail').value=r.email||'';document.getElementById('regEditIndex').value=r.index_number||'';document.getElementById('regEditLevel').value=String(r.level||'100');
-  document.getElementById('regEditProgram').value=r.program||'';document.getElementById('regEditSpec').value=r.specialization||r.spec||'';document.getElementById('regEditDepartment').value=r.department||'SOCIAL SCIENCE';
-  const si=document.getElementById('regEditStatus');si.value=status;si.style.color=status==='CLEARED'?'#059669':status==='ELIGIBLE'?'#d97706':'#dc2626';
-  document.getElementById('regModalLoading').style.display='none';document.getElementById('regModalForm').style.display='block';
-}
-document.getElementById('regSaveEditBtn').addEventListener('click',regSaveStudentEdit);
-async function regSaveStudentEdit(){
-  const statusDiv=document.getElementById('regEditStatusMsg');
-  const email=document.getElementById('regEditEmail').value.trim();
-  const firstName=document.getElementById('regEditFirstName').value.trim();
-  const surname=document.getElementById('regEditSurname').value.trim();
-  const otherName=document.getElementById('regEditOtherName').value.trim();
-  if(!firstName||!surname){statusDiv.className='alert alert-danger mt-2';statusDiv.style.display='block';statusDiv.innerHTML='First Name and Surname are required!';return;}
-  const fullName=[firstName,surname,otherName].filter(Boolean).join(' ');
-  const payload={name:fullName,first_name:firstName,surname,other_name:otherName,
-    gender:document.getElementById('regEditGender').value,dob:document.getElementById('regEditDob').value,phone:document.getElementById('regEditPhone').value.trim(),
-    index_number:document.getElementById('regEditIndex').value.trim()||null,level:document.getElementById('regEditLevel').value,
-    program:document.getElementById('regEditProgram').value.trim(),specialization:document.getElementById('regEditSpec').value.trim(),department:document.getElementById('regEditDepartment').value};
-  statusDiv.className='alert alert-info mt-2';statusDiv.style.display='block';statusDiv.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Saving changes...';
-  const res=await fetch(SUPABASE_URL+'/rest/v1/student_bio?email=eq.'+encodeURIComponent(email),{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});
-  if(res.ok){statusDiv.className='alert alert-success mt-2';statusDiv.innerHTML='✅ Student record updated successfully.';document.getElementById('regModalFullName').innerText=fullName.toUpperCase();}
-  else{statusDiv.className='alert alert-danger mt-2';statusDiv.innerHTML='⚠️ Update failed: '+await res.text();}
-}
 
-// ── Manual Entry ────────────────────────────────────────────────
-['regManualFirstName','regManualSurname','regManualOtherName'].forEach(id=>{document.getElementById(id).addEventListener('input',regUpdateNamePreview);});
-function regUpdateNamePreview(){
-  const first=document.getElementById('regManualFirstName').value.trim();
-  const sur=document.getElementById('regManualSurname').value.trim();
-  const other=document.getElementById('regManualOtherName').value.trim();
-  const full=[first,sur,other].filter(Boolean).join(' ');
-  const preview=document.getElementById('regNamePreview');
-  if(full){preview.style.display='block';document.getElementById('regNamePreviewText').innerText=full.toUpperCase();}else{preview.style.display='none';}
-}
-document.getElementById('regManualSubmitBtn').addEventListener('click',regSubmitManualStudent);
-async function regSubmitManualStudent(){
-  const email=document.getElementById('regManualEmail').value.trim();
-  const firstName=document.getElementById('regManualFirstName').value.trim();
-  const surname=document.getElementById('regManualSurname').value.trim();
-  const otherName=document.getElementById('regManualOtherName').value.trim();
-  const index=document.getElementById('regManualIndex').value.trim();
-  const level=document.getElementById('regManualLevel').value;
-  const gender=document.getElementById('regManualGender').value;
-  const program=document.getElementById('regManualProgram').value.trim();
-  const department=document.getElementById('regManualDepartment').value;
-  const spec=document.getElementById('regManualSpec').value.trim();
-  const dob=document.getElementById('regManualDOB').value;
-  const phone=document.getElementById('regManualPhone').value.trim();
-  const statusEl=document.getElementById('regManualStatus');
-  if(!email||!firstName||!surname||!index||!gender||!program||!department){statusEl.className='alert alert-danger mt-3';statusEl.style.display='block';statusEl.innerHTML='<i class="bi bi-exclamation-triangle me-2"></i>Please fill all required fields (*)';return;}
-  if(!email.includes('@')){statusEl.className='alert alert-danger mt-3';statusEl.style.display='block';statusEl.innerHTML='<i class="bi bi-exclamation-triangle me-2"></i>Please enter a valid email address';return;}
-  statusEl.className='alert alert-info mt-3';statusEl.style.display='block';statusEl.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Registering student...';
-  const fullName=[firstName,surname,otherName].filter(Boolean).join(' ');
-  const payload={email:email.toLowerCase().trim(),name:fullName,first_name:firstName,surname,other_name:otherName,index_number:index||null,level:String(level),gender,program,department,specialization:spec,dob:dob||null,phone,status:'PENDING'};
-  const res=await fetch(SUPABASE_URL+'/rest/v1/student_bio?on_conflict=email',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(payload)});
-  if(res.ok){
-    try{const hb=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('PCE@1848'));const hp=Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');await fetch(SUPABASE_URL+'/rest/v1/users?on_conflict=email',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({email:email.toLowerCase().trim(),role:'STUDENT',password:hp,is_first_login:true})});}catch(ue){console.warn('users write failed:',ue);}
-    statusEl.className='alert alert-success mt-3';statusEl.innerHTML='<i class="bi bi-check-circle me-2"></i>Student registered successfully!';
-    ['regManualEmail','regManualFirstName','regManualSurname','regManualOtherName','regManualPhone','regManualIndex','regManualProgram','regManualSpec','regManualDOB'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    document.getElementById('regManualGender').value='';document.getElementById('regManualDepartment').value='';document.getElementById('regNamePreview').style.display='none';
-  }else{statusEl.className='alert alert-danger mt-3';statusEl.innerHTML='<i class="bi bi-exclamation-triangle me-2"></i>Error: '+await res.text();}
+function regPopulateEditModal(r) {
+  // Split name into parts if we only have a combined name field
+  const nameParts = String(r.name || '').split(' ');
+  const firstName = r.first_name || nameParts[0] || '';
+  const surname   = r.surname    || nameParts[1] || '';
+  const otherName = r.other_name || nameParts.slice(2).join(' ') || '';
+
+  document.getElementById('regModalFullName').innerText    = String(r.name || '').toUpperCase();
+  document.getElementById('regModalIndex').innerText       = 'Index: ' + (r.index_number || '');
+  const badge = document.getElementById('regModalStatusBadge');
+  const status = String(r.status || 'PENDING').toUpperCase();
+  badge.innerText = status;
+  badge.className = 'badge fs-6 ' + (status==='CLEARED'?'bg-success':status==='ELIGIBLE'?'bg-warning text-dark':'bg-danger');
+
+  document.getElementById('regEditFirstName').value  = firstName;
+  document.getElementById('regEditSurname').value    = surname;
+  document.getElementById('regEditOtherName').value  = otherName;
+  document.getElementById('regEditGender').value     = r.gender     || 'MALE';
+  document.getElementById('regEditDob').value        = r.dob        || '';
+  document.getElementById('regEditPhone').value      = r.phone      || '';
+  document.getElementById('regEditEmail').value      = r.email      || '';
+  document.getElementById('regEditIndex').value      = r.index_number || '';
+  document.getElementById('regEditLevel').value      = String(r.level || '100');
+  document.getElementById('regEditProgram').value    = r.program    || '';
+  document.getElementById('regEditSpec').value       = r.specialization || r.spec || '';
+  document.getElementById('regEditDepartment').value = r.department || 'SOCIAL SCIENCE';
+  const statusInput = document.getElementById('regEditStatus');
+  statusInput.value = status;
+  statusInput.style.color = status==='CLEARED'?'#059669':status==='ELIGIBLE'?'#d97706':'#dc2626';
+
+  document.getElementById('regModalLoading').style.display = 'none';
+  document.getElementById('regModalForm').style.display    = 'block';
 }
 
-// ── Bulk Upload Templates ───────────────────────────────────────
-document.getElementById('regStuTemplateBtn').addEventListener('click',function(){regDownloadCsv('Email,FirstName,Surname,OtherName,IndexNumber,Level,Gender,DOB,Phone,Program,Department,Specialization\nstudent@pce.edu.gh,John,Doe,,PCE/2024/001,100,MALE,2000-01-15,0241234567,B.Ed in Basic Education,SOCIAL SCIENCE,Mathematics','PCE_Student_Template.csv');});
-document.getElementById('regCrsTemplateBtn').addEventListener('click',function(){regDownloadCsv('CourseCode,Title,Level,Semester,Credits\nEDS101,Introduction to Education,100,1,3','PCE_Course_Template.csv');});
-function regDownloadCsv(csvText,filename){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csvText);a.download=filename;a.click();}
+document.getElementById('regSaveEditBtn').addEventListener('click', regSaveStudentEdit);
 
-// ── Bulk Upload Preview ─────────────────────────────────────────
-// Preview and confirm buttons use inline onclick attributes
+async function regSaveStudentEdit() {
+  const statusDiv = document.getElementById('regEditStatusMsg');
+  const email     = document.getElementById('regEditEmail').value.trim();
+  const firstName = document.getElementById('regEditFirstName').value.trim();
+  const surname   = document.getElementById('regEditSurname').value.trim();
+  const otherName = document.getElementById('regEditOtherName').value.trim();
 
-async function regPreviewUpload(type){
-  const fileInput=document.getElementById(type==='students'?'regStuFile':'regCrsFile');
-  const file=fileInput.files[0];
-  if(!file){Swal.fire({icon:'info',title:'No File Selected',text:'Please select a CSV file first',confirmButtonColor:'#0284c7'});return;}
-  const text=await file.text();
-  const allRows=text.trim().split('\n').filter(r=>r.trim());
-  if(allRows.length<2){Swal.fire({icon:'error',title:'Empty File',text:'CSV has no data rows',confirmButtonColor:'#dc2626'});return;}
-
-  const headers=parseCSVLine(allRows[0]);
-  const dataRows=allRows.slice(1);
-
-  let tableHtml=`<table class="table table-sm table-bordered mb-0"><thead class="table-primary sticky-top"><tr>${headers.map(h=>`<th class="small">${h}</th>`).join('')}</tr></thead><tbody>`;
-  dataRows.slice(0,50).forEach(row=>{const cells=parseCSVLine(row);tableHtml+=`<tr>${cells.map(c=>`<td class="small">${c}</td>`).join('')}</tr>`;});
-  if(dataRows.length>50)tableHtml+=`<tr><td colspan="${headers.length}" class="text-center text-muted small">... and ${dataRows.length-50} more rows</td></tr>`;
-  tableHtml+='</tbody></table>';
-
-  document.getElementById('regPreviewTitle').innerText=type==='students'?'Student Upload Preview':'Course Upload Preview';
-  document.getElementById('regPreviewCount').innerText=dataRows.length;
-  document.getElementById('regCsvPreviewContent').innerHTML=tableHtml;
-
-  // Parse rows
-  var parsedRows = dataRows.map(function(line){
-    var c=parseCSVLine(line);
-    if(type==='students'){
-      var firstName=c[1]||'',surname=c[2]||'',otherName=c[3]||'';
-      var fullName=[firstName,surname,otherName].filter(Boolean).join(' ');
-      var indexRaw=(c[4]||'').trim();
-      var indexClean=/\d/.test(indexRaw)?indexRaw:null;
-      return{email:(c[0]||'').toLowerCase().trim(),name:fullName,first_name:firstName,surname:surname,other_name:otherName,
-        index_number:indexClean,level:String(c[5]||'100').trim(),gender:(c[6]||'MALE').toUpperCase().trim(),
-        dob:c[7]||null,phone:c[8]||'',program:c[9]||'',department:(c[10]||'').toUpperCase().trim(),specialization:c[11]||'',status:'PENDING'};
-    }else{
-      return{course_code:(c[0]||'').trim(),title:(c[1]||'').trim(),level:String(c[2]||'100').trim(),
-        semester:c[3]||'1',credits:Number(c[4]||3)};
-    }
-  }).filter(function(r){return type==='students'?(r.email&&r.email.includes('@')):r.course_code;});
-
-  // Save to sessionStorage — survives fragment re-injection
-  sessionStorage.setItem('pce_upload_type', type);
-  sessionStorage.setItem('pce_upload_rows', JSON.stringify(parsedRows));
-  console.log('Saved to sessionStorage:', type, parsedRows.length, 'rows');
-
-  var previewModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('regCsvPreviewModal'));
-  previewModal.show();
-}
-async function regConfirmUpload(){
-  // Read from sessionStorage — immune to VM scope re-injection
-  var uploadType = sessionStorage.getItem('pce_upload_type');
-  var uploadRowsJson = sessionStorage.getItem('pce_upload_rows');
-  var uploadRows = uploadRowsJson ? JSON.parse(uploadRowsJson) : [];
-
-  console.log('regConfirmUpload called');
-  console.log('Type:', uploadType);
-  console.log('Rows:', uploadRows.length);
-
-  if(!uploadType || !uploadRows.length){
-    console.log('STOPPED: no type or no rows');
-    Swal.fire({icon:'warning', title:'No Data', text:'Upload data was lost. Please re-select your file and try again.'});
-    return;
+  if (!firstName || !surname) {
+    statusDiv.className='alert alert-danger mt-2'; statusDiv.style.display='block';
+    statusDiv.innerHTML='First Name and Surname are required!'; return;
   }
 
-  try {
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('regCsvPreviewModal')).hide();
-  } catch(e){ console.warn('Modal hide failed:', e); }
+  const fullName = [firstName, surname, otherName].filter(Boolean).join(' ');
+  const payload = {
+    name:         fullName,
+    first_name:   firstName,
+    surname:      surname,
+    other_name:   otherName,
+    gender:       document.getElementById('regEditGender').value,
+    dob:          document.getElementById('regEditDob').value,
+    phone:        document.getElementById('regEditPhone').value.trim(),
+    index_number: document.getElementById('regEditIndex').value.trim(),
+    level:        document.getElementById('regEditLevel').value,
+    program:      document.getElementById('regEditProgram').value.trim(),
+    specialization: document.getElementById('regEditSpec').value.trim(),
+    department:   document.getElementById('regEditDepartment').value
+  };
 
-  await new Promise(function(resolve){ setTimeout(resolve, 500); });
+  statusDiv.className='alert alert-info mt-2'; statusDiv.style.display='block';
+  statusDiv.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Saving changes...';
 
-  Swal.fire({
-    title: 'Uploading ' + uploadType + '...',
-    html: '<div class="spinner-border text-primary"></div>',
-    allowOutsideClick: false,
-    showConfirmButton: false
+  const res = await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(email), {
+    method: 'PATCH',
+    headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+    body: JSON.stringify(payload)
   });
 
-  var table    = uploadType === 'students' ? 'student_bio' : 'courses';
-  var conflict = uploadType === 'students' ? '?on_conflict=email' : '?on_conflict=course_code';
-  var synced   = 0;
-
-  if(uploadType === 'students'){
-    var failedRows = [];
-    for(var ri = 0; ri < uploadRows.length; ri++){
-      var row = uploadRows[ri];
-      console.log('Uploading row', ri+1, ':', row.email);
-      try {
-        var res = await fetch(SUPABASE_URL+'/rest/v1/'+table+conflict, {
-          method: 'POST',
-          headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-          body: JSON.stringify(row)
-        });
-        if(res.ok){
-          synced++;
-          console.log('Row', ri+1, 'OK — synced:', synced);
-        } else {
-          var errText = await res.text();
-          console.error('Row', ri+1, 'FAILED:', errText);
-          if(errText.includes('index_number') && errText.includes('23505')){
-            var retry = await fetch(SUPABASE_URL+'/rest/v1/'+table+conflict, {
-              method: 'POST',
-              headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-              body: JSON.stringify(Object.assign({}, row, {index_number: null}))
-            });
-            if(retry.ok){ synced++; console.log('Retry OK'); }
-            else { failedRows.push({email: row.email||'?', reason: await retry.text()}); }
-          } else {
-            failedRows.push({email: row.email||'?', reason: errText});
-          }
-        }
-      } catch(fetchErr){
-        console.error('Fetch exception:', fetchErr);
-        failedRows.push({email: row.email||'?', reason: String(fetchErr)});
-      }
-    }
-
-    console.log('Loop done. Synced:', synced, 'Failed:', failedRows.length);
-
-    if(failedRows.length > 0){
-      var errLines = failedRows.slice(0,5).map(function(f){ return f.email+': '+f.reason; }).join('\n');
-      Swal.fire({icon:'warning', title:'Partially Complete',
-        html:'<p><strong>'+synced+'</strong> uploaded, <strong class="text-danger">'+failedRows.length+'</strong> failed.</p><pre style="font-size:11px;text-align:left;max-height:150px;overflow:auto;">'+errLines+'</pre>',
-        confirmButtonColor:'#0284c7'});
-      regSetLog('⚠️ '+synced+' uploaded, '+failedRows.length+' failed.','#f59e0b');
-      sessionStorage.removeItem('pce_upload_type');
-      sessionStorage.removeItem('pce_upload_rows');
-      return;
-    }
-
+  if (res.ok) {
+    statusDiv.className='alert alert-success mt-2';
+    statusDiv.innerHTML='✅ Student record updated successfully.';
+    document.getElementById('regModalFullName').innerText = fullName.toUpperCase();
   } else {
-    for(var i = 0; i < uploadRows.length; i += 100){
-      var batch = uploadRows.slice(i, i+100);
-      try {
-        var bres = await fetch(SUPABASE_URL+'/rest/v1/'+table+conflict, {
-          method: 'POST',
-          headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-          body: JSON.stringify(batch)
-        });
-        if(bres.ok){ synced += batch.length; }
-        else {
-          var berr = await bres.text();
-          Swal.fire({icon:'error', title:'Upload Error', text: berr});
-          regSetLog('ERROR: '+berr,'#ef4444');
-          sessionStorage.removeItem('pce_upload_type');
-          sessionStorage.removeItem('pce_upload_rows');
-          return;
-        }
-      } catch(be){
-        Swal.fire({icon:'error', title:'Network Error', text: String(be)});
-        sessionStorage.removeItem('pce_upload_type');
-        sessionStorage.removeItem('pce_upload_rows');
-        return;
-      }
+    statusDiv.className='alert alert-danger mt-2';
+    statusDiv.innerHTML='⚠️ Update failed: ' + await res.text();
+  }
+}
+
+// ── Manual Student Entry ───────────────────────────────────────
+['regManualFirstName','regManualSurname','regManualOtherName'].forEach(id => {
+  document.getElementById(id).addEventListener('input', regUpdateNamePreview);
+});
+function regUpdateNamePreview() {
+  const first = document.getElementById('regManualFirstName').value.trim();
+  const sur   = document.getElementById('regManualSurname').value.trim();
+  const other = document.getElementById('regManualOtherName').value.trim();
+  const full  = [first, sur, other].filter(Boolean).join(' ');
+  const preview = document.getElementById('regNamePreview');
+  if (full) { preview.style.display='block'; document.getElementById('regNamePreviewText').innerText=full.toUpperCase(); }
+  else       { preview.style.display='none'; }
+}
+
+document.getElementById('regManualSubmitBtn').addEventListener('click', regSubmitManualStudent);
+
+async function regSubmitManualStudent() {
+  const email      = document.getElementById('regManualEmail').value.trim();
+  const firstName  = document.getElementById('regManualFirstName').value.trim();
+  const surname    = document.getElementById('regManualSurname').value.trim();
+  const otherName  = document.getElementById('regManualOtherName').value.trim();
+  const index      = document.getElementById('regManualIndex').value.trim();
+  const level      = document.getElementById('regManualLevel').value;
+  const gender     = document.getElementById('regManualGender').value;
+  const program    = document.getElementById('regManualProgram').value.trim();
+  const department = document.getElementById('regManualDepartment').value;
+  const spec       = document.getElementById('regManualSpec').value.trim();
+  const dob        = document.getElementById('regManualDOB').value;
+  const phone      = document.getElementById('regManualPhone').value.trim();
+  const statusEl   = document.getElementById('regManualStatus');
+
+  if (!email || !firstName || !surname || !index || !gender || !program || !department) {
+    statusEl.className='alert alert-danger mt-3'; statusEl.style.display='block';
+    statusEl.innerHTML='<i class="bi bi-exclamation-triangle me-2"></i>Please fill all required fields (*)'; return;
+  }
+  if (!email.includes('@')) {
+    statusEl.className='alert alert-danger mt-3'; statusEl.style.display='block';
+    statusEl.innerHTML='<i class="bi bi-exclamation-triangle me-2"></i>Please enter a valid email address'; return;
+  }
+
+  statusEl.className='alert alert-info mt-3'; statusEl.style.display='block';
+  statusEl.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Registering student...';
+
+  const fullName = [firstName, surname, otherName].filter(Boolean).join(' ');
+  const payload  = {
+    email: email.toLowerCase().trim(),
+    name: fullName,
+    first_name: firstName,
+    surname,
+    other_name: otherName,
+    index_number: index,
+    level: String(level),
+    gender,
+    program,
+    department,
+    specialization: spec,
+    dob: dob || null,
+    phone,
+    status: 'PENDING'
+  };
+
+  const res = await fetch(SUPABASE_URL + '/rest/v1/student_bio?on_conflict=email', {
+    method: 'POST',
+    headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(payload)
+  });
+
+  if (res.ok) {
+    statusEl.className='alert alert-success mt-3';
+    statusEl.innerHTML='<i class="bi bi-check-circle me-2"></i>Student registered successfully!';
+    ['regManualEmail','regManualFirstName','regManualSurname','regManualOtherName',
+     'regManualPhone','regManualIndex','regManualProgram','regManualSpec','regManualDOB'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.getElementById('regManualGender').value     = '';
+    document.getElementById('regManualDepartment').value = '';
+    document.getElementById('regNamePreview').style.display = 'none';
+  } else {
+    statusEl.className='alert alert-danger mt-3';
+    statusEl.innerHTML='<i class="bi bi-exclamation-triangle me-2"></i>Error: ' + await res.text();
+  }
+}
+
+// ── Bulk Upload — Templates ────────────────────────────────────
+document.getElementById('regStuTemplateBtn').addEventListener('click', function() {
+  const csv = 'Email,FirstName,Surname,OtherName,IndexNumber,Level,Gender,DOB,Phone,Program,Department,Specialization\nstudent@pce.edu.gh,John,Doe,,PCE/2024/001,100,MALE,2000-01-15,0241234567,B.Ed in Basic Education,SOCIAL SCIENCE,Mathematics';
+  regDownloadCsv(csv, 'PCE_Student_Template.csv');
+});
+document.getElementById('regCrsTemplateBtn').addEventListener('click', function() {
+  const csv = 'CourseCode,CourseName,Level,Department,Semester,CreditHours\nEDS101,Introduction to Education,100,EDUCATIONAL STUDIES,1,3';
+  regDownloadCsv(csv, 'PCE_Course_Template.csv');
+});
+
+function regDownloadCsv(csvText, filename) {
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvText);
+  a.download = filename; a.click();
+}
+
+// ── Bulk Upload — Preview ──────────────────────────────────────
+document.getElementById('regStuPreviewBtn').addEventListener('click', function() { regPreviewUpload('students'); });
+document.getElementById('regCrsPreviewBtn').addEventListener('click', function() { regPreviewUpload('courses'); });
+document.getElementById('regConfirmUploadBtn').addEventListener('click', regConfirmUpload);
+
+async function regPreviewUpload(type) {
+  const fileInput = document.getElementById(type === 'students' ? 'regStuFile' : 'regCrsFile');
+  const file = fileInput.files[0];
+  if (!file) { Swal.fire({icon:'info',title:'No File Selected',text:'Please select a CSV file first',confirmButtonColor:'#0284c7'}); return; }
+
+  const text = await file.text();
+  const allRows = text.trim().split('\n').filter(r => r.trim());
+  if (allRows.length < 2) { Swal.fire({icon:'error',title:'Empty File',text:'CSV has no data rows',confirmButtonColor:'#dc2626'}); return; }
+
+  const headers  = allRows[0].split(',').map(h => h.replace(/"/g,'').trim());
+  const dataRows = allRows.slice(1);
+
+  let tableHtml = `<table class="table table-sm table-bordered mb-0"><thead class="table-primary sticky-top"><tr>${headers.map(h=>`<th class="small">${h}</th>`).join('')}</tr></thead><tbody>`;
+  dataRows.slice(0, 50).forEach(row => {
+    const cells = row.split(',');
+    tableHtml += `<tr>${cells.map(c=>`<td class="small">${c.replace(/"/g,'').trim()}</td>`).join('')}</tr>`;
+  });
+  if (dataRows.length > 50) tableHtml += `<tr><td colspan="${headers.length}" class="text-center text-muted small">... and ${dataRows.length-50} more rows</td></tr>`;
+  tableHtml += '</tbody></table>';
+
+  document.getElementById('regPreviewTitle').innerText = type === 'students' ? 'Student Upload Preview' : 'Course Upload Preview';
+  document.getElementById('regPreviewCount').innerText = dataRows.length;
+  document.getElementById('regCsvPreviewContent').innerHTML = tableHtml;
+
+  regPendingUploadType = type;
+  regPendingUploadRows = dataRows.map(line => {
+    const c = line.split(',').map(v => v.replace(/"/g,'').trim());
+    if (type === 'students') {
+      const firstName = c[1]||'', surname = c[2]||'', otherName = c[3]||'';
+      const fullName  = [firstName, surname, otherName].filter(Boolean).join(' ');
+      return { email:(c[0]||'').toLowerCase(), name:fullName, first_name:firstName, surname, other_name:otherName, index_number:c[4]||'', level:String(c[5]||'100'), gender:(c[6]||'MALE').toUpperCase(), dob:c[7]||null, phone:c[8]||'', program:c[9]||'', department:(c[10]||'').toUpperCase(), specialization:c[11]||'', status:'PENDING' };
+    } else {
+      return { course_code:c[0]||'', course_name:c[1]||'', level:String(c[2]||'100'), department:(c[3]||'').toUpperCase(), semester:c[4]||'1', credit_hours:Number(c[5]||3) };
     }
-  }
+  }).filter(r => type==='students' ? r.email : r.course_code);
 
-  // Create user accounts
-  if(uploadType === 'students'){
-    try {
-      var hb = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
-      var hp = Array.from(new Uint8Array(hb)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-      var userRows = uploadRows
-        .filter(function(r){ return r.email && r.email.includes('@'); })
-        .map(function(r){ return {email:r.email.toLowerCase().trim(), role:'STUDENT', password:hp, is_first_login:true}; });
-      for(var ui = 0; ui < userRows.length; ui += 100){
-        await fetch(SUPABASE_URL+'/rest/v1/users?on_conflict=email', {
-          method: 'POST',
-          headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-          body: JSON.stringify(userRows.slice(ui, ui+100))
-        });
-      }
-    } catch(ue){ console.warn('users write failed:', ue); }
-  }
-
-  console.log('All done. Synced:', synced);
-
-  Swal.fire({icon:'success', title:'Upload Complete!', text:synced+' records saved.', confirmButtonColor:'#10b981'});
-  regSetLog(synced+' '+uploadType+' uploaded successfully.','#10b981');
-
-  var fi = document.getElementById(uploadType === 'students' ? 'regStuFile' : 'regCrsFile');
-  if(fi) fi.value = '';
-  sessionStorage.removeItem('pce_upload_type');
-  sessionStorage.removeItem('pce_upload_rows');
-  window.regPendingUploadType = null;
-  window.regPendingUploadRows = [];
+  new bootstrap.Modal(document.getElementById('regCsvPreviewModal')).show();
 }
 
-// ── Reports ─────────────────────────────────────────────────────
-document.getElementById('regDlBtn').addEventListener('click',regRunDownload);
-async function regRunDownload(){
-  const lvl=document.getElementById('regDlLevel').value;
+async function regConfirmUpload() {
+  if (!regPendingUploadType || !regPendingUploadRows.length) return;
+  bootstrap.Modal.getInstance(document.getElementById('regCsvPreviewModal')).hide();
+
+  Swal.fire({title:`Uploading ${regPendingUploadType}...`,html:'<div class="spinner-border text-primary"></div>',allowOutsideClick:false,showConfirmButton:false});
+  regSetLog('Processing upload of ' + regPendingUploadRows.length + ' records...', '#38bdf8');
+
+  const table     = regPendingUploadType === 'students' ? 'student_bio' : 'courses';
+  const conflict  = regPendingUploadType === 'students' ? '?on_conflict=email' : '?on_conflict=course_code';
+  let synced = 0;
+
+  for (let i = 0; i < regPendingUploadRows.length; i += 100) {
+    const batch = regPendingUploadRows.slice(i, i+100);
+    const res = await fetch(SUPABASE_URL + '/rest/v1/' + table + conflict, {
+      method: 'POST',
+      headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(batch)
+    });
+    if (res.ok) synced += batch.length;
+    else { const err = await res.text(); Swal.fire({icon:'error',title:'Upload Error',text:err}); regSetLog('ERROR: '+err,'#ef4444'); return; }
+  }
+
+  Swal.fire({icon:'success',title:'Upload Complete!',text:synced+' records saved.',confirmButtonColor:'#10b981'});
+  regSetLog(synced + ' ' + regPendingUploadType + ' uploaded successfully.', '#10b981');
+  const fileInput = document.getElementById(regPendingUploadType==='students'?'regStuFile':'regCrsFile');
+  if (fileInput) fileInput.value = '';
+  regPendingUploadType = null; regPendingUploadRows = [];
+}
+
+// ── Reports Download ───────────────────────────────────────────
+document.getElementById('regDlBtn').addEventListener('click', regRunDownload);
+
+async function regRunDownload() {
+  const lvl = document.getElementById('regDlLevel').value;
   Swal.fire({title:'Fetching data...',html:'<div class="spinner-border text-primary"></div>',allowOutsideClick:false,showConfirmButton:false});
-  const [regRows,bioRows]=await Promise.all([sbFetch('registrations?level=eq.'+encodeURIComponent(lvl)+'&select=email'),sbFetch('student_bio?level=eq.'+encodeURIComponent(lvl)+'&select=email,name,index_number,program,department,gender,status')]);
+
+  const [regRows, bioRows] = await Promise.all([
+    sbFetch('registrations?level=eq.' + encodeURIComponent(lvl) + '&select=email'),
+    sbFetch('student_bio?level=eq.'   + encodeURIComponent(lvl) + '&select=email,name,index_number,program,department,gender,status')
+  ]);
+
   Swal.close();
-  if(!regRows||!regRows.length){Swal.fire({icon:'warning',title:'No Data',text:'No registered students found for Level '+lvl});return;}
-  const reg=new Set(regRows.map(r=>r.email.toLowerCase().trim()));
-  const rows=(bioRows||[]).filter(r=>r.email&&reg.has(r.email.toLowerCase().trim()));
-  if(!rows.length){Swal.fire({icon:'warning',title:'No Data',text:'No matching bio records found.'});return;}
-  const csv=[['Email','Name','Index Number','Program','Department','Gender','Status'],...rows.map(r=>[r.email,r.name||'',r.index_number||'',r.program||'',r.department||'',r.gender||'',r.status||'PENDING'])].map(row=>row.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
-  regDownloadCsv(csv,'Level_'+lvl+'_Registered_Students.csv');
+  if (!regRows || !regRows.length) { Swal.fire({icon:'warning',title:'No Data',text:'No registered students found for Level '+lvl}); return; }
+
+  const reg  = new Set(regRows.map(r => r.email.toLowerCase().trim()));
+  const rows = (bioRows||[]).filter(r => r.email && reg.has(r.email.toLowerCase().trim()));
+  if (!rows.length) { Swal.fire({icon:'warning',title:'No Data',text:'No matching bio records found.'}); return; }
+
+  const csv = [
+    ['Email','Name','Index Number','Program','Department','Gender','Status'],
+    ...rows.map(r => [r.email, r.name||'', r.index_number||'', r.program||'', r.department||'', r.gender||'', r.status||'PENDING'])
+  ].map(row => row.map(c => '"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+
+  regDownloadCsv(csv, 'Level_'+lvl+'_Registered_Students.csv');
 }
 
-// ── Backup ──────────────────────────────────────────────────────
-document.getElementById('regBackupBtn').addEventListener('click',regRunBackup);
-async function regRunBackup(){
-  regSetLog('GENERATING MASTER BACKUP...','#f59e0b');
+// ── Backup ─────────────────────────────────────────────────────
+document.getElementById('regBackupBtn').addEventListener('click', regRunBackup);
+
+async function regRunBackup() {
+  regSetLog('GENERATING MASTER BACKUP...', '#f59e0b');
   Swal.fire({title:'Generating Backup...',html:'<div class="spinner-border text-warning"></div>',allowOutsideClick:false,showConfirmButton:false});
-  const rows=await sbFetch('student_bio?select=*&order=name.asc');Swal.close();
-  if(!rows||!rows.length){Swal.fire({icon:'warning',title:'No Data',text:'No student records found.'});regSetLog('BACKUP FAILED — no data.','#ef4444');return;}
-  const headers=['email','name','first_name','surname','other_name','index_number','level','program','department','specialization','gender','dob','phone','status'];
-  const csv=[headers,...rows.map(r=>headers.map(h=>String(r[h]||'')))].map(row=>row.map(c=>'"'+c.replace(/"/g,'""')+'"').join(',')).join('\n');
-  const date=new Date().toLocaleDateString('en-GB').replace(/\//g,'-');
-  regDownloadCsv(csv,'Master_Bio_Backup_'+date+'.csv');
-  regSetLog('BACKUP DOWNLOADED — '+rows.length+' records.','#10b981');
+
+  const rows = await sbFetch('student_bio?select=*&order=name.asc');
+  Swal.close();
+
+  if (!rows || !rows.length) { Swal.fire({icon:'warning',title:'No Data',text:'No student records found.'}); regSetLog('BACKUP FAILED — no data.','#ef4444'); return; }
+
+  const headers = ['email','name','first_name','surname','other_name','index_number','level','program','department','specialization','gender','dob','phone','status'];
+  const csv = [
+    headers,
+    ...rows.map(r => headers.map(h => String(r[h]||'')))
+  ].map(row => row.map(c => '"'+c.replace(/"/g,'""')+'"').join(',')).join('\n');
+
+  const date = new Date().toLocaleDateString('en-GB').replace(/\//g,'-');
+  regDownloadCsv(csv, 'Master_Bio_Backup_' + date + '.csv');
+  regSetLog('BACKUP DOWNLOADED — ' + rows.length + ' records.', '#10b981');
 }
 
-// ── Master Reset ────────────────────────────────────────────────
-document.getElementById('regResetBtn').addEventListener('click',regRunMasterReset);
-async function regRunMasterReset(){
-  const ok1=await Swal.fire({title:'FINAL WARNING',html:'<p>This will <strong>promote all students one level</strong> and reset all clearance status to <span class="text-danger fw-bold">PENDING</span>.</p><p class="text-danger small">This cannot be undone.</p>',icon:'error',showCancelButton:true,confirmButtonColor:'#dc2626',confirmButtonText:'Yes, Continue'});
-  if(!ok1.isConfirmed)return;
-  const ok2=await Swal.fire({title:'Type "RESET" to confirm',input:'text',inputAttributes:{autocapitalize:'off'},showCancelButton:true,confirmButtonText:'Confirm Reset',preConfirm:val=>{if(val!=='RESET')Swal.showValidationMessage('You must type RESET exactly');}});
-  if(!ok2.isConfirmed)return;
-  regSetLog('INITIALIZING MASTER RESET...','#f59e0b');
+// ── Master Reset ───────────────────────────────────────────────
+document.getElementById('regResetBtn').addEventListener('click', regRunMasterReset);
+
+async function regRunMasterReset() {
+  const ok1 = await Swal.fire({
+    title:'FINAL WARNING',
+    html:'<p>This will <strong>promote all students one level</strong> and reset all clearance status to <span class="text-danger fw-bold">PENDING</span>.</p><p class="text-danger small">This cannot be undone.</p>',
+    icon:'error', showCancelButton:true, confirmButtonColor:'#dc2626', confirmButtonText:'Yes, Continue'
+  });
+  if (!ok1.isConfirmed) return;
+
+  const ok2 = await Swal.fire({
+    title:'Type "RESET" to confirm',
+    input:'text', inputAttributes:{autocapitalize:'off'},
+    showCancelButton:true, confirmButtonText:'Confirm Reset',
+    preConfirm: val => { if (val !== 'RESET') Swal.showValidationMessage('You must type RESET exactly'); }
+  });
+  if (!ok2.isConfirmed) return;
+
+  regSetLog('INITIALIZING MASTER RESET...', '#f59e0b');
   Swal.fire({title:'Processing Reset...',html:'<div class="spinner-border text-danger"></div><p class="mt-2 small text-muted">This may take a moment</p>',allowOutsideClick:false,showConfirmButton:false});
-  try{
-    const promotions=[{filter:'level=eq.400',payload:{level:'GRADUATED',status:'PENDING'}},{filter:'level=eq.300',payload:{level:'400',status:'PENDING'}},{filter:'level=eq.200',payload:{level:'300',status:'PENDING'}},{filter:'level=eq.100',payload:{level:'200',status:'PENDING'}}];
-    for(const p of promotions){const res=await fetch(SUPABASE_URL+'/rest/v1/student_bio?'+p.filter,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(p.payload)});if(!res.ok)throw new Error('Failed on '+p.filter+': '+await res.text());}
-    await fetch(SUPABASE_URL+'/rest/v1/student_bio?level=eq.GRADUATED',{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({status:'PENDING'})});
+
+  try {
+    // Promote levels in order: 400→GRADUATED, 300→400, 200→300, 100→200
+    const promotions = [
+      { filter:'level=eq.400', payload:{ level:'GRADUATED', status:'PENDING' } },
+      { filter:'level=eq.300', payload:{ level:'400',       status:'PENDING' } },
+      { filter:'level=eq.200', payload:{ level:'300',       status:'PENDING' } },
+      { filter:'level=eq.100', payload:{ level:'200',       status:'PENDING' } }
+    ];
+
+    for (const p of promotions) {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/student_bio?' + p.filter, {
+        method:'PATCH',
+        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body: JSON.stringify(p.payload)
+      });
+      if (!res.ok) throw new Error('Failed on ' + p.filter + ': ' + await res.text());
+    }
+
+    // Also reset any GRADUATED students' status just in case
+    await fetch(SUPABASE_URL + '/rest/v1/student_bio?level=eq.GRADUATED', {
+      method:'PATCH',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({status:'PENDING'})
+    });
+
     Swal.fire({icon:'success',title:'Reset Complete!',text:'All students promoted and clearance reset to PENDING.',confirmButtonColor:'#10b981'});
     regSetLog('MASTER RESET COMPLETE — all levels promoted, clearance reset to PENDING.','#10b981');
-  }catch(e){Swal.fire({icon:'error',title:'Reset Failed',text:e.message});regSetLog('ERROR: RESET FAILED — '+e.message,'#ef4444');}
+  } catch(e) {
+    Swal.fire({icon:'error',title:'Reset Failed',text:e.message});
+    regSetLog('ERROR: RESET FAILED — ' + e.message, '#ef4444');
+  }
 }
 
-// ── Init ────────────────────────────────────────────────────────
-(async function(){
-  document.querySelectorAll('.reg-section').forEach(s=>{s.style.display=s.id==='reg-dashboard'?'block':'none';});
+// ── Auto-init ──────────────────────────────────────────────────
+(async function() {
+  document.querySelectorAll('.reg-section').forEach(s => {
+    s.style.display = s.id === 'reg-dashboard' ? 'block' : 'none';
+  });
   await regLoadDashboardStats();
 })();
 </script>
