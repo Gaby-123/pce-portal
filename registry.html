@@ -659,7 +659,13 @@ async function regSubmitManualStudent() {
     body: JSON.stringify(payload)
   });
 
-  if (res.ok) {
+ if (res.ok) {
+    // Also write to users table for login access
+    await fetch(SUPABASE_URL + '/rest/v1/users?on_conflict=email', {
+      method: 'POST',
+      headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ email: email.toLowerCase().trim(), password: index, role: 'STUDENT', is_first_login: true, failed_attempts: 0, locked_until: null })
+    });
     statusEl.className='alert alert-success mt-3';
     statusEl.innerHTML='<i class="bi bi-check-circle me-2"></i>Student registered successfully!';
     ['regManualEmail','regManualFirstName','regManualSurname','regManualOtherName',
@@ -757,6 +763,19 @@ async function regConfirmUpload() {
     else { const err = await res.text(); Swal.fire({icon:'error',title:'Upload Error',text:err}); regSetLog('ERROR: '+err,'#ef4444'); return; }
   }
 
+  // If students were uploaded, also create their login accounts
+  if (regPendingUploadType === 'students') {
+    for (let i = 0; i < regPendingUploadRows.length; i += 100) {
+      const batch = regPendingUploadRows.slice(i, i+100).map(r => ({
+        email: r.email, password: r.index_number, role: 'STUDENT', is_first_login: true, failed_attempts: 0, locked_until: null
+      }));
+      await fetch(SUPABASE_URL + '/rest/v1/users?on_conflict=email', {
+        method: 'POST',
+        headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(batch)
+      });
+    }
+  }
   Swal.fire({icon:'success',title:'Upload Complete!',text:synced+' records saved.',confirmButtonColor:'#10b981'});
   regSetLog(synced + ' ' + regPendingUploadType + ' uploaded successfully.', '#10b981');
   const fileInput = document.getElementById(regPendingUploadType==='students'?'regStuFile':'regCrsFile');
