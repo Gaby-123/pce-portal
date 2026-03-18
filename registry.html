@@ -451,9 +451,24 @@ async function regPreviewUpload(type){
 
 async function regConfirmUpload(){
   if(!regPendingUploadType||!regPendingUploadRows.length)return;
-  bootstrap.Modal.getInstance(document.getElementById('regCsvPreviewModal')).hide();
-  Swal.fire({title:`Uploading ${regPendingUploadType}...`,html:'<div class="spinner-border text-primary"></div>',allowOutsideClick:false,showConfirmButton:false});
-  regSetLog('Processing upload of '+regPendingUploadRows.length+' records...','#38bdf8');
+
+  // Safely hide modal — guard against null getInstance
+  try {
+    var modalEl = document.getElementById('regCsvPreviewModal');
+    var modalInstance = bootstrap.Modal.getInstance(modalEl);
+    if (modalInstance) modalInstance.hide();
+  } catch(e) { console.warn('Modal hide failed:', e); }
+
+  // Wait for modal animation to finish before proceeding
+  await new Promise(function(resolve){ setTimeout(resolve, 400); });
+
+  Swal.fire({
+    title: 'Uploading ' + regPendingUploadType + '...',
+    html: '<div class="spinner-border text-primary"></div>',
+    allowOutsideClick: false,
+    showConfirmButton: false
+  });
+  regSetLog('Processing upload of ' + regPendingUploadRows.length + ' records...', '#38bdf8');
 
   const table=regPendingUploadType==='students'?'student_bio':'courses';
   const conflict=regPendingUploadType==='students'?'?on_conflict=email':'?on_conflict=course_code';
@@ -497,12 +512,20 @@ async function regConfirmUpload(){
 
   // Create login accounts
   if(regPendingUploadType==='students'){
-    try{
-      const hb=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('PCE@1848'));
-      const hp=Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
-      const userRows=regPendingUploadRows.map(r=>({email:r.email.toLowerCase().trim(),role:'STUDENT',password:hp,is_first_login:true}));
-      for(let i=0;i<userRows.length;i+=100){await fetch(SUPABASE_URL+'/rest/v1/users?on_conflict=email',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(userRows.slice(i,i+100))});}
-    }catch(ue){console.warn('users bulk write failed:',ue);}
+    try {
+      var hb = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
+      var hp = Array.from(new Uint8Array(hb)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+      var userRows = regPendingUploadRows
+        .filter(function(r){ return r.email && r.email.includes('@'); })
+        .map(function(r){ return { email:r.email.toLowerCase().trim(), role:'STUDENT', password:hp, is_first_login:true }; });
+      for (var ui = 0; ui < userRows.length; ui += 100) {
+        await fetch(SUPABASE_URL + '/rest/v1/users?on_conflict=email', {
+          method: 'POST',
+          headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify(userRows.slice(ui, ui+100))
+        });
+      }
+    } catch(ue) { console.warn('users bulk write failed:', ue); }
   }
 
   Swal.fire({icon:'success',title:'Upload Complete!',text:synced+' records saved.',confirmButtonColor:'#10b981'});
