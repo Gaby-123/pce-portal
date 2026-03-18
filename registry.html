@@ -449,10 +449,10 @@ async function regPreviewUpload(type){
 
 async function regConfirmUpload(){
   console.log('regConfirmUpload called');
-  console.log('Type:', regPendingUploadType);
-  console.log('Rows:', regPendingUploadRows.length);
+  console.log('Type:', window.regPendingUploadType);
+  console.log('Rows:', window.regPendingUploadRows ? window.regPendingUploadRows.length : 'undefined');
 
-  if(!window.regPendingUploadType||!window.regPendingUploadRows.length){
+  if(!window.regPendingUploadType || !window.regPendingUploadRows || !window.regPendingUploadRows.length){
     console.log('STOPPED: no type or no rows');
     return;
   }
@@ -460,15 +460,14 @@ async function regConfirmUpload(){
   // Safely hide modal
   try {
     var modalEl = document.getElementById('regCsvPreviewModal');
-    var modalInstance = bootstrap.Modal.getInstance(modalEl);
-    if (modalInstance) { modalInstance.hide(); console.log('Modal hidden'); }
-    else { console.log('Modal instance was null'); }
+    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modalInstance.hide();
   } catch(e) { console.warn('Modal hide failed:', e); }
 
-  await new Promise(function(resolve){ setTimeout(resolve, 400); });
+  await new Promise(function(resolve){ setTimeout(resolve, 500); });
 
   Swal.fire({
-    title: 'Uploading ' + regPendingUploadType + '...',
+    title: 'Uploading ' + window.regPendingUploadType + '...',
     html: '<div class="spinner-border text-primary"></div>',
     allowOutsideClick: false,
     showConfirmButton: false
