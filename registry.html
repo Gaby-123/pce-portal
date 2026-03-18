@@ -83,7 +83,7 @@
             </div>
             <button class="btn btn-outline-primary btn-sm w-100 mb-2" id="regStuTemplateBtn"><i class="bi bi-download me-1"></i>Download Template</button>
             <input type="file" id="regStuFile" class="form-control form-control-sm mb-2" accept=".csv">
-            <button class="btn btn-primary btn-sm w-100" id="regStuPreviewBtn"><i class="bi bi-eye me-1"></i>Preview &amp; Upload</button>
+            <button class="btn btn-primary btn-sm w-100" id="regStuPreviewBtn" onclick="regPreviewUpload('students')"><i class="bi bi-eye me-1"></i>Preview &amp; Upload</button>
           </div>
         </div>
         <div class="col-md-6">
@@ -92,7 +92,7 @@
             <p class="small text-muted mb-2">CSV columns: <code>CourseCode, Title, Level, Semester, Credits</code></p>
             <button class="btn btn-outline-primary btn-sm w-100 mb-2" id="regCrsTemplateBtn"><i class="bi bi-download me-1"></i>Download Template</button>
             <input type="file" id="regCrsFile" class="form-control form-control-sm mb-2" accept=".csv">
-            <button class="btn btn-primary btn-sm w-100" id="regCrsPreviewBtn"><i class="bi bi-eye me-1"></i>Preview &amp; Upload</button>
+            <button class="btn btn-primary btn-sm w-100" id="regCrsPreviewBtn" onclick="regPreviewUpload('courses')"><i class="bi bi-eye me-1"></i>Preview &amp; Upload</button>
           </div>
         </div>
       </div>
@@ -174,7 +174,7 @@
   <div class="modal-dialog modal-xl"><div class="modal-content">
     <div class="modal-header bg-primary text-white"><h5 class="modal-title"><i class="bi bi-file-earmark-spreadsheet me-2"></i><span id="regPreviewTitle">Upload Preview</span></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
     <div class="modal-body p-0"><div class="alert alert-info m-3 mb-0"><strong>Review carefully:</strong> <span id="regPreviewCount">0</span> records detected.</div><div id="regCsvPreviewContent" style="max-height:500px;overflow-y:auto;"></div></div>
-    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success fw-bold px-4" id="regConfirmUploadBtn"><i class="bi bi-check-circle me-1"></i>Confirm &amp; Upload</button></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success fw-bold px-4" id="regConfirmUploadBtn" onclick="regConfirmUpload()"><i class="bi bi-check-circle me-1"></i>Confirm &amp; Upload</button></div>
   </div></div>
 </div>
 
@@ -403,9 +403,7 @@ document.getElementById('regCrsTemplateBtn').addEventListener('click',function()
 function regDownloadCsv(csvText,filename){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csvText);a.download=filename;a.click();}
 
 // ── Bulk Upload Preview ─────────────────────────────────────────
-document.getElementById('regStuPreviewBtn').addEventListener('click',function(){regPreviewUpload('students');});
-document.getElementById('regCrsPreviewBtn').addEventListener('click',function(){regPreviewUpload('courses');});
-document.getElementById('regConfirmUploadBtn').addEventListener('click',regConfirmUpload);
+// Preview and confirm buttons use inline onclick attributes
 
 async function regPreviewUpload(type){
   const fileInput=document.getElementById(type==='students'?'regStuFile':'regCrsFile');
