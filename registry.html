@@ -211,8 +211,8 @@
 </div>
 
 <script>
-let regPendingUploadType = null;
-let regPendingUploadRows = [];
+window.regPendingUploadType = null;
+window.regPendingUploadRows = [];
 
 // ── Navigation ──────────────────────────────────────────────────
 function regShowSection(id) {
@@ -425,8 +425,8 @@ async function regPreviewUpload(type){
   document.getElementById('regPreviewCount').innerText=dataRows.length;
   document.getElementById('regCsvPreviewContent').innerHTML=tableHtml;
 
-  regPendingUploadType=type;
-  regPendingUploadRows=dataRows.map(line=>{
+  window.regPendingUploadType=type;
+  window.regPendingUploadRows=dataRows.map(line=>{
     const c=parseCSVLine(line);  // FIX: proper RFC-4180 parser
     if(type==='students'){
       const firstName=c[1]||'',surname=c[2]||'',otherName=c[3]||'';
@@ -452,7 +452,7 @@ async function regConfirmUpload(){
   console.log('Type:', regPendingUploadType);
   console.log('Rows:', regPendingUploadRows.length);
 
-  if(!regPendingUploadType||!regPendingUploadRows.length){
+  if(!window.regPendingUploadType||!window.regPendingUploadRows.length){
     console.log('STOPPED: no type or no rows');
     return;
   }
@@ -476,15 +476,15 @@ async function regConfirmUpload(){
 
   console.log('Swal opened, starting upload...');
 
-  const table    = regPendingUploadType === 'students' ? 'student_bio' : 'courses';
-  const conflict = regPendingUploadType === 'students' ? '?on_conflict=email' : '?on_conflict=course_code';
+  const table    = window.regPendingUploadType === 'students' ? 'student_bio' : 'courses';
+  const conflict = window.regPendingUploadType === 'students' ? '?on_conflict=email' : '?on_conflict=course_code';
   let synced = 0;
 
-  if(regPendingUploadType === 'students'){
+  if(window.regPendingUploadType === 'students'){
     const failedRows = [];
 
-    for(let ri = 0; ri < regPendingUploadRows.length; ri++){
-      const row = regPendingUploadRows[ri];
+    for(let ri = 0; ri < window.regPendingUploadRows.length; ri++){
+      const row = window.regPendingUploadRows[ri];
       console.log('Uploading row', ri+1, ':', row.email);
 
       try {
@@ -556,8 +556,8 @@ async function regConfirmUpload(){
 
   } else {
     // Courses — batch upload
-    for(let i = 0; i < regPendingUploadRows.length; i += 100){
-      const batch = regPendingUploadRows.slice(i, i+100);
+    for(let i = 0; i < window.regPendingUploadRows.length; i += 100){
+      const batch = window.regPendingUploadRows.slice(i, i+100);
       console.log('Uploading course batch', i, 'to', i+batch.length);
       try {
         const res = await fetch(
@@ -590,12 +590,12 @@ async function regConfirmUpload(){
   }
 
   // Create user accounts for students
-  if(regPendingUploadType === 'students'){
+  if(window.regPendingUploadType === 'students'){
     console.log('Creating user accounts...');
     try {
       const hb = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
       const hp = Array.from(new Uint8Array(hb)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-      const userRows = regPendingUploadRows
+      const userRows = window.regPendingUploadRows
         .filter(function(r){ return r.email && r.email.includes('@'); })
         .map(function(r){ return { email:r.email.toLowerCase().trim(), role:'STUDENT', password:hp, is_first_login:true }; });
       console.log('User rows to create:', userRows.length);
@@ -618,12 +618,12 @@ async function regConfirmUpload(){
     text: synced + ' records saved.',
     confirmButtonColor: '#10b981'
   });
-  regSetLog(synced + ' ' + regPendingUploadType + ' uploaded successfully.', '#10b981');
+  regSetLog(synced + ' ' + window.regPendingUploadType + ' uploaded successfully.', '#10b981');
 
-  const fi = document.getElementById(regPendingUploadType === 'students' ? 'regStuFile' : 'regCrsFile');
+  const fi = document.getElementById(window.regPendingUploadType === 'students' ? 'regStuFile' : 'regCrsFile');
   if(fi) fi.value = '';
-  regPendingUploadType = null;
-  regPendingUploadRows = [];
+  window.regPendingUploadType = null;
+  window.regPendingUploadRows = [];
 }
 
 // ── Reports ─────────────────────────────────────────────────────
