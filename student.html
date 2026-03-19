@@ -5,16 +5,32 @@
     --pce-border: #e2e8f0;
     --pce-text-dark: #0f172a;
   }
-  .portal-wrapper { background-color:#ffffff; font-family:'Inter',system-ui,-apple-system,sans-serif; color:var(--pce-text-dark); }
-  .portal-header { background:var(--pce-blue-light); border-radius:12px; padding:16px 20px; border:1px solid var(--pce-border); }
+  .stu-container { display:flex; height:calc(100vh - 62px); background:#f8fafc; overflow:hidden; }
+  .stu-sidebar { width:260px; background:#1e293b; border-right:1px solid #334155; display:flex; flex-direction:column; flex-shrink:0; transition:transform 0.3s ease; z-index:200; }
+  .stu-sidebar-header { padding:20px; border-bottom:1px solid #334155; background:linear-gradient(135deg,#1d4ed8 0%,#1e40af 100%); }
+  .stu-sidebar-header h5 { margin:0; font-size:1rem; font-weight:700; color:white; }
+  .stu-sidebar-header p { margin:0; font-size:0.72rem; color:rgba(255,255,255,0.6); }
+  .stu-sidebar-header .badge { font-size:0.7rem; padding:4px 10px; background:rgba(255,255,255,0.15)!important; border:1px solid rgba(255,255,255,0.25); }
+  .stu-sidebar-menu { flex:1; overflow-y:auto; padding:10px 0; }
+  .stu-menu-item { display:flex; align-items:center; padding:12px 20px; color:#94a3b8; cursor:pointer; border-left:3px solid transparent; transition:all 0.2s; text-decoration:none; font-size:0.88rem; }
+  .stu-menu-item:hover { background:#0f172a; color:#e2e8f0; border-left-color:#3b82f6; }
+  .stu-menu-item.active { background:#0f172a; color:white; border-left-color:#3b82f6; font-weight:600; }
+  .stu-menu-item i { margin-right:12px; font-size:1.1rem; width:20px; }
+  .stu-main { flex:1; overflow-y:auto; padding:25px; background:#f8fafc; }
+  .stu-section { display:none; }
+  .stu-section.active { display:block; }
+  .stu-toggle-btn { display:none; position:fixed; top:70px; left:10px; z-index:300; background:#1d4ed8; color:white; border:none; border-radius:8px; padding:8px 10px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+  .stu-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:150; }
+  .portal-header { background:var(--pce-blue-light); border-radius:12px; padding:16px 20px; border:1px solid var(--pce-border); margin-bottom:20px; }
   .portal-header h4 { font-weight:800; letter-spacing:-0.5px; margin:0; color:var(--pce-text-dark); }
-  #studentLevelBadge { background-color:var(--pce-blue)!important; font-weight:600; padding:6px 14px; border-radius:8px; font-size:0.8rem; }
-  .nav-tabs { border-bottom:2px solid var(--pce-border); gap:10px; }
-  .nav-tabs .nav-link { border:none!important; color:#64748b; font-weight:600; padding:10px 20px; border-radius:8px 8px 0 0; transition:all 0.2s; }
-  .nav-tabs .nav-link.active { color:var(--pce-blue)!important; background-color:transparent!important; border-bottom:3px solid var(--pce-blue)!important; }
-  .nav-tabs .nav-link:hover:not(.active) { background-color:var(--pce-blue-light); color:var(--pce-blue); }
-  .tab-content-container { border:1px solid var(--pce-border)!important; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); background:white; border-radius:12px; padding:24px; }
   .control-box { background-color:var(--pce-blue-light)!important; border:1px solid var(--pce-border)!important; padding:15px; border-radius:12px; }
+  @media(max-width:768px){
+    .stu-toggle-btn { display:block; }
+    .stu-sidebar { position:fixed; top:62px; left:0; bottom:0; transform:translateX(-100%); }
+    .stu-sidebar.open { transform:translateX(0); }
+    .stu-overlay.open { display:block; }
+    .stu-main { padding:15px; }
+  }
   .form-select,.form-control { border:1.5px solid var(--pce-border)!important; border-radius:8px!important; font-size:0.9rem; padding:10px; }
   .form-select:focus,.form-control:focus { border-color:var(--pce-blue)!important; box-shadow:0 0 0 4px rgba(2,132,199,0.1)!important; }
   .btn-pce-dark { background-color:var(--pce-text-dark)!important; color:white!important; border-radius:8px; font-weight:600; transition:all 0.2s; }
@@ -32,36 +48,52 @@
   .dropdown-hint { font-size:0.72rem; color:#64748b; margin-top:4px; }
 </style>
 
-<div class="container-fluid portal-wrapper p-3">
-  <div class="d-flex justify-content-between align-items-center portal-header mb-4">
-    <h4 style="color:#007bff;">STUDENT PORTAL</h4>
-    <span class="badge" id="studentLevelBadge">Level --</span>
-  </div>
+<!-- Mobile toggle button -->
+<button class="stu-toggle-btn" id="stuSidebarToggle">
+  <i class="bi bi-list" style="font-size:1.2rem;"></i>
+</button>
 
-  <ul class="nav nav-tabs mb-4" id="stuNavTabs">
-    <li class="nav-item">
-      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#profile" data-stu-tab="profile">
-        <i class="bi bi-person-circle me-1"></i> Profile
-      </button>
-    </li>
-    <li class="nav-item">
-      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#registration" data-stu-tab="registration">
-        <i class="bi bi-pencil-square me-1"></i> Registration
-      </button>
-    </li>
-    <li class="nav-item">
-      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#results" data-stu-tab="results">
-        <i class="bi bi-graph-up me-1"></i> Results
-      </button>
-    </li>
-    <li class="nav-item">
-      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#finance" data-stu-tab="finance">
-        <i class="bi bi-cash-stack me-1"></i> Finance
-      </button>
-    </li>
-  </ul>
+<!-- Overlay for mobile -->
+<div class="stu-overlay" id="stuOverlay"></div>
 
-  <div class="tab-content tab-content-container">
+<div class="stu-container">
+
+  <!-- SIDEBAR -->
+  <aside class="stu-sidebar" id="stuSidebar">
+    <div class="stu-sidebar-header">
+      <h5><i class="bi bi-mortarboard-fill me-2"></i>Student Portal</h5>
+      <p class="mt-1">Presbyterian College of Education</p>
+      <span class="badge mt-2" id="studentLevelBadge">Level --</span>
+    </div>
+    <nav class="stu-sidebar-menu" id="stuNavTabs">
+      <a class="stu-menu-item active" data-stu-tab="profile">
+        <i class="bi bi-person-circle"></i><span>Profile</span>
+      </a>
+      <a class="stu-menu-item" data-stu-tab="registration">
+        <i class="bi bi-pencil-square"></i><span>Registration</span>
+      </a>
+      <a class="stu-menu-item" data-stu-tab="results">
+        <i class="bi bi-graph-up"></i><span>Results</span>
+      </a>
+      <a class="stu-menu-item" data-stu-tab="finance">
+        <i class="bi bi-cash-stack"></i><span>Finance</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="stu-main">
+
+    <!-- PROFILE SECTION -->
+    <div id="profile" class="stu-section active">
+      <div class="row" id="profileDisplay">
+        <div class="text-center p-5 text-muted">Loading your profile...</div>
+      </div>
+    </div>
+
+    <!-- REGISTRATION SECTION -->
+    <div id="registration" class="stu-section">
+      <div id="registrationContent">
 
     <!-- PROFILE TAB -->
     <div class="tab-pane fade show active" id="profile">
@@ -71,7 +103,8 @@
     </div>
 
     <!-- REGISTRATION TAB -->
-    <div class="tab-pane fade" id="registration">
+    <!-- REGISTRATION SECTION -->
+    <div id="registration" class="stu-section">
       <div id="registrationContent">
         <div class="control-box mb-3">
           <div class="row g-3">
@@ -162,8 +195,8 @@
       </div>
     </div>
 
-    <!-- RESULTS TAB -->
-    <div class="tab-pane fade" id="results">
+    <!-- RESULTS SECTION -->
+    <div id="results" class="stu-section">
       <div class="control-box mb-4">
         <div class="row g-3">
           <div class="col-md-5">
@@ -193,8 +226,8 @@
       </div>
     </div>
 
-    <!-- FINANCE TAB -->
-    <div class="tab-pane fade" id="finance">
+    <!-- FINANCE SECTION -->
+    <div id="finance" class="stu-section">
       <div id="financeTabContent">
         <div class="text-center p-5 text-muted">
           <div class="spinner-border text-primary mb-3"></div>
@@ -203,8 +236,37 @@
       </div>
     </div>
 
-  </div>
+  </main>
 </div>
+
+<script>
+// ── Sidebar navigation (replaces Bootstrap tab logic) ──────────
+document.querySelectorAll('#stuNavTabs .stu-menu-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    var tab = this.getAttribute('data-stu-tab');
+    // Update active menu item
+    document.querySelectorAll('#stuNavTabs .stu-menu-item').forEach(function(m) { m.classList.remove('active'); });
+    this.classList.add('active');
+    // Show correct section
+    document.querySelectorAll('.stu-section').forEach(function(s) { s.classList.remove('active'); });
+    var sec = document.getElementById(tab);
+    if (sec) sec.classList.add('active');
+    // Close sidebar on mobile
+    document.getElementById('stuSidebar').classList.remove('open');
+    document.getElementById('stuOverlay').classList.remove('open');
+  });
+});
+
+// ── Mobile toggle ──────────────────────────────────────────────
+document.getElementById('stuSidebarToggle').addEventListener('click', function() {
+  document.getElementById('stuSidebar').classList.toggle('open');
+  document.getElementById('stuOverlay').classList.toggle('open');
+});
+document.getElementById('stuOverlay').addEventListener('click', function() {
+  document.getElementById('stuSidebar').classList.remove('open');
+  this.classList.remove('open');
+});
+</script>
 
 <script>
 // ── Module-scoped state ────────────────────────────────────────
