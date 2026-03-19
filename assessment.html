@@ -616,20 +616,20 @@ document.querySelectorAll('[data-bs-mode]').forEach(function(tab){
 });
 
 async function _asmBuildSem(level,sem,year){
-  // Step 1: Get all students at this level from student_bio (current level)
-  var bioAll=[],bioOffset=0;
+  // Step 1: Fetch all courses at this level — used to identify which results belong here
+  var crsAll=[],crsOffset=0;
   while(true){
-    var bioPage=await sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&select=email,name,index_number,program,gender&limit=1000&offset='+bioOffset);
-    if(!bioPage||!bioPage.length) break;
-    bioAll=bioAll.concat(bioPage);
-    if(bioPage.length<1000) break;
-    bioOffset+=1000;
+    var crsPage=await sbFetch('courses?level=eq.'+encodeURIComponent(level)+'&select=course_code,credits&limit=1000&offset='+crsOffset);
+    if(!crsPage||!crsPage.length) break;
+    crsAll=crsAll.concat(crsPage);
+    if(crsPage.length<1000) break;
+    crsOffset+=1000;
   }
-  if(!bioAll.length) return null;
-  var bioMap={}; bioAll.forEach(function(b){bioMap[b.email]=b;});
-  var levelEmails=new Set(bioAll.map(function(b){return b.email.toLowerCase().trim();}));
+  if(!crsAll.length) return null;
+  var levelCourseCodes=new Set(crsAll.map(function(c){return String(c.course_code).trim().toUpperCase();}));
+  var crMap={}; crsAll.forEach(function(c){crMap[String(c.course_code).trim().toUpperCase()]=Number(c.credits)||3;});
 
-  // Step 2: Fetch ALL results for this semester+year — paginated, then filter to this level's students
+  // Step 2: Fetch results for this semester+year, keep only those whose course belongs to this level
   var semResults=[],resOffset=0;
   while(true){
     var resPage=await sbFetch('results?semester=eq.'+encodeURIComponent(sem)+'&academic_year=eq.'+encodeURIComponent(year)+'&select=email,course_code,grade&limit=1000&offset='+resOffset);
@@ -638,33 +638,50 @@ async function _asmBuildSem(level,sem,year){
     if(resPage.length<1000) break;
     resOffset+=1000;
   }
-  // Filter to only students who are currently at this level
-  var filteredSemResults=semResults.filter(function(r){return levelEmails.has(r.email.toLowerCase().trim());});
+  var filteredSemResults=semResults.filter(function(r){
+    return levelCourseCodes.has(String(r.course_code||'').trim().toUpperCase());
+  });
   if(!filteredSemResults.length) return null;
 
-  // Step 3: Fetch ALL results for CGPA calculation (all semesters for these students)
-  var allResults=[],allOffset=0;
-  while(true){
-    var allPage=await sbFetch('results?select=email,course_code,grade&limit=1000&offset='+allOffset);
-    if(!allPage||!allPage.length) break;
-    allResults=allResults.concat(allPage);
-    if(allPage.length<1000) break;
-    allOffset+=1000;
-  }
-  var allFiltered=allResults.filter(function(r){return levelEmails.has(r.email.toLowerCase().trim());});
+  // Step 3: Get unique student emails from filtered results
+  var levelEmails=new Set(filteredSemResults.map(function(r){return r.email.toLowerCase().trim();}));
+  var emailList=[...levelEmails];
 
-  // Step 4: Fetch all courses — paginated
-  var crsAll=[],crsOffset=0;
-  while(true){
-    var crsPage=await sbFetch('courses?select=course_code,credits&limit=1000&offset='+crsOffset);
-    if(!crsPage||!crsPage.length) break;
-    crsAll=crsAll.concat(crsPage);
-    if(crsPage.length<1000) break;
-    crsOffset+=1000;
+  // Step 4: Fetch bio for these students in batches
+  var bioAll=[];
+  for(var bi=0;bi<emailList.length;bi+=100){
+    var batch=emailList.slice(bi,bi+100);
+    var bp=await sbFetch('student_bio?email=in.('+batch.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,program,gender');
+    if(bp) bioAll=bioAll.concat(bp);
   }
-  var crMap={}; crsAll.forEach(function(c){crMap[c.course_code]=Number(c.credits)||3;});
+  var bioMap={}; bioAll.forEach(function(b){bioMap[b.email.toLowerCase().trim()]=b;});
 
-  // Step 5: Build per-student maps
+  // Step 5: Fetch ALL results for CGPA (all semesters for these students) in batches
+  var allResults=[];
+  for(var ai=0;ai<emailList.length;ai+=50){
+    var aBatch=emailList.slice(ai,ai+50);
+    var allOffset=0;
+    while(true){
+      var allPage=await sbFetch('results?email=in.('+aBatch.map(encodeURIComponent).join(',')+')'+'&select=email,course_code,grade&limit=1000&offset='+allOffset);
+      if(!allPage||!allPage.length) break;
+      allResults=allResults.concat(allPage);
+      if(allPage.length<1000) break;
+      allOffset+=1000;
+    }
+  }
+
+  // Step 6: Fetch ALL courses for CGPA credit lookup
+  var allCrsAll=[],allCrsOffset=0;
+  while(true){
+    var allCrsPage=await sbFetch('courses?select=course_code,credits&limit=1000&offset='+allCrsOffset);
+    if(!allCrsPage||!allCrsPage.length) break;
+    allCrsAll=allCrsAll.concat(allCrsPage);
+    if(allCrsPage.length<1000) break;
+    allCrsOffset+=1000;
+  }
+  var allCrMap={}; allCrsAll.forEach(function(c){allCrMap[String(c.course_code).trim().toUpperCase()]=Number(c.credits)||3;});
+
+  // Step 7: Build per-student maps
   var semMap={};
   filteredSemResults.forEach(function(r){
     var em=r.email.toLowerCase().trim();
@@ -672,22 +689,22 @@ async function _asmBuildSem(level,sem,year){
     semMap[em].push(r);
   });
   var allMap={};
-  allFiltered.forEach(function(r){
+  allResults.forEach(function(r){
     var em=r.email.toLowerCase().trim();
     if(!allMap[em])allMap[em]=[];
     allMap[em].push(r);
   });
 
-  // Step 6: Build student rows — only students who have results for this sem+year
-  var students=Object.keys(semMap).map(function(email){
-    var bio=bioMap[email]||bioMap[Object.keys(bioMap).find(function(k){return k.toLowerCase()===email;})];
+  // Step 8: Build student rows
+  var students=emailList.map(function(email){
+    var bio=bioMap[email];
     if(!bio) return null;
     var sR=semMap[email]||[], aR=allMap[email]||[];
-    var sCR=sR.reduce(function(s,r){return s+(crMap[r.course_code]||3);},0);
-    var sGP=sR.reduce(function(s,r){return s+_asmGP(r.grade)*(crMap[r.course_code]||3);},0);
+    var sCR=sR.reduce(function(s,r){return s+(crMap[String(r.course_code||'').trim().toUpperCase()]||3);},0);
+    var sGP=sR.reduce(function(s,r){return s+_asmGP(r.grade)*(crMap[String(r.course_code||'').trim().toUpperCase()]||3);},0);
     var sGPA=sCR>0?(sGP/sCR).toFixed(2):'0.00';
-    var aCR=aR.reduce(function(s,r){return s+(crMap[r.course_code]||3);},0);
-    var aGP=aR.reduce(function(s,r){return s+_asmGP(r.grade)*(crMap[r.course_code]||3);},0);
+    var aCR=aR.reduce(function(s,r){return s+(allCrMap[String(r.course_code||'').trim().toUpperCase()]||3);},0);
+    var aGP=aR.reduce(function(s,r){return s+_asmGP(r.grade)*(allCrMap[String(r.course_code||'').trim().toUpperCase()]||3);},0);
     var fcgpa=aCR>0?(aGP/aCR).toFixed(2):'0.00';
     return {email:email,bio:bio,sCR:sCR,sGP:sGP.toFixed(2),sGPA:sGPA,fcgpa:fcgpa,cls:_asmClass(fcgpa)};
   }).filter(Boolean);
@@ -696,22 +713,19 @@ async function _asmBuildSem(level,sem,year){
 }
 
 async function _asmBuildEOP(level){
-  // Step 1: Get all students at this level — paginated
-  var bioAll=[],bioOffset=0;
+  // Step 1: Fetch all courses at this level to identify which results belong here
+  var lvlCrsAll=[],lvlCrsOffset=0;
   while(true){
-    var bioPage=await sbFetch('student_bio?level=eq.'+encodeURIComponent(level)+'&select=email,name,index_number,program,gender&order=name&limit=1000&offset='+bioOffset);
-    if(!bioPage||!bioPage.length) break;
-    bioAll=bioAll.concat(bioPage);
-    if(bioPage.length<1000) break;
-    bioOffset+=1000;
+    var lvlCrsPage=await sbFetch('courses?level=eq.'+encodeURIComponent(level)+'&select=course_code,credits&limit=1000&offset='+lvlCrsOffset);
+    if(!lvlCrsPage||!lvlCrsPage.length) break;
+    lvlCrsAll=lvlCrsAll.concat(lvlCrsPage);
+    if(lvlCrsPage.length<1000) break;
+    lvlCrsOffset+=1000;
   }
-  if(!bioAll.length) return null;
-  var bioMap={}; bioAll.forEach(function(b){bioMap[b.email]=b;});
-  var levelEmails=new Set(bioAll.map(function(b){return b.email.toLowerCase().trim();}));
+  if(!lvlCrsAll.length) return null;
+  var levelCourseCodes=new Set(lvlCrsAll.map(function(c){return String(c.course_code).trim().toUpperCase();}));
 
-  // Step 2: Fetch ALL results across ALL years and semesters — paginated
-  // Then filter client-side to this level's students only
-  // This gives the full programme history (Level 100 through current level)
+  // Step 2: Fetch ALL results and keep only those matching this level's courses
   var allRes=[],resOffset=0;
   while(true){
     var resPage=await sbFetch('results?select=email,course_code,grade,semester,academic_year&order=academic_year,semester&limit=1000&offset='+resOffset);
@@ -720,8 +734,25 @@ async function _asmBuildEOP(level){
     if(resPage.length<1000) break;
     resOffset+=1000;
   }
-  // Filter to only this level's students
-  var filteredRes=allRes.filter(function(r){return levelEmails.has(r.email.toLowerCase().trim());});
+  // filteredRes = results for level-specific courses (used to identify students at this level)
+  var filteredRes=allRes.filter(function(r){
+    return levelCourseCodes.has(String(r.course_code||'').trim().toUpperCase());
+  });
+  if(!filteredRes.length) return null;
+
+  // Step 3: Get unique student emails who have results for this level's courses
+  var levelEmails=new Set(filteredRes.map(function(r){return r.email.toLowerCase().trim();}));
+  var emailList=[...levelEmails];
+
+  // Step 4: Fetch bio for these students in batches
+  var bioAll=[];
+  for(var bi=0;bi<emailList.length;bi+=100){
+    var batch=emailList.slice(bi,bi+100);
+    var bp=await sbFetch('student_bio?email=in.('+batch.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,program,gender&order=name');
+    if(bp) bioAll=bioAll.concat(bp);
+  }
+  if(!bioAll.length) return null;
+  var bioMap={}; bioAll.forEach(function(b){bioMap[b.email.toLowerCase().trim()]=b;});
 
   // Step 3: Fetch all courses — paginated
   var crsAll=[],crsOffset=0;
@@ -1008,28 +1039,76 @@ document.getElementById('resitSearchBtn').addEventListener('click',async functio
     if(cp.length<1000) break;
     crsOff+=1000;
   }
-  var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email]=b;});
-  var crsMap={}; (crsData||[]).forEach(function(c){crsMap[c.course_code]=c;});
+ var bioMap={}; (bioData||[]).forEach(function(b){bioMap[b.email.toLowerCase().trim()]=b;});
+  var crsMap={}; (crsData||[]).forEach(function(c){crsMap[String(c.course_code||'').trim().toUpperCase()]=c;});
+
+  // Filter by course level — not bio level
   var filtered=results.filter(function(r){
     if(level==='ALL') return true;
-    var bio=bioMap[r.email],crs=crsMap[r.course_code];
-    return (bio&&String(bio.level||'')=== String(level))||(crs&&String(crs.level||'')=== String(level));
+    var crs=crsMap[String(r.course_code||'').trim().toUpperCase()];
+    return crs && String(crs.level||'').trim() === String(level).trim();
   });
-  if(!filtered.length){tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted p-5"><p class="fw-bold">No Students Match Filters</p></td></tr>';countEl.innerText=0;return;}
-  var html='';
+
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted p-5"><p class="fw-bold">No Students Match Filters</p></td></tr>';
+    countEl.innerText=0; return;
+  }
+
+  // Group by student for professional display
+  var studentMap={};
   filtered.forEach(function(r){
-    var bio=bioMap[r.email]||{},crs=crsMap[r.course_code]||{},g=r.grade||'';
-    var gc=g==='A'?'bg-success text-white':(g==='B+'||g==='B')?'bg-info text-white':(g==='C+'||g==='C')?'bg-warning text-dark':(g==='E'||g==='F')?'bg-danger text-white':g==='IC'?'bg-secondary text-white':'bg-light text-dark border';
-    html+='<tr>' +
-      '<td><strong>'+(bio.name||r.email)+'</strong><br><small class="text-muted">'+r.email+'</small></td>' +
-      '<td><code>'+(bio.index_number||'—')+'</code></td>' +
-      '<td><span class="badge bg-secondary">'+(bio.level||crs.level||'—')+'</span></td>' +
-      '<td><small><strong>'+r.course_code+'</strong><br>'+(crs.title||'')+'</small></td>' +
-      '<td class="text-center"><span class="badge '+gc+'">'+g+'</span></td>' +
-      '<td>'+r.semester+'</td>' +
-      '<td><small>'+(r.academic_year||'')+'</small></td></tr>';
+    var em=r.email.toLowerCase().trim();
+    if(!studentMap[em]) studentMap[em]={bio:bioMap[em]||{email:r.email},courses:[]};
+    studentMap[em].courses.push(r);
   });
-  tbody.innerHTML=html; countEl.innerText=filtered.length;
+
+  // Sort students by name
+  var sortedEmails=Object.keys(studentMap).sort(function(a,b){
+    var na=(studentMap[a].bio.name||a).toUpperCase();
+    var nb=(studentMap[b].bio.name||b).toUpperCase();
+    return na.localeCompare(nb);
+  });
+
+  var html=''; var sn=0;
+  sortedEmails.forEach(function(em){
+    var s=studentMap[em];
+    var bio=s.bio;
+    sn++;
+    s.courses.forEach(function(r,ci){
+      var crs=crsMap[String(r.course_code||'').trim().toUpperCase()]||{};
+      var g=String(r.grade||'').toUpperCase().trim();
+      var gc=g==='A'?'bg-success text-white':
+              (g==='B+'||g==='B')?'bg-primary text-white':
+              (g==='C+'||g==='C')?'bg-warning text-dark':
+              (g==='D+'||g==='D')?'bg-secondary text-white':
+              (g==='E'||g==='F')?'bg-danger text-white':
+              g==='IC'?'bg-dark text-white':'bg-light text-dark border';
+      var semLabel=r.semester==='SEMESTER1'?'Sem 1':r.semester==='SEMESTER2'?'Sem 2':(r.semester||'');
+      var rowBg=sn%2===0?'background:#f8fafc;':'';
+      var topBorder=ci===0?'border-top:2px solid #dee2e6;':'';
+      html+='<tr style="'+rowBg+topBorder+'">';
+      if(ci===0){
+        html+='<td rowspan="'+s.courses.length+'" class="align-middle fw-bold text-center" style="border-right:1px solid #dee2e6;vertical-align:middle;">'+sn+'</td>';
+        html+='<td rowspan="'+s.courses.length+'" class="align-middle" style="border-right:1px solid #dee2e6;vertical-align:middle;">'
+          +'<div class="fw-bold text-dark small">'+(bio.name||r.email).toUpperCase()+'</div>'
+          +'<small class="text-muted d-block" style="font-size:0.72rem;">'+(bio.email||r.email)+'</small>'
+          +'</td>';
+        html+='<td rowspan="'+s.courses.length+'" class="align-middle text-center" style="border-right:1px solid #dee2e6;vertical-align:middle;"><code class="small">'+(bio.index_number||'—')+'</code></td>';
+      }
+      html+='<td style="border-right:1px solid #dee2e6;" class="small">'
+        +'<span class="fw-bold">'+r.course_code+'</span>'
+        +(crs.title?'<br><span class="text-muted" style="font-size:0.72rem;">'+crs.title+'</span>':'')
+        +'</td>';
+      html+='<td class="text-center" style="border-right:1px solid #dee2e6;">'
+        +'<span class="badge '+gc+' px-2 py-1" style="font-size:0.8rem;letter-spacing:0.5px;">'+g+'</span>'
+        +'</td>';
+      html+='<td class="text-center small" style="border-right:1px solid #dee2e6;color:#6c757d;">'+semLabel+'</td>';
+      html+='<td class="text-center small" style="color:#6c757d;">'+(r.academic_year||'')+'</td>';
+      html+='</tr>';
+    });
+  });
+  tbody.innerHTML=html||'<tr><td colspan="7" class="text-center text-muted p-4">No results found</td></tr>';
+  countEl.innerText=filtered.length;
   Swal.fire({toast:true,position:'top-end',icon:'success',title:'Found '+filtered.length+' result(s)',showConfirmButton:false,timer:2000});
 });
 
