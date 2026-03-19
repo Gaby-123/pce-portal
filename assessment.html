@@ -1094,6 +1094,7 @@ document.getElementById('resitSearchBtn').addEventListener('click',async functio
           +'<small class="text-muted d-block" style="font-size:0.72rem;">'+(bio.email||r.email)+'</small>'
           +'</td>';
         html+='<td rowspan="'+s.courses.length+'" class="align-middle text-center" style="border-right:1px solid #dee2e6;vertical-align:middle;"><code class="small">'+(bio.index_number||'—')+'</code></td>';
+        html+='<td rowspan="'+s.courses.length+'" class="align-middle text-center" style="border-right:1px solid #dee2e6;vertical-align:middle;"><span class="badge bg-secondary">'+(crs&&crs.level?crs.level:level!=='ALL'?level:'—')+'</span></td>';
       }
       html+='<td style="border-right:1px solid #dee2e6;" class="small">'
         +'<span class="fw-bold">'+r.course_code+'</span>'
