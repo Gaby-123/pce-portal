@@ -748,7 +748,7 @@ async function _asmBuildEOP(level){
   var bioAll=[];
   for(var bi=0;bi<emailList.length;bi+=100){
     var batch=emailList.slice(bi,bi+100);
-    var bp=await sbFetch('student_bio?email=in.('+batch.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,program,gender&order=name');
+    var bp=await sbFetch('student_bio?email=in.('+batch.map(encodeURIComponent).join(',')+')'+'&select=email,name,index_number,program,gender,specialization&order=name');
     if(bp) bioAll=bioAll.concat(bp);
   }
   if(!bioAll.length) return null;
@@ -842,143 +842,439 @@ document.getElementById('bsSemCSVBtn').addEventListener('click',async function()
 });
 
 document.getElementById('bsSemPDFBtn').addEventListener('click',async function(){
-  var level=document.getElementById('bsSemLevel').value,sem=document.getElementById('bsSemSemester').value,year=document.getElementById('bsSemYear').value,sort=document.getElementById('bsSemSort').value;
+  var level=document.getElementById('bsSemLevel').value;
+  var sem=document.getElementById('bsSemSemester').value;
+  var year=document.getElementById('bsSemYear').value;
+  var sort=document.getElementById('bsSemSort').value;
   if(!level||!sem||!year){Swal.fire({icon:'warning',title:'Missing Fields',text:'Please select Level, Semester and Academic Year.',confirmButtonColor:'#f59e0b'});return;}
   var semLabel=sem==='SEMESTER1'?'Semester 1':'Semester 2';
-  Swal.fire({title:'Generating Broadsheet PDF…',html:'<div class="spinner-border text-danger mb-3" style="width:3rem;height:3rem;"></div><p class="mb-1"><strong>Level '+level+' — '+semLabel+'</strong></p><p class="small text-muted">Formatting A3 landscape PDF… may take 20–35 seconds</p><div class="progress mt-3"><div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" style="width:100%"></div></div>',allowOutsideClick:false,showConfirmButton:false});
+  Swal.fire({title:'Generating Broadsheet PDF…',html:'<div class="spinner-border text-danger mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Building A3 PDF…</p>',allowOutsideClick:false,showConfirmButton:false});
+
   var data=await _asmBuildSem(level,sem,year);
   if(!data||!data.students.length){Swal.fire({icon:'warning',title:'No Data',text:'No student data found.'});return;}
   _sortStudents(data.students,sort);
   var logo=await _asmLogo();
-  var lc=logo?'<td style="width:80px;vertical-align:middle;"><img src="'+logo+'" width="65" height="65" style="display:block;object-fit:contain;"></td>':'<td style="width:10px;"></td>';
-  var rows=data.students.map(function(s,i){
-    return '<tr style="background:'+(i%2===0?'#f9fafb':'#fff')+';">' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+(i+1)+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-family:monospace;font-size:10px;">'+(s.bio.index_number||'')+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-weight:bold;">'+(s.bio.name||'').toUpperCase()+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+(s.bio.gender||'')+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-size:10px;">'+(s.bio.program||'')+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+s.sCR+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">'+s.sGP+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;">'+s.sGPA+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;color:'+_asmFCColor(s.fcgpa)+';">'+s.fcgpa+'</td>' +
-      '<td style="padding:5px 8px;border:1px solid #e5e7eb;font-size:10px;">'+s.cls+'</td></tr>';
-  }).join('');
-  var pdfH='<div style="font-family:Times New Roman,serif;font-size:11px;color:#000;width:1060px;padding:20px;box-sizing:border-box;background:#fff;">' +
-    '<table style="width:100%;border-bottom:2px solid #000;margin-bottom:12px;border-collapse:collapse;"><tr>'+lc+
-    '<td style="text-align:center;vertical-align:middle;"><div style="font-size:18px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
-    '<div style="font-size:10px;color:#555;">P.O. Box 27, Akropong-Akuapem | Tel: +233 (0) 256 977 765 | www.pce.edu.gh</div></td></tr></table>' +
-    '<div style="text-align:center;margin-bottom:12px;"><div style="font-size:14px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">Academic Broadsheet &mdash; Level '+level+' &mdash; '+semLabel+' &mdash; '+year+'</div>' +
-    '<div style="font-size:10px;color:#555;margin-top:4px;">Total Students: '+data.students.length+'</div></div>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:10px;"><thead><tr style="background:#1e3a5f;">' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;width:35px;">#</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Index No.</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Name</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">Sex</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Program</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">CR</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">GP</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">GPA</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;text-align:center;">FCGPA</th>' +
-    '<th style="padding:7px 8px;color:white;border:1px solid #e5e7eb;">Class</th>' +
-    '</tr></thead><tbody>'+rows+'</tbody></table>' +
-    '<div style="margin-top:35px;"><table style="width:100%;border-collapse:collapse;"><tr>' +
-    '<td style="width:45%;"><div style="margin-top:35px;border-top:1px solid #000;width:220px;padding-top:4px;font-size:11px;"><strong>EXAMINATIONS OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
-    '<td style="width:10%;"></td>' +
-    '<td style="width:45%;"><div style="margin-top:35px;border-top:1px solid #000;width:220px;padding-top:4px;font-size:11px;"><strong>COLLEGE REGISTRAR</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
-    '</tr></table></div></div>';
-  Swal.close();
-  var wrap=document.createElement('div'); wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1100px;'; wrap.innerHTML=pdfH; document.body.appendChild(wrap);
   var st=document.getElementById('bsSemStatus');
-  try{await html2pdf().set({margin:0,filename:'Broadsheet_L'+level+'_'+sem+'_'+year+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a3',orientation:'landscape'}}).from(wrap.firstElementChild).save();}
-  finally{document.body.removeChild(wrap);}
-  st.style.display='block'; st.className='alert alert-success small mt-3'; st.innerHTML='&#10003; PDF Downloaded! '+data.students.length+' students.';
-});
 
-document.getElementById('bsEOPCSVBtn').addEventListener('click',async function(){
-  var level=document.getElementById('bsEOPLevel').value,sort=document.getElementById('bsEOPSort').value;
-  if(!level){Swal.fire({icon:'warning',title:'Select Level',confirmButtonColor:'#f59e0b'});return;}
-  var st=document.getElementById('bsEOPStatus'); st.style.display='block'; st.className='alert alert-info small mt-3'; st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Generating EOP CSV...';
-  var data=await _asmBuildEOP(level);
-  if(!data||!data.students.length){st.className='alert alert-warning small mt-3';st.innerHTML='&#9888; No data found.';return;}
-  _sortStudents(data.students,sort);
-  var maxSems=data.students.reduce(function(m,s){return Math.max(m,s.semStats.length);},0);
-  var semHdrs=[]; for(var i=1;i<=maxSems;i++) semHdrs.push('Sem'+i+'_CR,Sem'+i+'_GP,Sem'+i+'_GPA');
-  var csv=['#,Index No.,Name,Gender,Program,'+semHdrs.join(',')+',NOC,TCGP,TCCR,FCGPA,Class,Trails,ICs'];
+  var {jsPDF}=window.jspdf;
+  var doc=new jsPDF({unit:'mm',format:'a3',orientation:'landscape'});
+  var PW=doc.internal.pageSize.getWidth();   // 420
+  var PH=doc.internal.pageSize.getHeight();  // 297
+  var ML=12,MR=12,MT=12,MB=14;
+  var UW=PW-ML-MR;  // 396
+  var y=MT;
+
+  // ── Column layout ────────────────────────────────────────
+  // #(9) | Index(34) | Name(72) | Gender(12) | Program(48) | CR(14) | GP(16) | GPA(16) | FCGPA(16) | Class(38) | Rank(20) [optional padding]
+  var C={no:9,idx:34,name:72,gen:12,prog:48,cr:14,gp:16,gpa:16,fcgpa:16,cls:UW-9-34-72-12-48-14-16-16-16};
+  // C.cls absorbs remaining width (~149mm — wide enough for class name)
+  var ROW=7.2;
+  var HEADER_H=28; // approx header block height
+
+  // ── Helpers ──────────────────────────────────────────────
+  function hexToRgb(h){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return[r,g,b];}
+
+  function drawSemHeader(){
+    y=MT;
+    // Logo left + right
+    if(logo){
+      doc.addImage(logo,'PNG',ML,y,20,20);
+      doc.addImage(logo,'PNG',PW-MR-20,y,20,20);
+    }
+    // College name
+    doc.setFont('times','bold');doc.setFontSize(13);doc.setTextColor(0,0,0);
+    doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM',PW/2,y+7,{align:'center'});
+    doc.setFont('times','normal');doc.setFontSize(8.5);doc.setTextColor(70,70,70);
+    doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh',PW/2,y+13,{align:'center'});
+    // Divider
+    doc.setDrawColor(0,0,0);doc.setLineWidth(0.7);
+    doc.line(ML,y+17,PW-MR,y+17);
+    y+=20;
+    // Title
+    doc.setFont('times','bold');doc.setFontSize(11);doc.setTextColor(0,0,0);
+    doc.text('SEMESTER ACADEMIC BROADSHEET',PW/2,y,{align:'center'});
+    y+=5;
+    doc.setFont('times','normal');doc.setFontSize(9);doc.setTextColor(50,50,50);
+    doc.text('Level: '+level+'   |   '+semLabel+'   |   Academic Year: '+year+'   |   Total Students: '+data.students.length,PW/2,y,{align:'center'});
+    y+=6;
+    // thin rule under title block
+    doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);
+    doc.line(ML,y,PW-MR,y);
+    y+=3;
+  }
+
+  function drawSemColHeaders(){
+    // Header row background
+    doc.setFillColor(22,52,90);
+    doc.rect(ML,y,UW,ROW+1,'F');
+    doc.setFont('times','bold');doc.setFontSize(8);doc.setTextColor(255,255,255);
+    var cx=ML;
+    function hCell(txt,w,center){
+      doc.text(txt,center?cx+w/2:cx+2,y+ROW-1.2,{align:center?'center':'left'});
+      cx+=w;
+    }
+    hCell('#',C.no,true);
+    hCell('INDEX NO.',C.idx,false);
+    hCell('FULL NAME',C.name,false);
+    hCell('SEX',C.gen,true);
+    hCell('PROGRAM',C.prog,false);
+    hCell('CR',C.cr,true);
+    hCell('GP',C.gp,true);
+    hCell('GPA',C.gpa,true);
+    hCell('FCGPA',C.fcgpa,true);
+    hCell('CLASS / AWARD',C.cls,false);
+    y+=ROW+1;
+    // thin separator
+    doc.setDrawColor(100,130,170);doc.setLineWidth(0.2);
+    doc.line(ML,y,ML+UW,y);
+  }
+
+  function drawSemFooter(pg,total){
+    doc.setDrawColor(180,180,180);doc.setLineWidth(0.25);
+    doc.line(ML,PH-MB,PW-MR,PH-MB);
+    doc.setFont('times','italic');doc.setFontSize(7.5);doc.setTextColor(130,130,130);
+    doc.text('Presbyterian College of Education  —  Academic Broadsheet  —  Printed: '+new Date().toLocaleDateString('en-GB'),ML,PH-MB+3.5);
+    doc.text('Page '+pg+' of '+total,PW-MR,PH-MB+3.5,{align:'right'});
+  }
+
+  // ── Page 1 ───────────────────────────────────────────────
+  drawSemHeader();
+  drawSemColHeaders();
+
+  // ── Student rows ─────────────────────────────────────────
+  var BOTTOM_LIMIT=PH-MB-12; // leave room for footer
   data.students.forEach(function(s,i){
-    var cols=[];
-    for(var j=0;j<maxSems;j++){var sg=s.semStats[j];cols.push(sg?sg.cr+','+sg.gp+','+sg.gpa:',,');}
-    csv.push([i+1,s.bio.index_number||'','"'+(s.bio.name||'')+'"',s.bio.gender||'','"'+(s.bio.program||'')+'"',cols.join(','),s.noc,s.tcgp,s.tccr,s.fcgpa,s.cls,s.trails,s.ics].join(','));
-  });
-  _asmDlCSV(csv.join('\n'),'EOP_Broadsheet_L'+level+'.csv');
-  st.className='alert alert-success small mt-3'; st.innerHTML='&#10003; Downloaded! '+data.students.length+' students.';
-  Swal.fire({toast:true,position:'top-end',icon:'success',title:'Downloaded!',showConfirmButton:false,timer:3000});
-});
+    if(y+ROW>BOTTOM_LIMIT){
+      doc.addPage();
+      drawSemHeader();
+      drawSemColHeaders();
+    }
+    // Alternating row fill
+    if(i%2===0) doc.setFillColor(248,250,252);
+    else         doc.setFillColor(255,255,255);
+    doc.setDrawColor(220,225,230);doc.setLineWidth(0.15);
+    doc.rect(ML,y,UW,ROW,'FD');
 
+    // FCGPA colour
+    var fcRgb=hexToRgb(_asmFCColor(s.fcgpa));
+
+    var cx=ML;
+    // # — centered, grey
+    doc.setFont('times','normal');doc.setFontSize(7.5);doc.setTextColor(100,100,100);
+    doc.text(String(i+1),cx+C.no/2,y+ROW-1.5,{align:'center'});cx+=C.no;
+    // Index
+    doc.setFont('times','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+    doc.text(s.bio.index_number||'—',cx+2,y+ROW-1.5);cx+=C.idx;
+    // Name — bold, truncate
+    doc.setFont('times','bold');doc.setFontSize(8);doc.setTextColor(10,10,10);
+    var nm=String(s.bio.name||'').toUpperCase();
+    while(doc.getTextWidth(nm)>C.name-3&&nm.length>1)nm=nm.slice(0,-1);
+    if(nm!==String(s.bio.name||'').toUpperCase())nm=nm.slice(0,-1)+'…';
+    doc.text(nm,cx+2,y+ROW-1.5);cx+=C.name;
+    // Gender
+    doc.setFont('times','normal');doc.setFontSize(7.5);doc.setTextColor(60,60,60);
+    doc.text((s.bio.gender||'').charAt(0).toUpperCase(),cx+C.gen/2,y+ROW-1.5,{align:'center'});cx+=C.gen;
+    // Program — truncate
+    doc.setFontSize(7.5);doc.setTextColor(40,40,40);
+    var prog=String(s.bio.program||'');
+    while(doc.getTextWidth(prog)>C.prog-3&&prog.length>1)prog=prog.slice(0,-1);
+    if(prog!==String(s.bio.program||''))prog=prog.slice(0,-1)+'…';
+    doc.text(prog,cx+2,y+ROW-1.5);cx+=C.prog;
+    // CR
+    doc.setFont('times','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+    doc.text(String(s.sCR),cx+C.cr/2,y+ROW-1.5,{align:'center'});cx+=C.cr;
+    // GP
+    doc.text(String(s.sGP),cx+C.gp/2,y+ROW-1.5,{align:'center'});cx+=C.gp;
+    // GPA — bold
+    doc.setFont('times','bold');doc.setFontSize(8);
+    doc.text(String(s.sGPA),cx+C.gpa/2,y+ROW-1.5,{align:'center'});cx+=C.gpa;
+    // FCGPA — bold + colour
+    doc.setTextColor(fcRgb[0],fcRgb[1],fcRgb[2]);
+    doc.text(String(s.fcgpa),cx+C.fcgpa/2,y+ROW-1.5,{align:'center'});cx+=C.fcgpa;
+    // Class
+    doc.setFont('times','normal');doc.setFontSize(7.5);doc.setTextColor(30,30,30);
+    var cls=s.cls;
+    while(doc.getTextWidth(cls)>C.cls-3&&cls.length>1)cls=cls.slice(0,-1);
+    if(cls!==s.cls)cls=cls.slice(0,-1)+'…';
+    doc.text(cls,cx+2,y+ROW-1.5);
+
+    y+=ROW;
+  });
+
+  // ── Signature block — last page only ─────────────────────
+  y+=10;
+  if(y+28>PH-MB){doc.addPage();drawSemHeader();drawSemColHeaders();y+=8;}
+  var S1=ML,S2=PW/2-30,S3=PW-MR-70;
+  var sigW=65;
+  doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);
+  [S1,S2,S3].forEach(function(sx){doc.line(sx,y,sx+sigW,y);});
+  y+=4.5;
+  doc.setFont('times','bold');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
+  doc.text('EXAMINATIONS OFFICER',S1,y);
+  doc.text('HEAD OF DEPARTMENT',S2,y);
+  doc.text('COLLEGE REGISTRAR',S3,y);
+  y+=4;
+  doc.setFont('times','normal');doc.setFontSize(7.5);doc.setTextColor(110,110,110);
+  doc.text('(Signature & Official Stamp)',S1,y);
+  doc.text('(Signature & Official Stamp)',S2,y);
+  doc.text('(Signature & Official Stamp)',S3,y);
+
+  // ── Finalise: footer + watermark on every page ───────────
+  var TP=doc.internal.getNumberOfPages();
+  for(var pg=1;pg<=TP;pg++){
+    doc.setPage(pg);
+    drawSemFooter(pg,TP);
+    if(logo){
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({opacity:0.04}));
+      doc.addImage(logo,'PNG',(PW-110)/2,(PH-110)/2,110,110);
+      doc.restoreGraphicsState();
+    }
+  }
+
+  Swal.close();
+  doc.save('Broadsheet_L'+level+'_'+sem+'_'+year+'.pdf');
+  st.style.display='block';st.className='alert alert-success small mt-3';
+  st.innerHTML='&#10003; PDF Downloaded! '+data.students.length+' students.';
+});
 document.getElementById('bsEOPPDFBtn').addEventListener('click',async function(){
-  var level=document.getElementById('bsEOPLevel').value,sort=document.getElementById('bsEOPSort').value;
+  var level=document.getElementById('bsEOPLevel').value;
+  var sort=document.getElementById('bsEOPSort').value;
   if(!level){Swal.fire({icon:'warning',title:'Select Level',confirmButtonColor:'#f59e0b'});return;}
-  Swal.fire({title:'Generating EOP PDF…',html:'<div class="spinner-border text-danger mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Compiling all semesters… may take 20–30s</p>',allowOutsideClick:false,showConfirmButton:false});
+  Swal.fire({title:'Generating EOP PDF…',html:'<div class="spinner-border text-danger mb-3" style="width:3rem;height:3rem;"></div><p class="small text-muted">Compiling all semesters…</p>',allowOutsideClick:false,showConfirmButton:false});
+
   var data=await _asmBuildEOP(level);
   if(!data||!data.students.length){Swal.fire({icon:'warning',title:'No Data',text:'No students found for Level '+level+'.'});return;}
   _sortStudents(data.students,sort);
+
   var maxSems=data.students.reduce(function(m,s){return Math.max(m,s.semStats.length);},0);
   var logo=await _asmLogo();
-  var lc=logo?'<td style="width:80px;vertical-align:middle;"><img src="'+logo+'" width="65" height="65" style="display:block;object-fit:contain;"></td>':'<td style="width:10px;"></td>';
-  var semThs='',subThs='';
-  for(var i=1;i<=maxSems;i++){semThs+='<th style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;" colspan="3">Sem '+i+'</th>';}
-  for(var i=1;i<=maxSems;i++){subThs+='<th style="padding:4px 6px;color:#cbd5e1;border:1px solid #e5e7eb;text-align:center;font-size:9px;">CR</th><th style="padding:4px 6px;color:#cbd5e1;border:1px solid #e5e7eb;text-align:center;font-size:9px;">GP</th><th style="padding:4px 6px;color:#cbd5e1;border:1px solid #e5e7eb;text-align:center;font-size:9px;">GPA</th>';}
-  var trs=data.students.map(function(s,i){
-    var cols='';
-    for(var j=0;j<maxSems;j++){var sg=s.semStats[j];
-      cols+=sg?'<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+sg.cr+'</td><td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+sg.gp+'</td><td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;">'+sg.gpa+'</td>'
-        :'<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#d1d5db;">—</td><td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#d1d5db;">—</td><td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#d1d5db;">—</td>';
-    }
-    return '<tr style="background:'+(i%2===0?'#f9fafb':'#fff')+';">' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+(i+1)+'</td>' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;font-family:monospace;font-size:9px;">'+(s.bio.index_number||'')+'</td>' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;font-weight:bold;font-size:9px;">'+(s.bio.name||'').toUpperCase()+'</td>' +
-      cols +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+s.noc+'</td>' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+s.tcgp+'</td>' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;">'+s.tccr+'</td>' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;color:'+_asmFCColor(s.fcgpa)+';">'+s.fcgpa+'</td>' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;font-size:9px;">'+s.cls+'</td>' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:'+(s.trails>0?'#dc2626':'#166534')+';font-weight:bold;">'+s.trails+'</td>' +
-      '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:'+(s.ics>0?'#d97706':'#166534')+';font-weight:bold;">'+s.ics+'</td></tr>';
-  }).join('');
-  var pdfH='<div style="font-family:Times New Roman,serif;font-size:10px;color:#000;padding:15px;box-sizing:border-box;background:#fff;">' +
-    '<table style="width:100%;border-bottom:2px solid #000;margin-bottom:12px;border-collapse:collapse;"><tr>'+lc+
-    '<td style="text-align:center;vertical-align:middle;"><div style="font-size:16px;font-weight:bold;text-transform:uppercase;">Presbyterian College of Education, Akropong-Akuapem</div>' +
-    '<div style="font-size:9px;color:#555;">P.O. Box 27, Akropong-Akuapem | www.pce.edu.gh</div></td></tr></table>' +
-    '<div style="text-align:center;margin-bottom:10px;"><div style="font-size:13px;font-weight:bold;text-decoration:underline;text-transform:uppercase;">End of Programme Broadsheet &mdash; Level '+level+'</div>' +
-    '<div style="font-size:9px;color:#555;margin-top:3px;">Total Students: '+data.students.length+' &nbsp;|&nbsp; Date: '+new Date().toLocaleDateString('en-GB')+'</div></div>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:9px;"><thead>' +
-    '<tr style="background:#1e3a5f;">' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">#</th>' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;">Index</th>' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;">Name</th>' +
-    semThs +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">NOC</th>' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">TCGP</th>' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">TCCR</th>' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">FCGPA</th>' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;">Class</th>' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">Trails</th>' +
-    '<th rowspan="2" style="padding:5px 6px;color:white;border:1px solid #e5e7eb;text-align:center;">ICs</th>' +
-    '</tr><tr style="background:#1e3a5f;">'+subThs+'</tr></thead>' +
-    '<tbody>'+trs+'</tbody></table>' +
-    '<div style="margin-top:30px;"><table style="width:100%;border-collapse:collapse;"><tr>' +
-    '<td style="width:45%;"><div style="margin-top:35px;border-top:1px solid #000;width:220px;padding-top:4px;font-size:11px;"><strong>EXAMINATIONS OFFICER</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
-    '<td style="width:10%;"></td>' +
-    '<td style="width:45%;"><div style="margin-top:35px;border-top:1px solid #000;width:220px;padding-top:4px;font-size:11px;"><strong>COLLEGE REGISTRAR</strong><br><small>(Signature &amp; Stamp)</small></div></td>' +
-    '</tr></table></div></div>';
-  Swal.close();
-  var wrap=document.createElement('div'); wrap.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1400px;'; wrap.innerHTML=pdfH; document.body.appendChild(wrap);
   var st=document.getElementById('bsEOPStatus');
-  try{await html2pdf().set({margin:0,filename:'EOP_Broadsheet_L'+level+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a3',orientation:'landscape'}}).from(wrap.firstElementChild).save();}
-  finally{document.body.removeChild(wrap);}
-  st.style.display='block'; st.className='alert alert-success small mt-3'; st.innerHTML='&#10003; EOP PDF Downloaded! '+data.students.length+' students.';
+
+  var {jsPDF}=window.jspdf;
+  var doc=new jsPDF({unit:'mm',format:'a3',orientation:'landscape'});
+  var PW=doc.internal.pageSize.getWidth();
+  var PH=doc.internal.pageSize.getHeight();
+  var ML=12,MR=12,MT=12,MB=14;
+  var UW=PW-ML-MR;
+  var y=MT;
+
+  // ── Column layout ────────────────────────────────────────
+  // Fixed: #(9) + Index(34) + Name(70) + Specialization(52) = 165mm
+  // Semester block: each sem gets 3 sub-cols (CR/GP/GPA)
+  // Sub-col width shrinks based on maxSems but min 9mm each
+  var FIXED=165;
+  var TAIL=14+16+14+16+26+12+10; // NOC+TCGP+TCCR+FCGPA+Class+Trails+ICs = 108mm
+  var SEM_TOTAL=UW-FIXED-TAIL;   // remaining for all semester columns
+  var SC=Math.max(9,Math.floor(SEM_TOTAL/(maxSems*3))); // sub-col width
+  // Recalculate Name width to absorb any leftover after rounding
+  var C2={
+    no:9,idx:34,
+    name:UW-9-34-52-(maxSems*3*SC)-14-16-14-16-26-12-10,
+    spec:52,
+    cr:SC,gp:SC,gpa:SC,
+    noc:14,tcgp:16,tccr:14,fcgpa:16,cls:26,trails:12,ics:10
+  };
+  // Clamp name width to sensible range
+  if(C2.name<40)C2.name=40;
+  var ROW=6.8;
+
+  function hexToRgb(h){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return[r,g,b];}
+
+  function drawEopHeader(){
+    y=MT;
+    if(logo){
+      doc.addImage(logo,'PNG',ML,y,20,20);
+      doc.addImage(logo,'PNG',PW-MR-20,y,20,20);
+    }
+    doc.setFont('times','bold');doc.setFontSize(13);doc.setTextColor(0,0,0);
+    doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM',PW/2,y+7,{align:'center'});
+    doc.setFont('times','normal');doc.setFontSize(8.5);doc.setTextColor(70,70,70);
+    doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh',PW/2,y+13,{align:'center'});
+    doc.setDrawColor(0,0,0);doc.setLineWidth(0.7);
+    doc.line(ML,y+17,PW-MR,y+17);
+    y+=20;
+    doc.setFont('times','bold');doc.setFontSize(11);doc.setTextColor(0,0,0);
+    doc.text('END OF PROGRAMME BROADSHEET — LEVEL '+level,PW/2,y,{align:'center'});
+    y+=5;
+    doc.setFont('times','normal');doc.setFontSize(9);doc.setTextColor(50,50,50);
+    doc.text('Total Students: '+data.students.length+'   |   Date: '+new Date().toLocaleDateString('en-GB'),PW/2,y,{align:'center'});
+    y+=6;
+    doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);
+    doc.line(ML,y,PW-MR,y);
+    y+=3;
+  }
+
+  function drawEopColHeaders(){
+    // Row 1 — main group headers
+    doc.setFillColor(22,52,90);
+    doc.rect(ML,y,UW,ROW,'F');
+    doc.setFont('times','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
+    var cx=ML;
+    function mh(txt,w,center){
+      doc.text(txt,center?cx+w/2:cx+2,y+ROW-1.5,{align:center?'center':'left'});
+      cx+=w;
+    }
+    mh('#',C2.no,true);
+    mh('INDEX NO.',C2.idx,false);
+    mh('FULL NAME',C2.name,false);
+    mh('SPECIALIZATION',C2.spec,false);
+    for(var si=1;si<=maxSems;si++){
+      mh('SEM '+si,C2.cr+C2.gp+C2.gpa,true);
+    }
+    mh('NOC',C2.noc,true);
+    mh('TCGP',C2.tcgp,true);
+    mh('TCCR',C2.tccr,true);
+    mh('FCGPA',C2.fcgpa,true);
+    mh('CLASS',C2.cls,false);
+    mh('TR',C2.trails,true);
+    mh('IC',C2.ics,true);
+    y+=ROW;
+
+    // Row 2 — sub-headers for semester columns only
+    doc.setFillColor(15,38,75);
+    doc.rect(ML,y,UW,ROW-1,'F');
+    doc.setFont('times','bold');doc.setFontSize(6.5);doc.setTextColor(160,200,255);
+    cx=ML+C2.no+C2.idx+C2.name+C2.spec;
+    for(var si=0;si<maxSems;si++){
+      ['CR','GP','GPA'].forEach(function(sub){
+        doc.text(sub,cx+SC/2,y+ROW-2,{align:'center'});
+        cx+=SC;
+      });
+    }
+    y+=ROW-1;
+
+    // separator
+    doc.setDrawColor(80,120,180);doc.setLineWidth(0.2);
+    doc.line(ML,y,ML+UW,y);
+  }
+
+  function drawEopFooter(pg,total){
+    doc.setDrawColor(180,180,180);doc.setLineWidth(0.25);
+    doc.line(ML,PH-MB,PW-MR,PH-MB);
+    doc.setFont('times','italic');doc.setFontSize(7.5);doc.setTextColor(130,130,130);
+    doc.text('Presbyterian College of Education  —  End of Programme Broadsheet  —  Printed: '+new Date().toLocaleDateString('en-GB'),ML,PH-MB+3.5);
+    doc.text('Page '+pg+' of '+total,PW-MR,PH-MB+3.5,{align:'right'});
+  }
+
+  // ── Page 1 ───────────────────────────────────────────────
+  drawEopHeader();
+  drawEopColHeaders();
+
+  var BOTTOM_LIMIT=PH-MB-12;
+
+  data.students.forEach(function(s,i){
+    if(y+ROW>BOTTOM_LIMIT){
+      doc.addPage();
+      drawEopHeader();
+      drawEopColHeaders();
+    }
+
+    if(i%2===0) doc.setFillColor(248,250,252);
+    else         doc.setFillColor(255,255,255);
+    doc.setDrawColor(215,220,228);doc.setLineWidth(0.15);
+    doc.rect(ML,y,UW,ROW,'FD');
+
+    var fcRgb=hexToRgb(_asmFCColor(s.fcgpa));
+    var cx=ML;
+
+    // #
+    doc.setFont('times','normal');doc.setFontSize(7);doc.setTextColor(110,110,110);
+    doc.text(String(i+1),cx+C2.no/2,y+ROW-1.5,{align:'center'});cx+=C2.no;
+    // Index
+    doc.setFont('times','normal');doc.setFontSize(7.5);doc.setTextColor(30,30,30);
+    doc.text(s.bio.index_number||'—',cx+2,y+ROW-1.5);cx+=C2.idx;
+    // Name
+    doc.setFont('times','bold');doc.setFontSize(7.5);doc.setTextColor(10,10,10);
+    var nm=String(s.bio.name||'').toUpperCase();
+    while(doc.getTextWidth(nm)>C2.name-3&&nm.length>1)nm=nm.slice(0,-1);
+    if(nm!==String(s.bio.name||'').toUpperCase())nm=nm.slice(0,-1)+'…';
+    doc.text(nm,cx+2,y+ROW-1.5);cx+=C2.name;
+    // Specialization
+    doc.setFont('times','normal');doc.setFontSize(7);doc.setTextColor(40,40,40);
+    var sp=String(s.bio.specialization||s.bio.program||'');
+    while(doc.getTextWidth(sp)>C2.spec-3&&sp.length>1)sp=sp.slice(0,-1);
+    if(sp!==String(s.bio.specialization||s.bio.program||''))sp=sp.slice(0,-1)+'…';
+    doc.text(sp,cx+2,y+ROW-1.5);cx+=C2.spec;
+
+    // Semester columns
+    for(var si=0;si<maxSems;si++){
+      var sg=s.semStats[si];
+      if(sg){
+        doc.setFont('times','normal');doc.setFontSize(7);doc.setTextColor(30,30,30);
+        doc.text(String(sg.cr),cx+SC/2,y+ROW-1.5,{align:'center'});cx+=SC;
+        doc.text(sg.gp,cx+SC/2,y+ROW-1.5,{align:'center'});cx+=SC;
+        doc.setFont('times','bold');
+        doc.text(sg.gpa,cx+SC/2,y+ROW-1.5,{align:'center'});cx+=SC;
+        doc.setFont('times','normal');
+      } else {
+        doc.setTextColor(190,190,190);
+        for(var sub=0;sub<3;sub++){doc.text('—',cx+SC/2,y+ROW-1.5,{align:'center'});cx+=SC;}
+        doc.setTextColor(30,30,30);
+      }
+    }
+
+    // Tail columns
+    doc.setFont('times','normal');doc.setFontSize(7.5);doc.setTextColor(30,30,30);
+    doc.text(String(s.noc),cx+C2.noc/2,y+ROW-1.5,{align:'center'});cx+=C2.noc;
+    doc.text(s.tcgp,cx+C2.tcgp/2,y+ROW-1.5,{align:'center'});cx+=C2.tcgp;
+    doc.text(String(s.tccr),cx+C2.tccr/2,y+ROW-1.5,{align:'center'});cx+=C2.tccr;
+    // FCGPA — coloured bold
+    doc.setFont('times','bold');doc.setFontSize(7.5);
+    doc.setTextColor(fcRgb[0],fcRgb[1],fcRgb[2]);
+    doc.text(s.fcgpa,cx+C2.fcgpa/2,y+ROW-1.5,{align:'center'});cx+=C2.fcgpa;
+    // Class
+    doc.setFont('times','normal');doc.setFontSize(7);doc.setTextColor(30,30,30);
+    var cls=s.cls;
+    while(doc.getTextWidth(cls)>C2.cls-2&&cls.length>1)cls=cls.slice(0,-1);
+    if(cls!==s.cls)cls=cls.slice(0,-1)+'…';
+    doc.text(cls,cx+2,y+ROW-1.5);cx+=C2.cls;
+    // Trails
+    doc.setFont('times','bold');doc.setFontSize(7.5);
+    doc.setTextColor(s.trails>0?220:22,s.trails>0?38:163,s.trails>0?38:74);
+    doc.text(String(s.trails),cx+C2.trails/2,y+ROW-1.5,{align:'center'});cx+=C2.trails;
+    // ICs
+    doc.setTextColor(s.ics>0?217:22,s.ics>0?119:163,s.ics>0?6:74);
+    doc.text(String(s.ics),cx+C2.ics/2,y+ROW-1.5,{align:'center'});
+
+    y+=ROW;
+  });
+
+  // ── Signature block — last page only ─────────────────────
+  y+=12;
+  if(y+28>PH-MB){doc.addPage();drawEopHeader();drawEopColHeaders();y+=8;}
+  var S1=ML,S2=PW/2-32,S3=PW-MR-68;
+  var sigW=62;
+  doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);
+  [S1,S2,S3].forEach(function(sx){doc.line(sx,y,sx+sigW,y);});
+  y+=4.5;
+  doc.setFont('times','bold');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
+  doc.text('EXAMINATIONS OFFICER',S1,y);
+  doc.text('HEAD OF DEPARTMENT',S2,y);
+  doc.text('COLLEGE REGISTRAR',S3,y);
+  y+=4;
+  doc.setFont('times','normal');doc.setFontSize(7.5);doc.setTextColor(110,110,110);
+  doc.text('(Signature & Official Stamp)',S1,y);
+  doc.text('(Signature & Official Stamp)',S2,y);
+  doc.text('(Signature & Official Stamp)',S3,y);
+
+  // ── Footer + watermark on every page ─────────────────────
+  var TP=doc.internal.getNumberOfPages();
+  for(var pg=1;pg<=TP;pg++){
+    doc.setPage(pg);
+    drawEopFooter(pg,TP);
+    if(logo){
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({opacity:0.04}));
+      doc.addImage(logo,'PNG',(PW-110)/2,(PH-110)/2,110,110);
+      doc.restoreGraphicsState();
+    }
+  }
+
+  Swal.close();
+  doc.save('EOP_Broadsheet_L'+level+'.pdf');
+  st.style.display='block';st.className='alert alert-success small mt-3';
+  st.innerHTML='&#10003; EOP PDF Downloaded! '+data.students.length+' students.';
 });
 
 // ── 5. GRADE MANAGEMENT ───────────────────────────────────────
