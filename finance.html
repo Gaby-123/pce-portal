@@ -63,6 +63,10 @@
         <i class="bi bi-exclamation-triangle"></i><span>Pre-System Debt Upload</span>
       </a>
       </a>
+      <a class="menu-item" data-section="payment-approvals">
+        <i class="bi bi-patch-check"></i><span>Payment Approvals</span>
+        <span class="badge bg-danger ms-auto" id="approvalBadgeCount" style="display:none;font-size:0.65rem;"></span>
+      </a>
       <a class="menu-item" data-section="reports">
         <i class="bi bi-file-earmark-bar-graph"></i><span>Reports &amp; Export</span>
       </a>
@@ -337,6 +341,53 @@
         </div>
       </div>
     </section>
+<!-- PAYMENT APPROVALS -->
+    <section id="payment-approvals" class="finance-section">
+      <div class="section-header">
+        <h4><i class="bi bi-patch-check me-2"></i>Payment Approvals</h4>
+        <p class="text-muted mb-0">Review and approve student payment receipt submissions</p>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="stat-card mb-3">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <select id="approvalStatusFilter" class="form-select" style="max-width:160px;">
+            <option value="PENDING">Pending</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="ALL">All</option>
+          </select>
+          <button class="btn btn-primary" onclick="finLoadApprovals()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+          <span class="ms-auto small text-muted" id="approvalCountLabel"></span>
+        </div>
+      </div>
+
+      <!-- Submissions table -->
+      <div class="stat-card p-0" style="overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Student</th>
+                <th>Index</th>
+                <th class="text-end">Amount</th>
+                <th>Pay Date</th>
+                <th>Reference</th>
+                <th>Submitted</th>
+                <th class="text-center">Status</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="approvalTableBody">
+              <tr><td colspan="8" class="text-center p-5 text-muted">Click Refresh to load submissions</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+    
     <!-- 6. REPORTS -->
     <section id="reports" class="finance-section">
       <div class="section-header">
@@ -367,6 +418,34 @@
     </section>
 
   </main>
+</div>
+
+<!-- RECEIPT VIEWER MODAL -->
+<div class="modal fade" id="receiptViewerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title"><i class="bi bi-image me-2"></i>Payment Receipt</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0 text-center bg-dark" style="min-height:400px;">
+        <div id="receiptImageContainer" class="p-3">
+          <div class="spinner-border text-light mt-5"></div>
+        </div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <div id="receiptStudentInfo" class="small text-muted"></div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-danger" id="receiptRejectBtn">
+            <i class="bi bi-x-circle me-1"></i>Reject
+          </button>
+          <button class="btn btn-success fw-bold px-4" id="receiptApproveBtn">
+            <i class="bi bi-check-circle me-1"></i>Approve Payment
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- PAYMENT ENTRY MODAL -->
@@ -424,9 +503,10 @@ function finShowSection(id) {
   document.querySelectorAll('#finSidebarMenu .menu-item').forEach(n => {
     n.classList.toggle('active', n.getAttribute('data-section') === id);
   });
-  if (id === 'fee-setup')   finLoadFeeStructure();
-  if (id === 'year-setup')  { finLoadActiveYearDisplay(); finLoadYearFeeStatusTable(); }
-  if (id === 'debt-upload') finLoadPreSystemRecords();
+  if (id === 'fee-setup')        finLoadFeeStructure();
+  if (id === 'year-setup')       { finLoadActiveYearDisplay(); finLoadYearFeeStatusTable(); }
+  if (id === 'debt-upload')      finLoadPreSystemRecords();
+  if (id === 'payment-approvals'){ finLoadApprovals(); }
 }
 
 // Attach sidebar clicks via JS — no onclick attributes needed
@@ -1648,6 +1728,240 @@ async function finLoadPreSystemRecords() {
   if (total) total.innerHTML = 'Total Pre-System Debt: <span class="text-danger">GH₵ ' + grandTotal.toFixed(2) + '</span>';
 }
 
+// ═══════════════════════════════════════════════════════════════
+// PAYMENT APPROVALS
+// ═══════════════════════════════════════════════════════════════
+var _currentApprovalRow = null; // holds the submission being reviewed
+
+async function finLoadApprovals() {
+  var filter = document.getElementById('approvalStatusFilter').value;
+  var tbody  = document.getElementById('approvalTableBody');
+  var label  = document.getElementById('approvalCountLabel');
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading...</td></tr>';
+
+  var q = 'payment_submissions?select=*&order=submitted_at.desc&limit=200';
+  if (filter !== 'ALL') q += '&status=eq.' + filter;
+
+  var rows = await sbFetch(q);
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted p-5">No ' + filter.toLowerCase() + ' submissions found</td></tr>';
+    if (label) label.innerText = '0 records';
+    finUpdateApprovalBadge();
+    return;
+  }
+
+  // Fetch student bio for all emails in one batch
+  var emails  = [...new Set(rows.map(function(r){ return r.email; }))];
+  var bioData = [];
+  for (var i = 0; i < emails.length; i += 100) {
+    var batch = emails.slice(i, i+100);
+    var bp    = await sbFetch('student_bio?email=in.(' + batch.map(encodeURIComponent).join(',') + ')&select=email,name,index_number,level');
+    if (bp) bioData = bioData.concat(bp);
+  }
+  var bioMap = {};
+  bioData.forEach(function(b){ bioMap[b.email.toLowerCase().trim()] = b; });
+
+  if (label) label.innerText = rows.length + ' record(s)';
+
+  tbody.innerHTML = rows.map(function(r) {
+    var bio    = bioMap[r.email.toLowerCase().trim()] || {};
+    var name   = bio.name   || r.email;
+    var idx    = bio.index_number || '—';
+    var sc     = r.status === 'APPROVED' ? 'bg-success' : r.status === 'REJECTED' ? 'bg-danger' : 'bg-warning text-dark';
+    var payDt  = r.payment_date ? new Date(r.payment_date).toLocaleDateString('en-GB') : '—';
+    var subDt  = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-GB') + ' ' + new Date(r.submitted_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
+    var actBtns = r.status === 'PENDING'
+      ? '<button class="btn btn-sm btn-outline-primary fw-bold" onclick="finOpenReceiptViewer(\'' + r.id + '\')"><i class="bi bi-eye me-1"></i>Review</button>'
+      : '<button class="btn btn-sm btn-outline-secondary" onclick="finOpenReceiptViewer(\'' + r.id + '\')"><i class="bi bi-eye me-1"></i>View</button>';
+    return '<tr>' +
+      '<td><strong class="small">' + name.toUpperCase() + '</strong><br><small class="text-muted">' + r.email + '</small></td>' +
+      '<td class="small">' + idx + '</td>' +
+      '<td class="text-end fw-bold text-success small">GH₵ ' + Number(r.amount).toFixed(2) + '</td>' +
+      '<td class="small">' + payDt + '</td>' +
+      '<td class="small"><code>' + (r.reference || '—') + '</code></td>' +
+      '<td class="small text-muted">' + subDt + '</td>' +
+      '<td class="text-center"><span class="badge ' + sc + '">' + r.status + '</span></td>' +
+      '<td class="text-center">' + actBtns + '</td>' +
+    '</tr>';
+  }).join('');
+
+  finUpdateApprovalBadge();
+}
+
+async function finUpdateApprovalBadge() {
+  var badge = document.getElementById('approvalBadgeCount');
+  if (!badge) return;
+  var rows = await sbFetch('payment_submissions?status=eq.PENDING&select=id');
+  var count = rows ? rows.length : 0;
+  if (count > 0) {
+    badge.style.display = 'inline-block';
+    badge.innerText = count;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function finOpenReceiptViewer(submissionId) {
+  var container = document.getElementById('receiptImageContainer');
+  var infoEl    = document.getElementById('receiptStudentInfo');
+  var approveBtn = document.getElementById('receiptApproveBtn');
+  var rejectBtn  = document.getElementById('receiptRejectBtn');
+
+  container.innerHTML = '<div class="spinner-border text-light mt-5"></div>';
+  _currentApprovalRow = null;
+
+  new bootstrap.Modal(document.getElementById('receiptViewerModal')).show();
+
+  // Fetch submission record
+  var rows = await sbFetch('payment_submissions?id=eq.' + encodeURIComponent(submissionId) + '&select=*&limit=1');
+  if (!rows || !rows.length) {
+    container.innerHTML = '<p class="text-danger mt-5">Submission not found.</p>'; return;
+  }
+  var sub = rows[0];
+  _currentApprovalRow = sub;
+
+  // Fetch student bio
+  var bioRows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(sub.email) + '&select=name,index_number,level&limit=1');
+  var bio = bioRows && bioRows.length ? bioRows[0] : {};
+
+  infoEl.innerHTML =
+    '<strong>' + (bio.name || sub.email).toUpperCase() + '</strong>' +
+    ' &nbsp;|&nbsp; Index: ' + (bio.index_number || '—') +
+    ' &nbsp;|&nbsp; GH₵ ' + Number(sub.amount).toFixed(2) +
+    ' &nbsp;|&nbsp; Ref: ' + (sub.reference || '—') +
+    ' &nbsp;|&nbsp; Year: ' + (sub.academic_year || '—');
+
+  // Get signed URL for receipt image (valid 60 minutes)
+  var signedRes = await _supabaseClient.storage
+    .from('receipts')
+    .createSignedUrl(sub.receipt_url, 3600);
+
+  if (signedRes.error || !signedRes.data) {
+    container.innerHTML = '<p class="text-danger mt-4 p-3">Could not load receipt image.<br><small>' + (signedRes.error ? signedRes.error.message : 'Unknown error') + '</small></p>';
+  } else {
+    container.innerHTML =
+      '<img src="' + signedRes.data.signedUrl + '" ' +
+      'style="max-width:100%;max-height:65vh;object-fit:contain;border-radius:4px;" ' +
+      'onerror="this.parentNode.innerHTML=\'<p class=\\\'text-danger mt-4\\\'>Image failed to load.</p>\'">';
+  }
+
+  // Show/hide approve+reject based on status
+  var isPending = sub.status === 'PENDING';
+  approveBtn.style.display = isPending ? 'inline-block' : 'none';
+  rejectBtn.style.display  = isPending ? 'inline-block' : 'none';
+
+  // Wire buttons fresh each time to avoid stale closures
+  approveBtn.onclick = function(){ finApproveSubmission(sub); };
+  rejectBtn.onclick  = function(){ finRejectSubmission(sub); };
+}
+
+async function finApproveSubmission(sub) {
+  var confirm = await Swal.fire({
+    title: 'Approve Payment?',
+    html: '<p>This will add <strong>GH₵ ' + Number(sub.amount).toFixed(2) + '</strong> to <strong>' + sub.email + '</strong>\'s payment record for <strong>' + sub.academic_year + '</strong>.</p><p class="small text-muted">This action cannot be undone.</p>',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#10b981',
+    confirmButtonText: 'Yes, Approve'
+  });
+  if (!confirm.isConfirmed) return;
+
+  Swal.fire({ title: 'Processing...', html: '<div class="spinner-border text-success"></div>', allowOutsideClick: false, showConfirmButton: false });
+
+  var em = sub.email.toLowerCase().trim();
+
+  // 1. Write to payments table — same structure as finSubmitManualPayment
+  var payRes = await fetch(SUPABASE_URL + '/rest/v1/payments', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({
+      email:         em,
+      amount:        Number(sub.amount),
+      type:          'PAYMENT',
+      payment_date:  sub.payment_date,
+      reference:     sub.reference,
+      academic_year: sub.academic_year,
+      recorded_by:   userSession.email || 'Finance Officer'
+    })
+  });
+
+  if (!payRes.ok) {
+    Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not write to payments table: ' + await payRes.text() }); return;
+  }
+
+  // 2. Sync student_finance row — same as finSyncFinanceRow
+  await finSyncFinanceRow(em, sub.academic_year);
+
+  // 3. Update submission status to APPROVED
+  await fetch(SUPABASE_URL + '/rest/v1/payment_submissions?id=eq.' + encodeURIComponent(sub.id), {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({
+      status:      'APPROVED',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: userSession.email || 'Finance Officer'
+    })
+  });
+
+  bootstrap.Modal.getInstance(document.getElementById('receiptViewerModal')).hide();
+  Swal.fire({ icon: 'success', title: 'Approved!', text: 'GH₵ ' + Number(sub.amount).toFixed(2) + ' added to ' + sub.email, timer: 2500, showConfirmButton: false });
+  finLoadApprovals();
+}
+
+async function finRejectSubmission(sub) {
+  var result = await Swal.fire({
+    title: 'Reject Submission',
+    html: '<p class="small text-muted mb-2">Provide a reason so the student knows what to fix:</p>' +
+          '<select id="swalRejectReason" class="form-select mb-2">' +
+            '<option value="">-- Select Reason --</option>' +
+            '<option value="Receipt image is unclear — please resubmit a clearer photo">Receipt image unclear</option>' +
+            '<option value="Reference number does not match GCB records">Reference number mismatch</option>' +
+            '<option value="Amount on receipt does not match submitted amount">Amount mismatch</option>' +
+            '<option value="Receipt appears to be for a different academic year">Wrong academic year</option>' +
+            '<option value="Duplicate submission detected">Duplicate submission</option>' +
+          '</select>' +
+          '<input type="text" id="swalRejectCustom" class="form-control" placeholder="Or type a custom reason...">',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    confirmButtonText: 'Reject',
+    preConfirm: function() {
+      var sel    = document.getElementById('swalRejectReason').value;
+      var custom = document.getElementById('swalRejectCustom').value.trim();
+      var reason = custom || sel;
+      if (!reason) { Swal.showValidationMessage('Please select or enter a reason'); return false; }
+      return reason;
+    }
+  });
+  if (!result.isConfirmed) return;
+
+  Swal.fire({ title: 'Rejecting...', html: '<div class="spinner-border text-danger"></div>', allowOutsideClick: false, showConfirmButton: false });
+
+  await fetch(SUPABASE_URL + '/rest/v1/payment_submissions?id=eq.' + encodeURIComponent(sub.id), {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({
+      status:           'REJECTED',
+      rejection_reason: result.value,
+      reviewed_at:      new Date().toISOString(),
+      reviewed_by:      userSession.email || 'Finance Officer'
+    })
+  });
+
+  bootstrap.Modal.getInstance(document.getElementById('receiptViewerModal')).hide();
+  Swal.fire({ icon: 'info', title: 'Rejected', text: 'Submission marked as rejected. Student can resubmit.', timer: 2000, showConfirmButton: false });
+  finLoadApprovals();
+}
+  
 // ── Auto-init when fragment loads ──────────────────────────────
 (async function() {
   document.querySelectorAll('.finance-section').forEach(s => {
@@ -1655,5 +1969,6 @@ async function finLoadPreSystemRecords() {
   });
   await finLoadActiveYearDisplay();
   await finLoadYearFeeStatusTable();
+  finUpdateApprovalBadge(); // show pending count badge on sidebar on load
 })();
 </script>
