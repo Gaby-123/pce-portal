@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCE Admission Portal</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root { --pce-blue:#0284c7; --pce-dark:#0f172a; }
+    * { box-sizing:border-box; }
+    body { background:#f8fafc; font-family:'Inter',system-ui,sans-serif; min-height:100vh; }
+
+    /* ── Top bar ── */
+    .adm-topbar { background:linear-gradient(135deg,#1e3a5f,#1d4ed8); color:white; padding:14px 24px; display:flex; align-items:center; gap:12px; }
+    .adm-topbar img { width:40px; height:40px; object-fit:contain; }
+    .adm-topbar h6 { margin:0; font-weight:700; font-size:0.95rem; }
+    .adm-topbar p  { margin:0; font-size:0.72rem; opacity:0.75; }
+
+    /* ── Screen wrapper ── */
+    .adm-screen { display:none; }
+    .adm-screen.active { display:block; }
+    .adm-card { background:white; border-radius:16px; border:1px solid #e2e8f0; box-shadow:0 4px 24px rgba(0,0,0,0.06); padding:32px; max-width:640px; margin:40px auto; }
+
+    /* ── Step indicator ── */
+    .step-dots { display:flex; gap:8px; justify-content:center; margin-bottom:24px; }
+    .step-dot { width:10px; height:10px; border-radius:50%; background:#e2e8f0; transition:all 0.3s; }
+    .step-dot.active { background:#1d4ed8; transform:scale(1.3); }
+    .step-dot.done   { background:#10b981; }
+
+    /* ── Status badges ── */
+    .status-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 16px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+    .status-ADMITTED         { background:#dbeafe; color:#1e40af; }
+    .status-PAYMENT_PENDING  { background:#fef3c7; color:#92400e; }
+    .status-PAYMENT_VERIFIED { background:#d1fae5; color:#065f46; }
+    .status-BIODATA_SUBMITTED{ background:#ede9fe; color:#5b21b6; }
+    .status-ENROLLED         { background:#d1fae5; color:#065f46; }
+
+    /* ── Photo preview ── */
+    .photo-preview { width:150px; height:150px; border-radius:12px; border:2px dashed #e2e8f0; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; overflow:hidden; background:#f8fafc; cursor:pointer; }
+    .photo-preview img { width:100%; height:100%; object-fit:cover; }
+
+    /* ── WASSCE table ── */
+    .wassce-table { width:100%; border-collapse:collapse; }
+    .wassce-table th { background:#1e3a5f; color:white; padding:8px 12px; font-size:0.8rem; font-weight:600; }
+    .wassce-table td { padding:6px 8px; border-bottom:1px solid #f1f5f9; }
+    .wassce-table input, .wassce-table select { border:1.5px solid #e2e8f0; border-radius:6px; padding:6px 8px; font-size:0.85rem; width:100%; }
+    .wassce-table input:focus, .wassce-table select:focus { outline:none; border-color:#1d4ed8; }
+
+    /* ── Aggregate input ── */
+    .aggregate-box { background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:16px; margin-top:16px; }
+
+    /* ── Admission hero ── */
+    .adm-hero { background:linear-gradient(135deg,#1e3a5f,#1d4ed8,#0284c7); border-radius:14px; padding:24px; color:white; margin-bottom:24px; }
+
+    /* ── Form labels ── */
+    .form-label { font-size:0.82rem; font-weight:600; color:#475569; margin-bottom:4px; }
+    .form-control, .form-select { border:1.5px solid #e2e8f0; border-radius:8px; font-size:0.9rem; padding:10px; }
+    .form-control:focus, .form-select:focus { border-color:#1d4ed8; box-shadow:0 0 0 3px rgba(29,78,216,0.1); }
+
+    /* ── Buttons ── */
+    .btn-adm-primary { background:#1d4ed8; color:white; border:none; border-radius:8px; padding:12px 24px; font-weight:700; width:100%; font-size:0.95rem; transition:all 0.2s; }
+    .btn-adm-primary:hover { background:#1e40af; transform:translateY(-1px); }
+    .btn-adm-secondary { background:white; color:#475569; border:1.5px solid #e2e8f0; border-radius:8px; padding:12px 24px; font-weight:600; transition:all 0.2s; }
+    .btn-adm-secondary:hover { background:#f8fafc; }
+    .btn-adm-success { background:#10b981; color:white; border:none; border-radius:8px; padding:12px 24px; font-weight:700; width:100%; }
+
+    /* ── Locked overlay ── */
+    .locked-notice { background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:16px; text-align:center; }
+
+    @media(max-width:600px) { .adm-card { margin:16px; padding:20px; } }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="adm-topbar">
+  <div>
+    <h6><i class="bi bi-mortarboard-fill me-2"></i>Presbyterian College of Education, Akropong</h6>
+    <p>Admission Portal — Academic Year <span id="admTopYear"></span></p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SCREEN 1 — LOGIN                          -->
+<!-- ══════════════════════════════════════════ -->
+<div id="scr-login" class="adm-screen active">
+  <div class="adm-card">
+    <div class="text-center mb-4">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,#1d4ed8,#0284c7);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+        <i class="bi bi-mortarboard-fill" style="font-size:1.8rem;color:white;"></i>
+      </div>
+      <h4 class="fw-bold" style="color:#0f172a;">Admission Portal</h4>
+      <p class="text-muted small">Enter your application details to access your admission status</p>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Application Reference Number <span class="text-danger">*</span></label>
+      <input type="text" id="loginRef" class="form-control" placeholder="e.g. APP/2025/001234" autocomplete="off">
+    </div>
+    <div class="mb-4">
+      <label class="form-label">Phone Number <span class="text-danger">*</span></label>
+      <input type="tel" id="loginPhone" class="form-control" placeholder="e.g. 0241234567" autocomplete="off">
+      <div class="form-text">Enter the phone number used during your application</div>
+    </div>
+    <button class="btn-adm-primary" onclick="admLogin()">
+      <i class="bi bi-box-arrow-in-right me-2"></i>Access My Admission
+    </button>
+    <div id="loginStatus" class="mt-3" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SCREEN 2 — ADMISSION STATUS               -->
+<!-- ══════════════════════════════════════════ -->
+<div id="scr-status" class="adm-screen">
+  <div class="adm-card">
+    <div class="adm-hero">
+      <div class="d-flex align-items-center gap-3">
+        <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;flex-shrink:0;" id="admInitials">JM</div>
+        <div>
+          <div style="font-size:0.7rem;opacity:0.7;text-transform:uppercase;letter-spacing:1px;">Admitted Applicant</div>
+          <h5 style="margin:0;font-weight:800;" id="admHeroName">JOHN MENSAH</h5>
+          <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+            <span style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);padding:2px 10px;border-radius:20px;font-size:0.72rem;" id="admHeroProg">Primary Education</span>
+            <span style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);padding:2px 10px;border-radius:20px;font-size:0.72rem;" id="admHeroYear">2025/2026</span>
+            <span style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);padding:2px 10px;border-radius:20px;font-size:0.72rem;" id="admHeroRef">APP/2025/001</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status timeline -->
+    <div class="mb-4">
+      <div class="d-flex align-items-center gap-3 mb-2" id="tl-admitted">
+        <div style="width:32px;height:32px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✅</div>
+        <div><div class="fw-bold small">Admitted</div><div class="text-muted" style="font-size:0.72rem;">Your application has been accepted</div></div>
+      </div>
+      <div class="d-flex align-items-center gap-3 mb-2" id="tl-payment">
+        <div style="width:32px;height:32px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="tl-payment-icon">⏳</div>
+        <div><div class="fw-bold small">Payment Verification</div><div class="text-muted" style="font-size:0.72rem;" id="tl-payment-text">Upload your payment slip to proceed</div></div>
+      </div>
+      <div class="d-flex align-items-center gap-3 mb-2" id="tl-biodata">
+        <div style="width:32px;height:32px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="tl-biodata-icon">📋</div>
+        <div><div class="fw-bold small">Biodata Form</div><div class="text-muted" style="font-size:0.72rem;" id="tl-biodata-text">Fill in your personal details</div></div>
+      </div>
+      <div class="d-flex align-items-center gap-3" id="tl-enrolled">
+        <div style="width:32px;height:32px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="tl-enrolled-icon">🎓</div>
+        <div><div class="fw-bold small">Enrollment</div><div class="text-muted" style="font-size:0.72rem;" id="tl-enrolled-text">Awaiting official index number assignment</div></div>
+      </div>
+    </div>
+
+    <button class="btn-adm-primary mb-2" onclick="admShowScreen('scr-payment')">
+      <i class="bi bi-arrow-right-circle me-2"></i>Continue to Next Step
+    </button>
+    <button class="btn-adm-secondary w-100" onclick="admDownloadLetter()">
+      <i class="bi bi-file-earmark-pdf me-2"></i>Download Admission Letter
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SCREEN 3 — PAYMENT UPLOAD                 -->
+<!-- ══════════════════════════════════════════ -->
+<div id="scr-payment" class="adm-screen">
+  <div class="adm-card">
+    <button class="btn btn-link text-muted p-0 mb-3 small" onclick="admShowScreen('scr-status')">
+      <i class="bi bi-arrow-left me-1"></i>Back to Status
+    </button>
+
+    <!-- If PAYMENT_PENDING -->
+    <div id="pay-pending-view" style="display:none;">
+      <div class="text-center py-3">
+        <div style="font-size:3rem;">⏳</div>
+        <h5 class="fw-bold mt-2" style="color:#92400e;">Payment Awaiting Verification</h5>
+        <p class="text-muted small">Finance Office is reviewing your payment slip. This usually takes 1–2 working days.</p>
+        <div class="row g-2 small mt-3" id="payPendingDetails"></div>
+        <div class="alert alert-warning py-2 px-3 small mt-3">Your biodata form will unlock once payment is verified.</div>
+      </div>
+    </div>
+
+    <!-- If PAYMENT_VERIFIED -->
+    <div id="pay-verified-view" style="display:none;">
+      <div class="text-center py-3">
+        <div style="font-size:3rem;">✅</div>
+        <h5 class="fw-bold mt-2" style="color:#065f46;">Payment Verified!</h5>
+        <p class="text-muted small">Your payment has been confirmed by Finance Office.</p>
+        <button class="btn-adm-success mt-3" onclick="admShowScreen('scr-biodata'); admInitBiodata();">
+          <i class="bi bi-pencil-square me-2"></i>Proceed to Fill Biodata Form
+        </button>
+      </div>
+    </div>
+
+    <!-- If PAYMENT_REJECTED -->
+    <div id="pay-rejected-view" style="display:none;">
+      <div class="alert alert-danger mb-3">
+        <strong>⚠ Payment Rejected:</strong> <span id="payRejectionReason"></span>
+        <br><small>Please resubmit with a correct payment slip.</small>
+      </div>
+    </div>
+
+    <!-- Upload form — shown when ADMITTED or REJECTED -->
+    <div id="pay-upload-view">
+      <h5 class="fw-bold mb-1"><i class="bi bi-bank me-2 text-primary"></i>Upload Payment Slip</h5>
+      <p class="text-muted small mb-4">Pay your admission fees at the bank and upload the payment slip here for verification.</p>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Amount Paid (GH₵) <span class="text-danger">*</span></label>
+          <input type="number" id="payAmount" class="form-control" placeholder="e.g. 500.00" step="0.01" min="1">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Date of Payment <span class="text-danger">*</span></label>
+          <input type="date" id="payDate" class="form-control" max="">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Bank Reference Number <span class="text-danger">*</span></label>
+          <input type="text" id="payRef" class="form-control" placeholder="e.g. GCB20250915001">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Upload Payment Slip <span class="text-danger">*</span></label>
+          <input type="file" id="paySlip" class="form-control" accept="image/jpeg,image/png,image/webp">
+          <div class="form-text"><i class="bi bi-info-circle me-1"></i>Max 500KB. Clear photo of your bank payment slip.</div>
+        </div>
+      </div>
+      <button class="btn-adm-primary mt-4" onclick="admSubmitPayment()">
+        <i class="bi bi-upload me-2"></i>Submit Payment for Verification
+      </button>
+      <div id="payStatus" class="mt-3" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SCREEN 4 — BIODATA FORM                   -->
+<!-- ══════════════════════════════════════════ -->
+<div id="scr-biodata" class="adm-screen">
+  <div class="adm-card" style="max-width:720px;">
+    <button class="btn btn-link text-muted p-0 mb-3 small" onclick="admShowScreen('scr-payment')">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </button>
+    <h5 class="fw-bold mb-1">Biodata Form</h5>
+    <p class="text-muted small mb-4">Complete all steps carefully. Your information will be used for official records.</p>
+
+    <!-- Step dots -->
+    <div class="step-dots mb-4" id="biodataStepDots">
+      <div class="step-dot active" id="dot-1"></div>
+      <div class="step-dot" id="dot-2"></div>
+      <div class="step-dot" id="dot-3"></div>
+      <div class="step-dot" id="dot-4"></div>
+    </div>
+
+    <!-- Step labels -->
+    <div class="d-flex justify-content-between small text-muted mb-4" style="font-size:0.72rem;">
+      <span>Personal Info</span>
+      <span>Academic</span>
+      <span>Next of Kin</span>
+      <span>Photo</span>
+    </div>
+
+    <!-- STEP 1 — Personal Info -->
+    <div id="bio-step-1" class="bio-step">
+      <h6 class="fw-bold text-primary mb-3"><i class="bi bi-person me-2"></i>STEP 1 — PERSONAL INFORMATION</h6>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Full Name <span class="text-danger">*</span></label>
+          <input type="text" id="bioName" class="form-control" placeholder="As it appears on your application">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Date of Birth <span class="text-danger">*</span></label>
+          <input type="date" id="bioDOB" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Gender <span class="text-danger">*</span></label>
+          <select id="bioGender" class="form-select">
+            <option value="">-- Select --</option>
+            <option>Male</option>
+            <option>Female</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Nationality <span class="text-danger">*</span></label>
+          <input type="text" id="bioNationality" class="form-control" value="Ghanaian">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Hometown <span class="text-danger">*</span></label>
+          <input type="text" id="bioHometown" class="form-control" placeholder="e.g. Kumasi">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Region <span class="text-danger">*</span></label>
+          <select id="bioRegion" class="form-select">
+            <option value="">-- Select Region --</option>
+            <option>Ahafo</option>
+            <option>Ashanti</option>
+            <option>Bono</option>
+            <option>Bono East</option>
+            <option>Central</option>
+            <option>Eastern</option>
+            <option>Greater Accra</option>
+            <option>North East</option>
+            <option>Northern</option>
+            <option>Oti</option>
+            <option>Savannah</option>
+            <option>Upper East</option>
+            <option>Upper West</option>
+            <option>Volta</option>
+            <option>Western</option>
+            <option>Western North</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Religion</label>
+          <select id="bioReligion" class="form-select">
+            <option value="">-- Select --</option>
+            <option>Christianity</option>
+            <option>Islam</option>
+            <option>Traditional</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Marital Status</label>
+          <select id="bioMarital" class="form-select">
+            <option value="">-- Select --</option>
+            <option>Single</option>
+            <option>Married</option>
+            <option>Divorced</option>
+            <option>Widowed</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Ghana Card Number</label>
+          <input type="text" id="bioGhanaCard" class="form-control" placeholder="GHA-XXXXXXXXX-X">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Email Address <span class="text-danger">*</span></label>
+          <input type="email" id="bioEmail" class="form-control" placeholder="e.g. john@gmail.com">
+          <div class="form-text">This will be your portal login email</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Alternative Phone</label>
+          <input type="tel" id="bioPhoneAlt" class="form-control" placeholder="e.g. 0551234567">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Residential Address <span class="text-danger">*</span></label>
+          <textarea id="bioResAddr" class="form-control" rows="2" placeholder="House No., Street, Town"></textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Postal Address</label>
+          <input type="text" id="bioPostAddr" class="form-control" placeholder="P.O. Box or Digital Address">
+        </div>
+      </div>
+      <div class="d-flex justify-content-end mt-4">
+        <button class="btn-adm-primary" style="width:auto;padding:12px 32px;" onclick="admBioNext(1)">
+          Next <i class="bi bi-arrow-right ms-1"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 2 — Academic / WASSCE -->
+    <div id="bio-step-2" class="bio-step" style="display:none;">
+      <h6 class="fw-bold text-primary mb-3"><i class="bi bi-book me-2"></i>STEP 2 — ACADEMIC INFORMATION</h6>
+      <div class="row g-3 mb-4">
+        <div class="col-12">
+          <label class="form-label">Previous School Attended <span class="text-danger">*</span></label>
+          <input type="text" id="bioPrevSchool" class="form-control" placeholder="e.g. Achimota Senior High School">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">WASSCE Index Number <span class="text-danger">*</span></label>
+          <input type="text" id="bioWassceIdx" class="form-control" placeholder="e.g. 1234567890">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">WASSCE Year <span class="text-danger">*</span></label>
+          <select id="bioWassceYear" class="form-select">
+            <option value="">-- Select Year --</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- WASSCE Results Table -->
+      <div class="mb-3">
+        <label class="form-label fw-bold">WASSCE Subject Results <span class="text-danger">*</span></label>
+        <div class="form-text mb-2">Enter all subjects you sat for WASSCE</div>
+        <table class="wassce-table">
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th>Subject</th>
+              <th style="width:140px;">Grade</th>
+            </tr>
+          </thead>
+          <tbody id="wassceBody">
+            <!-- 8 rows generated by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Best Six Aggregate -->
+      <div class="aggregate-box">
+        <label class="form-label fw-bold">Best Six Aggregate <span class="text-danger">*</span></label>
+        <div class="d-flex align-items-center gap-3">
+          <input type="number" id="bioAggregate" class="form-control" style="max-width:120px;" placeholder="e.g. 18" min="6" max="48">
+          <span class="small text-muted">Add up your best 6 grades (A1=1, B2=2 ... F9=9)</span>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between mt-4">
+        <button class="btn-adm-secondary" style="width:auto;padding:12px 24px;" onclick="admBioBack(2)">
+          <i class="bi bi-arrow-left me-1"></i> Back
+        </button>
+        <button class="btn-adm-primary" style="width:auto;padding:12px 32px;" onclick="admBioNext(2)">
+          Next <i class="bi bi-arrow-right ms-1"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 3 — Next of Kin -->
+    <div id="bio-step-3" class="bio-step" style="display:none;">
+      <h6 class="fw-bold text-primary mb-3"><i class="bi bi-people me-2"></i>STEP 3 — NEXT OF KIN</h6>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Full Name <span class="text-danger">*</span></label>
+          <input type="text" id="bioNokName" class="form-control" placeholder="Next of kin full name">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Relationship <span class="text-danger">*</span></label>
+          <select id="bioNokRelation" class="form-select">
+            <option value="">-- Select --</option>
+            <option>Father</option>
+            <option>Mother</option>
+            <option>Guardian</option>
+            <option>Sibling</option>
+            <option>Spouse</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Phone Number <span class="text-danger">*</span></label>
+          <input type="tel" id="bioNokPhone" class="form-control" placeholder="e.g. 0241234567">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Address <span class="text-danger">*</span></label>
+          <textarea id="bioNokAddr" class="form-control" rows="2" placeholder="Next of kin address"></textarea>
+        </div>
+      </div>
+      <div class="d-flex justify-content-between mt-4">
+        <button class="btn-adm-secondary" style="width:auto;padding:12px 24px;" onclick="admBioBack(3)">
+          <i class="bi bi-arrow-left me-1"></i> Back
+        </button>
+        <button class="btn-adm-primary" style="width:auto;padding:12px 32px;" onclick="admBioNext(3)">
+          Next <i class="bi bi-arrow-right ms-1"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 4 — Photo Upload -->
+    <div id="bio-step-4" class="bio-step" style="display:none;">
+      <h6 class="fw-bold text-primary mb-3"><i class="bi bi-camera me-2"></i>STEP 4 — PASSPORT PHOTO</h6>
+      <p class="text-muted small mb-4">Upload a clear passport-sized photo. This will appear on your biodata form and student records.</p>
+
+      <div class="photo-preview" id="photoPreview" onclick="document.getElementById('bioPhoto').click()">
+        <div class="text-center text-muted">
+          <i class="bi bi-camera" style="font-size:2rem;"></i>
+          <div class="small mt-1">Click to upload</div>
+        </div>
+      </div>
+
+      <div class="text-center mb-4">
+        <input type="file" id="bioPhoto" accept="image/jpeg,image/png" style="display:none;" onchange="admPreviewPhoto(this)">
+        <button class="btn btn-outline-primary btn-sm" onclick="document.getElementById('bioPhoto').click()">
+          <i class="bi bi-upload me-1"></i>Choose Photo
+        </button>
+        <div class="form-text mt-1">Max 800KB. JPEG or PNG. Passport style — face clearly visible.</div>
+      </div>
+
+      <div id="photoError" class="alert alert-danger small py-2 px-3" style="display:none;"></div>
+
+      <div class="d-flex justify-content-between mt-3">
+        <button class="btn-adm-secondary" style="width:auto;padding:12px 24px;" onclick="admBioBack(4)">
+          <i class="bi bi-arrow-left me-1"></i> Back
+        </button>
+        <button class="btn-adm-primary" style="width:auto;padding:12px 32px;" onclick="admSubmitBiodata()">
+          <i class="bi bi-check-circle me-1"></i> Submit Biodata
+        </button>
+      </div>
+      <div id="bioSubmitStatus" class="mt-3" style="display:none;"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SCREEN 5 — SUCCESS                        -->
+<!-- ══════════════════════════════════════════ -->
+<div id="scr-success" class="adm-screen">
+  <div class="adm-card text-center">
+    <div style="font-size:4rem;">🎓</div>
+    <h4 class="fw-bold mt-3" style="color:#065f46;">Biodata Submitted Successfully!</h4>
+    <p class="text-muted">Your details have been saved. You will receive an SMS when your student portal account is ready.</p>
+    <div class="alert alert-info small mt-3 text-start">
+      <strong><i class="bi bi-info-circle me-1"></i>What happens next?</strong><br>
+      The Registry Office will assign your official index number and activate your student portal account.
+      You will be notified via SMS on <strong id="successPhone"></strong>.
+    </div>
+    <button class="btn-adm-primary mt-3" onclick="admPrintBiodata()">
+      <i class="bi bi-printer me-2"></i>Print Biodata Form
+    </button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── Config ────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://ilgfjyokqyoonteqzgbx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsZ2ZqeW9rcXlvb250ZXF6Z2J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDk4MzQ4NzcsImV4cCI6MjAyNTQxMDg3N30.tbBcOdRsVonNDECGkMYNkLBgSRMEeG8SgMVkmFMD6tg';
+const _sc = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── State ─────────────────────────────────────────────────────
+var _adm = null; // current admission record
+
+// ── Helpers ───────────────────────────────────────────────────
+async function admFetch(path) {
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch(e) { return null; }
+}
+
+function admShowScreen(id) {
+  document.querySelectorAll('.adm-screen').forEach(function(s){ s.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) { el.classList.add('active'); window.scrollTo(0,0); }
+}
+
+function admStatusClass(status) {
+  var map = {
+    'ADMITTED':'status-ADMITTED',
+    'PAYMENT_PENDING':'status-PAYMENT_PENDING',
+    'PAYMENT_VERIFIED':'status-PAYMENT_VERIFIED',
+    'BIODATA_SUBMITTED':'status-BIODATA_SUBMITTED',
+    'ENROLLED':'status-ENROLLED'
+  };
+  return map[status] || 'status-ADMITTED';
+}
+
+// ── Init ──────────────────────────────────────────────────────
+(function(){
+  // Set max date for payment
+  var payDateEl = document.getElementById('payDate');
+  if (payDateEl) payDateEl.max = new Date().toISOString().slice(0,10);
+
+  // Populate WASSCE year dropdown
+  var yrSel = document.getElementById('bioWassceYear');
+  var curYr = new Date().getFullYear();
+  for (var y = curYr; y >= curYr - 10; y--) {
+    var o = document.createElement('option');
+    o.value = y; o.text = y;
+    yrSel.add(o);
+  }
+
+  // Build WASSCE rows
+  var tbody = document.getElementById('wassceBody');
+  var grades = ['A1','B2','B3','C4','C5','C6','D7','E8','F9'];
+  for (var i = 1; i <= 8; i++) {
+    var opts = grades.map(function(g){ return '<option value="'+g+'">'+g+'</option>'; }).join('');
+    tbody.innerHTML +=
+      '<tr>' +
+        '<td style="text-align:center;color:#94a3b8;font-weight:600;">' + i + '</td>' +
+        '<td><input type="text" id="wsSubj'+i+'" placeholder="Subject name" class="form-control"></td>' +
+        '<td><select id="wsGrade'+i+'" class="form-select"><option value="">Grade</option>' + opts + '</select></td>' +
+      '</tr>';
+  }
+})();
+
+// ── LOGIN ─────────────────────────────────────────────────────
+async function admLogin() {
+  var ref   = document.getElementById('loginRef').value.trim().toUpperCase();
+  var phone = document.getElementById('loginPhone').value.trim().replace(/\s+/g,'');
+  var st    = document.getElementById('loginStatus');
+
+  if (!ref || !phone) {
+    st.className='alert alert-danger small'; st.style.display='block';
+    st.innerHTML='⚠ Please enter both your application reference and phone number.'; return;
+  }
+
+  st.className='alert alert-info small'; st.style.display='block';
+  st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Verifying...';
+
+  var rows = await admFetch(
+    'admissions?application_ref=eq.' + encodeURIComponent(ref) +
+    '&select=*&limit=1'
+  );
+
+  if (!rows || !rows.length) {
+    st.className='alert alert-danger small'; st.style.display='block';
+    st.innerHTML='⚠ Application reference not found. Please check and try again.'; return;
+  }
+
+  var adm = rows[0];
+
+  // Normalise phone for comparison — strip spaces, leading zeros, country code
+  function normPhone(p) {
+    return String(p||'').replace(/\s+/g,'').replace(/^(\+233|0)/, '');
+  }
+  if (normPhone(adm.phone) !== normPhone(phone)) {
+    st.className='alert alert-danger small'; st.style.display='block';
+    st.innerHTML='⚠ Phone number does not match our records. Please use the number from your application.'; return;
+  }
+
+  _adm = adm;
+  st.style.display='none';
+  admLoadStatusScreen();
+  admShowScreen('scr-status');
+}
+
+// ── STATUS SCREEN ─────────────────────────────────────────────
+function admLoadStatusScreen() {
+  if (!_adm) return;
+  var name = String(_adm.full_name||'').toUpperCase();
+  var initials = name.split(' ').map(function(n){ return n[0]||''; }).join('').substring(0,2);
+
+  document.getElementById('admInitials').innerText   = initials;
+  document.getElementById('admHeroName').innerText   = name;
+  document.getElementById('admHeroProg').innerText   = _adm.programme || '';
+  document.getElementById('admHeroYear').innerText   = _adm.academic_year || '';
+  document.getElementById('admHeroRef').innerText    = _adm.application_ref || '';
+  document.getElementById('admTopYear').innerText    = _adm.academic_year || '';
+
+  // Update timeline based on status
+  var s = _adm.status;
+  var paid     = ['PAYMENT_PENDING','PAYMENT_VERIFIED','BIODATA_SUBMITTED','ENROLLED'].includes(s);
+  var verified = ['PAYMENT_VERIFIED','BIODATA_SUBMITTED','ENROLLED'].includes(s);
+  var biodone  = ['BIODATA_SUBMITTED','ENROLLED'].includes(s);
+  var enrolled = s === 'ENROLLED';
+
+  if (paid) {
+    document.getElementById('tl-payment-icon').innerText = verified ? '✅' : '⏳';
+    document.getElementById('tl-payment-text').innerText = verified ? 'Payment verified' : 'Awaiting Finance verification';
+  }
+  if (biodone) {
+    document.getElementById('tl-biodata-icon').innerText = '✅';
+    document.getElementById('tl-biodata-text').innerText = 'Biodata submitted';
+  }
+  if (enrolled) {
+    document.getElementById('tl-enrolled-icon').innerText = '✅';
+    document.getElementById('tl-enrolled-text').innerText = 'Enrolled — portal access granted';
+  }
+
+  // Update continue button based on status
+  var btn = document.querySelector('#scr-status .btn-adm-primary');
+  if (s === 'BIODATA_SUBMITTED' || s === 'ENROLLED') {
+    btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Biodata Already Submitted';
+    btn.onclick = function(){ admShowScreen('scr-success'); document.getElementById('successPhone').innerText = _adm.phone; };
+  } else if (s === 'PAYMENT_VERIFIED') {
+    btn.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Proceed to Fill Biodata';
+    btn.onclick = function(){ admShowScreen('scr-biodata'); admInitBiodata(); };
+  } else {
+    btn.innerHTML = '<i class="bi bi-arrow-right-circle me-2"></i>Continue to Payment';
+    btn.onclick = function(){ admShowScreen('scr-payment'); admLoadPaymentScreen(); };
+  }
+}
+
+// ── PAYMENT SCREEN ────────────────────────────────────────────
+function admLoadPaymentScreen() {
+  if (!_adm) return;
+  var s = _adm.status;
+
+  document.getElementById('pay-pending-view').style.display  = 'none';
+  document.getElementById('pay-verified-view').style.display = 'none';
+  document.getElementById('pay-rejected-view').style.display = 'none';
+  document.getElementById('pay-upload-view').style.display   = 'block';
+
+  if (s === 'PAYMENT_PENDING') {
+    document.getElementById('pay-pending-view').style.display = 'block';
+    document.getElementById('pay-upload-view').style.display  = 'none';
+    document.getElementById('payPendingDetails').innerHTML =
+      '<div class="col-4"><span class="text-muted d-block">Amount</span><strong>GH₵ ' + Number(_adm.payment_amount||0).toFixed(2) + '</strong></div>' +
+      '<div class="col-4"><span class="text-muted d-block">Reference</span><strong>' + (_adm.payment_ref||'—') + '</strong></div>' +
+      '<div class="col-4"><span class="text-muted d-block">Date</span><strong>' + (_adm.payment_date ? new Date(_adm.payment_date).toLocaleDateString('en-GB') : '—') + '</strong></div>';
+  } else if (s === 'PAYMENT_VERIFIED') {
+    document.getElementById('pay-verified-view').style.display = 'block';
+    document.getElementById('pay-upload-view').style.display   = 'none';
+  } else if (s === 'PAYMENT_PENDING' && _adm.payment_rejection_reason) {
+    document.getElementById('pay-rejected-view').style.display = 'block';
+    document.getElementById('payRejectionReason').innerText = _adm.payment_rejection_reason;
+  }
+}
+
+async function admSubmitPayment() {
+  var amount = parseFloat(document.getElementById('payAmount').value);
+  var date   = document.getElementById('payDate').value;
+  var ref    = document.getElementById('payRef').value.trim();
+  var file   = document.getElementById('paySlip').files[0];
+  var st     = document.getElementById('payStatus');
+
+  if (!amount || amount <= 0) { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Enter a valid amount.'; return; }
+  if (!date)  { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Select the payment date.'; return; }
+  if (!ref)   { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Enter the bank reference number.'; return; }
+  if (!file)  { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Upload your payment slip image.'; return; }
+  if (file.size > 512000) { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Image too large. Max 500KB.'; return; }
+
+  // Duplicate reference check
+  var dup = await admFetch('admissions?payment_ref=eq.' + encodeURIComponent(ref) + '&select=id&limit=1');
+  if (dup && dup.length > 0 && dup[0].id !== _adm.id) {
+    st.className='alert alert-danger small'; st.style.display='block';
+    st.innerHTML='⚠ This reference number has already been used by another applicant.'; return;
+  }
+
+  st.className='alert alert-info small'; st.style.display='block';
+  st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Uploading payment slip...';
+
+  // Upload to Supabase Storage
+  var ext      = file.type === 'image/png' ? 'png' : 'jpg';
+  var filePath = 'admission/' + _adm.application_ref.replace(/\//g,'-') + '/' + Date.now() + '.' + ext;
+
+  var uploadRes = await _sc.storage.from('receipts').upload(filePath, file, { contentType: file.type, upsert: false });
+  if (uploadRes.error) {
+    st.className='alert alert-danger small'; st.style.display='block';
+    st.innerHTML='⚠ Upload failed: ' + uploadRes.error.message; return;
+  }
+
+  st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+
+  // Update admissions record
+  var patchRes = await fetch(SUPABASE_URL + '/rest/v1/admissions?id=eq.' + encodeURIComponent(_adm.id), {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify({
+      status:           'PAYMENT_PENDING',
+      payment_slip_url: filePath,
+      payment_amount:   amount,
+      payment_date:     date,
+      payment_ref:      ref
+    })
+  });
+
+  if (!patchRes.ok) {
+    st.className='alert alert-danger small'; st.style.display='block';
+    st.innerHTML='⚠ Failed to save: ' + await patchRes.text(); return;
+  }
+
+  _adm.status           = 'PAYMENT_PENDING';
+  _adm.payment_amount   = amount;
+  _adm.payment_date     = date;
+  _adm.payment_ref      = ref;
+  _adm.payment_slip_url = filePath;
+
+  st.className='alert alert-success small'; st.style.display='block';
+  st.innerHTML='✅ Payment slip submitted! Finance Office will verify within 1–2 working days.';
+
+  setTimeout(function(){
+    admLoadPaymentScreen();
+    admLoadStatusScreen();
+  }, 2000);
+}
+
+// ── BIODATA FORM ──────────────────────────────────────────────
+var _bioStep = 1;
+
+function admInitBiodata() {
+  // Pre-fill from admission record
+  if (_adm) {
+    var nameEl = document.getElementById('bioName');
+    if (nameEl && !nameEl.value) nameEl.value = _adm.full_name || '';
+    var genderEl = document.getElementById('bioGender');
+    if (genderEl && _adm.gender && !genderEl.value) genderEl.value = _adm.gender;
+  }
+  admGoToBioStep(1);
+}
+
+function admGoToBioStep(step) {
+  _bioStep = step;
+  for (var i = 1; i <= 4; i++) {
+    var el = document.getElementById('bio-step-' + i);
+    if (el) el.style.display = (i === step) ? 'block' : 'none';
+    var dot = document.getElementById('dot-' + i);
+    if (dot) {
+      dot.classList.remove('active','done');
+      if (i < step)       dot.classList.add('done');
+      else if (i === step) dot.classList.add('active');
+    }
+  }
+  window.scrollTo(0, document.getElementById('scr-biodata').offsetTop - 20);
+}
+
+function admBioNext(step) {
+  if (step === 1) {
+    // Validate step 1
+    var required = [
+      ['bioName',        'Full Name'],
+      ['bioDOB',         'Date of Birth'],
+      ['bioGender',      'Gender'],
+      ['bioNationality', 'Nationality'],
+      ['bioHometown',    'Hometown'],
+      ['bioRegion',      'Region'],
+      ['bioEmail',       'Email Address'],
+      ['bioResAddr',     'Residential Address']
+    ];
+    for (var i = 0; i < required.length; i++) {
+      var val = document.getElementById(required[i][0]).value.trim();
+      if (!val) {
+        Swal.fire({ icon:'warning', title:'Required Field', text:required[i][1] + ' is required.', confirmButtonColor:'#1d4ed8' });
+        document.getElementById(required[i][0]).focus();
+        return;
+      }
+    }
+    // Email validation
+    var email = document.getElementById('bioEmail').value.trim();
+    if (!email.includes('@') || !email.includes('.')) {
+      Swal.fire({ icon:'warning', title:'Invalid Email', text:'Please enter a valid email address.', confirmButtonColor:'#1d4ed8' });
+      return;
+    }
+  }
+
+  if (step === 2) {
+    // Validate step 2
+    if (!document.getElementById('bioPrevSchool').value.trim()) {
+      Swal.fire({ icon:'warning', title:'Required', text:'Please enter your previous school.', confirmButtonColor:'#1d4ed8' }); return;
+    }
+    if (!document.getElementById('bioWassceIdx').value.trim()) {
+      Swal.fire({ icon:'warning', title:'Required', text:'Please enter your WASSCE index number.', confirmButtonColor:'#1d4ed8' }); return;
+    }
+    if (!document.getElementById('bioWassceYear').value) {
+      Swal.fire({ icon:'warning', title:'Required', text:'Please select your WASSCE year.', confirmButtonColor:'#1d4ed8' }); return;
+    }
+    // Validate at least 6 subjects filled
+    var filled = 0;
+    for (var i = 1; i <= 8; i++) {
+      var subj  = document.getElementById('wsSubj'  + i).value.trim();
+      var grade = document.getElementById('wsGrade' + i).value;
+      if (subj && grade) filled++;
+    }
+    if (filled < 6) {
+      Swal.fire({ icon:'warning', title:'WASSCE Results', text:'Please fill in at least 6 subjects with their grades.', confirmButtonColor:'#1d4ed8' }); return;
+    }
+    if (!document.getElementById('bioAggregate').value) {
+      Swal.fire({ icon:'warning', title:'Required', text:'Please enter your best six aggregate.', confirmButtonColor:'#1d4ed8' }); return;
+    }
+  }
+
+  if (step === 3) {
+    var nokRequired = [
+      ['bioNokName',     'Next of Kin Name'],
+      ['bioNokRelation', 'Relationship'],
+      ['bioNokPhone',    'Next of Kin Phone'],
+      ['bioNokAddr',     'Next of Kin Address']
+    ];
+    for (var i = 0; i < nokRequired.length; i++) {
+      var val = document.getElementById(nokRequired[i][0]).value.trim();
+      if (!val) {
+        Swal.fire({ icon:'warning', title:'Required Field', text:nokRequired[i][1] + ' is required.', confirmButtonColor:'#1d4ed8' });
+        return;
+      }
+    }
+  }
+
+  admGoToBioStep(step + 1);
+}
+
+function admBioBack(step) {
+  admGoToBioStep(step - 1);
+}
+
+function admPreviewPhoto(input) {
+  var file    = input.files[0];
+  var preview = document.getElementById('photoPreview');
+  var errEl   = document.getElementById('photoError');
+  errEl.style.display = 'none';
+
+  if (!file) return;
+
+  if (file.size > 819200) {
+    errEl.style.display='block';
+    errEl.innerHTML='⚠ Image too large. Maximum size is 800KB. Please compress your photo.';
+    input.value=''; return;
+  }
+  if (!['image/jpeg','image/png'].includes(file.type)) {
+    errEl.style.display='block';
+    errEl.innerHTML='⚠ Only JPEG or PNG images accepted.';
+    input.value=''; return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    preview.innerHTML = '<img src="' + e.target.result + '" alt="Preview">';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function admSubmitBiodata() {
+  var file   = document.getElementById('bioPhoto').files[0];
+  var st     = document.getElementById('bioSubmitStatus');
+
+  if (!file) {
+    Swal.fire({ icon:'warning', title:'Photo Required', text:'Please upload your passport photo before submitting.', confirmButtonColor:'#1d4ed8' }); return;
+  }
+
+  st.className='alert alert-info small'; st.style.display='block';
+  st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Uploading photo...';
+
+  // Upload photo to Supabase Storage
+  var ext      = file.type === 'image/png' ? 'png' : 'jpg';
+  var filePath = _adm.application_ref.replace(/\//g,'-') + '/' + Date.now() + '.' + ext;
+
+  var uploadRes = await _sc.storage.from('admission-photos').upload(filePath, file, { contentType: file.type, upsert: false });
+  if (uploadRes.error) {
+    st.className='alert alert-danger small'; st.style.display='block';
+    st.innerHTML='⚠ Photo upload failed: ' + uploadRes.error.message; return;
+  }
+
+  st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Saving your details...';
+
+  // Collect WASSCE results
+  var wassceResults = [];
+  for (var i = 1; i <= 8; i++) {
+    var subj  = document.getElementById('wsSubj'  + i).value.trim();
+    var grade = document.getElementById('wsGrade' + i).value;
+    if (subj && grade) wassceResults.push({ subject: subj.toUpperCase(), grade: grade });
+  }
+
+  // Build biodata payload
+  var payload = {
+    status:               'BIODATA_SUBMITTED',
+    full_name:            document.getElementById('bioName').value.trim().toUpperCase(),
+    email:                document.getElementById('bioEmail').value.trim().toLowerCase(),
+    date_of_birth:        document.getElementById('bioDOB').value,
+    gender:               document.getElementById('bioGender').value,
+    nationality:          document.getElementById('bioNationality').value.trim(),
+    hometown:             document.getElementById('bioHometown').value.trim(),
+    region:               document.getElementById('bioRegion').value,
+    religion:             document.getElementById('bioReligion').value,
+    marital_status:       document.getElementById('bioMarital').value,
+    ghana_card_no:        document.getElementById('bioGhanaCard').value.trim(),
+    phone_alt:            document.getElementById('bioPhoneAlt').value.trim(),
+    residential_addr:     document.getElementById('bioResAddr').value.trim(),
+    postal_addr:          document.getElementById('bioPostAddr').value.trim(),
+    prev_school:          document.getElementById('bioPrevSchool').value.trim(),
+    wassce_index:         document.getElementById('bioWassceIdx').value.trim(),
+    wassce_year:          document.getElementById('bioWassceYear').value,
+    wassce_results:       wassceResults,
+    wassce_aggregate:     parseInt(document.getElementById('bioAggregate').value) || null,
+    nok_name:             document.getElementById('bioNokName').value.trim(),
+    nok_relation:         document.getElementById('bioNokRelation').value,
+    nok_phone:            document.getElementById('bioNokPhone').value.trim(),
+    nok_address:          document.getElementById('bioNokAddr').value.trim(),
+    photo_url:            filePath,
+    biodata_submitted_at: new Date().toISOString()
+  };
+
+  var patchRes = await fetch(SUPABASE_URL + '/rest/v1/admissions?id=eq.' + encodeURIComponent(_adm.id), {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!patchRes.ok) {
+    st.className='alert alert-danger small'; st.style.display='block';
+    st.innerHTML='⚠ Failed to save: ' + await patchRes.text(); return;
+  }
+
+  // Update local state
+  Object.assign(_adm, payload);
+
+  st.className='alert alert-success small'; st.style.display='block';
+  st.innerHTML='✅ Biodata submitted successfully!';
+
+  document.getElementById('successPhone').innerText = _adm.phone;
+
+  setTimeout(function(){
+    admShowScreen('scr-success');
+  }, 1500);
+}
+
+// ── DOWNLOAD ADMISSION LETTER ─────────────────────────────────
+async function admDownloadLetter() {
+  if (!_adm) return;
+  Swal.fire({ title:'Generating Admission Letter...', html:'<div class="spinner-border text-primary"></div>', allowOutsideClick:false, showConfirmButton:false });
+
+  var logo = await admLoadLogo();
+  var { jsPDF } = window.jspdf;
+  var doc    = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  var pageW  = doc.internal.pageSize.getWidth();
+  var pageH  = doc.internal.pageSize.getHeight();
+  var mL = 25, mR = 25;
+  var usableW = pageW - mL - mR;
+  var y = 20;
+
+  // Logo
+  if (logo) {
+    doc.addImage(logo, 'PNG', mL, y, 22, 22);
+  }
+
+  // Header
+  doc.setFont('times','bold'); doc.setFontSize(13); doc.setTextColor(0,0,0);
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION', pageW/2, y+8, { align:'center' });
+  doc.setFont('times','normal'); doc.setFontSize(10); doc.setTextColor(60,60,60);
+  doc.text('Akropong-Akuapem, Eastern Region, Ghana', pageW/2, y+14, { align:'center' });
+  doc.text('Tel: +233 (0) 256 977 765  |  www.pce.edu.gh', pageW/2, y+19, { align:'center' });
+
+  y += 26;
+  doc.setDrawColor(0,0,0); doc.setLineWidth(1.0);
+  doc.line(mL, y, pageW-mR, y);
+  y += 3;
+  doc.setLineWidth(0.3);
+  doc.line(mL, y, pageW-mR, y);
+  y += 10;
+
+  // Ref and date
+  doc.setFont('times','normal'); doc.setFontSize(10);
+  doc.text('Ref: PCE/ADM/' + (_adm.academic_year||'').replace('/','-') + '/' + (_adm.application_ref||'').replace(/\//g,''), mL, y);
+  doc.text('Date: ' + new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }), pageW-mR, y, { align:'right' });
+  y += 12;
+
+  // Title
+  doc.setFont('times','bold'); doc.setFontSize(13); doc.setTextColor(0,0,0);
+  doc.text('LETTER OF ADMISSION', pageW/2, y, { align:'center' });
+  var tw = doc.getTextWidth('LETTER OF ADMISSION');
+  doc.setLineWidth(0.5);
+  doc.line((pageW-tw)/2, y+1, (pageW+tw)/2, y+1);
+  y += 12;
+
+  // Salutation
+  doc.setFont('times','normal'); doc.setFontSize(11);
+  doc.text('Dear ' + _adm.full_name + ',', mL, y);
+  y += 10;
+
+  // Body
+  var body1 = 'On behalf of the Principal and Management of Presbyterian College of Education, Akropong-Akuapem, I am pleased to inform you that you have been offered admission to pursue the under-listed programme for the ' + (_adm.academic_year||'') + ' academic year.';
+  var lines1 = doc.splitTextToSize(body1, usableW);
+  doc.text(lines1, mL, y);
+  y += lines1.length * 6 + 6;
+
+  // Programme details box
+  doc.setFillColor(240, 248, 255);
+  doc.setDrawColor(2, 132, 199);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(mL, y, usableW, 32, 2, 2, 'FD');
+
+  doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(2,132,199);
+  doc.text('ADMISSION DETAILS', mL+4, y+7);
+
+  doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(0,0,0);
+  doc.text('Programme:', mL+4, y+15);
+  doc.setFont('times','normal');
+  doc.text(String(_adm.programme||'').toUpperCase(), mL+40, y+15);
+
+  doc.setFont('times','bold');
+  doc.text('Level:', mL+4, y+22);
+  doc.setFont('times','normal');
+  doc.text('100 (First Year)', mL+40, y+22);
+
+  doc.setFont('times','bold');
+  doc.text('Academic Year:', mL+4, y+29);
+  doc.setFont('times','normal');
+  doc.text(String(_adm.academic_year||''), mL+40, y+29);
+
+  y += 40;
+
+  // Conditions
+  doc.setFont('times','bold'); doc.setFontSize(11);
+  doc.text('CONDITIONS OF ADMISSION', mL, y);
+  y += 7;
+
+  var conditions = [
+    'This admission is subject to the verification of all original certificates and documents.',
+    'You are required to pay the prescribed fees before or upon reporting to the College.',
+    'You must report to the Registrar\'s Office with all original academic certificates.',
+    'This letter must be presented upon reporting to the College.',
+    'Admission may be withdrawn if any information provided is found to be false or misleading.'
+  ];
+
+  doc.setFont('times','normal'); doc.setFontSize(10);
+  conditions.forEach(function(c, i) {
+    var lines = doc.splitTextToSize((i+1) + '. ' + c, usableW);
+    doc.text(lines, mL, y);
+    y += lines.length * 5.5 + 2;
+  });
+
+  y += 6;
+
+  // Closing
+  var closing = 'We congratulate you on this achievement and look forward to welcoming you to Presbyterian College of Education. Please do not hesitate to contact the Registrar\'s Office if you require any further information.';
+  var closingLines = doc.splitTextToSize(closing, usableW);
+  doc.text(closingLines, mL, y);
+  y += closingLines.length * 6 + 10;
+
+  doc.text('Yours faithfully,', mL, y);
+  y += 20;
+
+  doc.setFont('times','bold');
+  doc.text('REGISTRAR', mL, y);
+  doc.setFont('times','normal');
+  doc.text('Presbyterian College of Education', mL, y+5);
+  doc.text('Akropong-Akuapem', mL, y+10);
+
+  // Application ref bottom right
+  doc.setFont('times','italic'); doc.setFontSize(9); doc.setTextColor(120,120,120);
+  doc.text('Application Ref: ' + (_adm.application_ref||''), pageW-mR, y+10, { align:'right' });
+
+  // Footer
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
+  doc.line(mL, pageH-18, pageW-mR, pageH-18);
+  doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text('This is an official document of Presbyterian College of Education, Akropong-Akuapem.', pageW/2, pageH-13, { align:'center' });
+  doc.text('Generated: ' + new Date().toLocaleDateString('en-GB'), pageW/2, pageH-8, { align:'center' });
+
+  Swal.close();
+  doc.save('AdmissionLetter_' + (_adm.application_ref||'PCE').replace(/\//g,'-') + '.pdf');
+}
+
+// ── PRINT BIODATA FORM ────────────────────────────────────────
+async function admPrintBiodata() {
+  if (!_adm) return;
+  Swal.fire({ title:'Generating Biodata Form...', html:'<div class="spinner-border text-primary"></div>', allowOutsideClick:false, showConfirmButton:false });
+
+  var logo = await admLoadLogo();
+  var photoData = null;
+  if (_adm.photo_url) {
+    var signedRes = await _sc.storage.from('admission-photos').createSignedUrl(_adm.photo_url, 3600);
+    if (!signedRes.error && signedRes.data) {
+      try {
+        var resp = await fetch(signedRes.data.signedUrl);
+        var blob = await resp.blob();
+        photoData = await new Promise(function(resolve){
+          var r = new FileReader();
+          r.onload = function(){ resolve(r.result); };
+          r.readAsDataURL(blob);
+        });
+      } catch(e){}
+    }
+  }
+
+  var { jsPDF } = window.jspdf;
+  var doc    = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  var pageW  = doc.internal.pageSize.getWidth();
+  var pageH  = doc.internal.pageSize.getHeight();
+  var mL = 15, mR = 15;
+  var usableW = pageW - mL - mR;
+  var y = 12;
+
+  // Header
+  if (logo) doc.addImage(logo, 'PNG', mL, y, 20, 20);
+  doc.setFont('times','bold'); doc.setFontSize(12); doc.setTextColor(0,0,0);
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', pageW/2, y+7, { align:'center' });
+  doc.setFont('times','normal'); doc.setFontSize(9);
+  doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh', pageW/2, y+13, { align:'center' });
+  doc.setDrawColor(0,0,0); doc.setLineWidth(0.6);
+  doc.line(mL, y+17, pageW-mR, y+17);
+  y += 22;
+
+  // Title
+  doc.setFont('times','bold'); doc.setFontSize(12);
+  doc.text('STUDENT BIODATA FORM', pageW/2, y, { align:'center' });
+  doc.setLineWidth(0.3);
+  var tw = doc.getTextWidth('STUDENT BIODATA FORM');
+  doc.line((pageW-tw)/2, y+1, (pageW+tw)/2, y+1);
+  y += 8;
+
+  // Photo box + basic info side by side
+  var photoX = pageW - mR - 35;
+  doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
+  doc.rect(photoX, y, 35, 42);
+  if (photoData) {
+    doc.addImage(photoData, 'JPEG', photoX+1, y+1, 33, 40);
+  } else {
+    doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(150,150,150);
+    doc.text('Passport', photoX+17.5, y+20, { align:'center' });
+    doc.text('Photo', photoX+17.5, y+25, { align:'center' });
+  }
+  doc.setTextColor(0,0,0);
+
+  // Info rows left side
+  function bioRow(label, value, yPos) {
+    doc.setFont('times','bold'); doc.setFontSize(9);
+    doc.text(label, mL, yPos);
+    doc.setFont('times','normal');
+    doc.text(String(value||'—'), mL + 35, yPos);
+    doc.setDrawColor(200,200,200); doc.setLineWidth(0.15);
+    doc.line(mL, yPos+1.5, photoX-5, yPos+1.5);
+  }
+
+  bioRow('Full Name:', _adm.full_name||'', y+6);
+  bioRow('Application Ref:', _adm.application_ref||'', y+12);
+  bioRow('Programme:', _adm.programme||'', y+18);
+  bioRow('Academic Year:', _adm.academic_year||'', y+24);
+  bioRow('Date of Birth:', _adm.date_of_birth ? new Date(_adm.date_of_birth).toLocaleDateString('en-GB') : '—', y+30);
+  bioRow('Gender:', _adm.gender||'', y+36);
+  y += 50;
+
+  // Section helper
+  function sectionTitle(title, yPos) {
+    doc.setFillColor(22,52,90);
+    doc.rect(mL, yPos, usableW, 6, 'F');
+    doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
+    doc.text(title, mL+2, yPos+4.5);
+    doc.setTextColor(0,0,0);
+    return yPos + 8;
+  }
+
+  function infoRow(label, value, x, yPos, colW) {
+    doc.setFont('times','bold'); doc.setFontSize(8.5);
+    doc.text(label, x, yPos);
+    doc.setFont('times','normal');
+    var maxW = colW - doc.getTextWidth(label) - 4;
+    var val = String(value||'—');
+    while (doc.getTextWidth(val) > maxW && val.length > 1) val = val.slice(0,-1);
+    if (val !== String(value||'—')) val = val.slice(0,-1) + '…';
+    doc.text(val, x + doc.getTextWidth(label) + 2, yPos);
+    doc.setDrawColor(220,220,220); doc.setLineWidth(0.15);
+    doc.line(x, yPos+1.5, x+colW, yPos+1.5);
+  }
+
+  var half = usableW / 2;
+  var rowH = 6.5;
+
+  // Personal Info
+  y = sectionTitle('PERSONAL INFORMATION', y);
+  infoRow('Nationality:', _adm.nationality||'Ghanaian', mL, y, half-3); infoRow('Hometown:', _adm.hometown||'', mL+half, y, half); y+=rowH;
+  infoRow('Region:', _adm.region||'', mL, y, half-3); infoRow('Religion:', _adm.religion||'', mL+half, y, half); y+=rowH;
+  infoRow('Marital Status:', _adm.marital_status||'', mL, y, half-3); infoRow('Ghana Card:', _adm.ghana_card_no||'', mL+half, y, half); y+=rowH;
+  infoRow('Email:', _adm.email||'', mL, y, usableW); y+=rowH;
+  infoRow('Phone:', _adm.phone||'', mL, y, half-3); infoRow('Alt Phone:', _adm.phone_alt||'', mL+half, y, half); y+=rowH;
+  infoRow('Residential Address:', _adm.residential_addr||'', mL, y, usableW); y+=rowH;
+  infoRow('Postal Address:', _adm.postal_addr||'', mL, y, usableW); y+=rowH+2;
+
+  // Academic Info
+  y = sectionTitle('ACADEMIC BACKGROUND', y);
+  infoRow('Previous School:', _adm.prev_school||'', mL, y, usableW); y+=rowH;
+  infoRow('WASSCE Index:', _adm.wassce_index||'', mL, y, half-3); infoRow('WASSCE Year:', _adm.wassce_year||'', mL+half, y, half); y+=rowH;
+  infoRow('Best Six Aggregate:', String(_adm.wassce_aggregate||'—'), mL, y, usableW); y+=rowH+2;
+
+  // WASSCE Results
+  if (_adm.wassce_results && _adm.wassce_results.length) {
+    y = sectionTitle('WASSCE RESULTS', y);
+    var results = _adm.wassce_results;
+    var colWw = usableW / 4;
+    for (var i = 0; i < results.length; i+=2) {
+      var r1 = results[i], r2 = results[i+1];
+      doc.setFont('times','normal'); doc.setFontSize(8.5);
+      doc.text(String(i+1)+'. '+r1.subject, mL, y); doc.text(r1.grade, mL+colWw-5, y);
+      if (r2) { doc.text(String(i+2)+'. '+r2.subject, mL+usableW/2, y); doc.text(r2.grade, mL+usableW-5, y); }
+      doc.setDrawColor(220,220,220); doc.setLineWidth(0.15);
+      doc.line(mL, y+1.5, mL+usableW, y+1.5);
+      y += rowH;
+    }
+    y += 2;
+  }
+
+  // Next of Kin
+  y = sectionTitle('NEXT OF KIN', y);
+  infoRow('Name:', _adm.nok_name||'', mL, y, half-3); infoRow('Relationship:', _adm.nok_relation||'', mL+half, y, half); y+=rowH;
+  infoRow('Phone:', _adm.nok_phone||'', mL, y, half-3); infoRow('Address:', _adm.nok_address||'', mL+half, y, half); y+=rowH+4;
+
+  // Signature
+  doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
+  doc.line(mL, y+15, mL+60, y+15);
+  doc.line(pageW-mR-60, y+15, pageW-mR, y+15);
+  doc.setFont('times','bold'); doc.setFontSize(9);
+  doc.text("STUDENT'S SIGNATURE", mL, y+20);
+  doc.text('DATE', pageW-mR-60, y+20);
+  y += 28;
+
+  // Official use box
+  doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
+  doc.rect(mL, y, usableW, 18);
+  doc.setFont('times','bold'); doc.setFontSize(8.5);
+  doc.text('FOR OFFICIAL USE ONLY', mL+2, y+5);
+  doc.setFont('times','normal'); doc.setFontSize(8);
+  doc.text('Received by: _______________________     Date: ___________     Signature: ___________________', mL+2, y+12);
+
+  // Footer
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.2);
+  doc.line(mL, pageH-12, pageW-mR, pageH-12);
+  doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(130,130,130);
+  doc.text('Generated by PCE Admission Portal  |  ' + new Date().toLocaleDateString('en-GB'), pageW/2, pageH-7, { align:'center' });
+
+  Swal.close();
+  doc.save('Biodata_' + (_adm.application_ref||'PCE').replace(/\//g,'-') + '.pdf');
+}
+
+// ── Logo loader ───────────────────────────────────────────────
+async function admLoadLogo() {
+  try {
+    var r = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
+    if (!r.ok) return null;
+    var b = await r.blob();
+    return await new Promise(function(resolve){
+      var rd = new FileReader();
+      rd.onload = function(){ resolve(rd.result); };
+      rd.onerror = function(){ resolve(null); };
+      rd.readAsDataURL(b);
+    });
+  } catch(e){ return null; }
+}
+</script>
+</body>
+</html>
