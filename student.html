@@ -1033,7 +1033,96 @@ function renderStudentFinanceTab(fin, availableYears) {
       }).join('')
     : '<div class="text-center text-muted py-4"><p class="mt-3">No payments recorded yet for this year</p></div>';
 
+  // ── Check for any existing PENDING submission ──────────
+  var em = userSession.email.toLowerCase().trim();
+  var pendingSubs = await sbFetch(
+    'payment_submissions?email=eq.' + encodeURIComponent(em) +
+    '&status=eq.PENDING&select=id,amount,payment_date,reference,submitted_at&limit=1'
+  );
+  var rejectedSubs = await sbFetch(
+    'payment_submissions?email=eq.' + encodeURIComponent(em) +
+    '&status=eq.REJECTED&select=id,amount,rejection_reason,submitted_at&order=submitted_at.desc&limit=1'
+  );
+  var hasPending  = pendingSubs  && pendingSubs.length  > 0;
+  var hasRejected = rejectedSubs && rejectedSubs.length > 0;
+  var pendingRow  = hasPending  ? pendingSubs[0]  : null;
+  var rejectedRow = hasRejected ? rejectedSubs[0] : null;
+
+  // ── Build submission section HTML ──────────────────────
+  var submitSection = '';
+
+  if (hasPending) {
+    // Show pending status — no new submission allowed
+    submitSection =
+      '<div class="stat-card mb-4" style="border-left:4px solid #f59e0b;">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
+          '<div style="width:40px;height:40px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">⏳</div>' +
+          '<div>' +
+            '<div class="fw-bold" style="color:#92400e;">Payment Submission Pending Review</div>' +
+            '<div class="small text-muted">Submitted on ' + new Date(pendingRow.submitted_at).toLocaleDateString('en-GB') + '</div>' +
+          '</div>' +
+          '<span class="badge ms-auto" style="background:#f59e0b;color:white;padding:6px 14px;border-radius:20px;font-size:0.75rem;">PENDING</span>' +
+        '</div>' +
+        '<div class="row g-2 small">' +
+          '<div class="col-4"><span class="text-muted d-block">Amount</span><strong>GH₵ ' + Number(pendingRow.amount).toFixed(2) + '</strong></div>' +
+          '<div class="col-4"><span class="text-muted d-block">Payment Date</span><strong>' + new Date(pendingRow.payment_date).toLocaleDateString('en-GB') + '</strong></div>' +
+          '<div class="col-4"><span class="text-muted d-block">Reference</span><strong>' + (pendingRow.reference || '—') + '</strong></div>' +
+        '</div>' +
+        '<div class="alert alert-warning py-2 px-3 small mt-3 mb-0">Finance Office is reviewing your receipt. You will see your balance update once approved.</div>' +
+      '</div>';
+  } else if (fin.percentage >= 100) {
+    // Fully paid — no submission needed
+    submitSection =
+      '<div class="stat-card mb-4" style="border-left:4px solid #10b981;">' +
+        '<div style="display:flex;align-items:center;gap:12px;">' +
+          '<div style="width:40px;height:40px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">✅</div>' +
+          '<div><div class="fw-bold" style="color:#065f46;">Fees Fully Paid</div>' +
+          '<div class="small text-muted">No further payment required for ' + fin.academicYear + '</div></div>' +
+        '</div>' +
+      '</div>';
+  } else {
+    // Show rejected notice if any, then submission form
+    var rejectedNotice = '';
+    if (hasRejected) {
+      rejectedNotice =
+        '<div class="alert alert-danger py-2 px-3 small mb-3">' +
+          '<strong>⚠ Previous Submission Rejected:</strong> ' + (rejectedRow.rejection_reason || 'Please resubmit with a clearer receipt image.') +
+        '</div>';
+    }
+    submitSection =
+      '<div class="stat-card mb-4" style="border-left:4px solid #0284c7;">' +
+        '<div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">' +
+          '<i class="bi bi-bank me-1 text-primary"></i>Submit GCB Payment Receipt' +
+        '</div>' +
+        rejectedNotice +
+        '<div class="row g-3">' +
+          '<div class="col-md-4">' +
+            '<label class="small fw-bold text-muted">Amount Paid (GH₵) <span class="text-danger">*</span></label>' +
+            '<input type="number" id="subAmount" class="form-control mt-1" placeholder="e.g. 3500.00" step="0.01" min="1">' +
+          '</div>' +
+          '<div class="col-md-4">' +
+            '<label class="small fw-bold text-muted">Date of Payment <span class="text-danger">*</span></label>' +
+            '<input type="date" id="subDate" class="form-control mt-1" max="' + new Date().toISOString().slice(0,10) + '">' +
+          '</div>' +
+          '<div class="col-md-4">' +
+            '<label class="small fw-bold text-muted">GCB Reference No. <span class="text-danger">*</span></label>' +
+            '<input type="text" id="subRef" class="form-control mt-1" placeholder="e.g. GCB20241105001">' +
+          '</div>' +
+          '<div class="col-12">' +
+            '<label class="small fw-bold text-muted">Upload Receipt Image <span class="text-danger">*</span></label>' +
+            '<input type="file" id="subReceipt" class="form-control mt-1" accept="image/jpeg,image/png,image/webp">' +
+            '<div class="small text-muted mt-1"><i class="bi bi-info-circle me-1"></i>Max 500KB. JPEG, PNG or WebP only. Take a clear photo of your GCB receipt.</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="btn btn-primary w-100 mt-3 fw-bold" id="stuSubmitPaymentBtn" onclick="stuSubmitPaymentReceipt()">' +
+          '<i class="bi bi-upload me-2"></i>Submit Payment for Verification' +
+        '</button>' +
+        '<div id="subStatus" style="display:none;" class="mt-2"></div>' +
+      '</div>';
+  }
+
   display.innerHTML =
+    submitSection +
     '<div class="mb-4" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;">' +
       '<label class="small fw-bold text-muted mb-1 d-block">PRINT RECEIPT FOR YEAR</label>' +
       '<div class="d-flex gap-2">' +
@@ -1051,9 +1140,154 @@ function renderStudentFinanceTab(fin, availableYears) {
     '<div class="stat-card"><h6 class="mb-3">PAYMENT HISTORY (' + fin.academicYear + ')</h6><div class="payment-timeline">' + paymentHistory + '</div></div>';
 
   document.getElementById('stuPrintReceiptBtn').addEventListener('click', printStudentReceipt);
-}
 
-async function printStudentReceipt() {
+  // ═══════════════════════════════════════════════════════════════
+// PAYMENT RECEIPT SUBMISSION
+// ═══════════════════════════════════════════════════════════════
+async function stuSubmitPaymentReceipt() {
+  var btn    = document.getElementById('stuSubmitPaymentBtn');
+  var status = document.getElementById('subStatus');
+  var amount = parseFloat(document.getElementById('subAmount').value);
+  var date   = document.getElementById('subDate').value;
+  var ref    = document.getElementById('subRef').value.trim();
+  var file   = document.getElementById('subReceipt').files[0];
+  var em     = userSession.email.toLowerCase().trim();
+
+  // ── Validation ─────────────────────────────────────────
+  if (!amount || amount <= 0) {
+    status.className='alert alert-danger mt-2'; status.style.display='block';
+    status.innerHTML='⚠ Please enter a valid amount.'; return;
+  }
+  if (!date) {
+    status.className='alert alert-danger mt-2'; status.style.display='block';
+    status.innerHTML='⚠ Please select the date of payment.'; return;
+  }
+  if (!ref) {
+    status.className='alert alert-danger mt-2'; status.style.display='block';
+    status.innerHTML='⚠ Please enter the GCB reference number.'; return;
+  }
+  if (!file) {
+    status.className='alert alert-danger mt-2'; status.style.display='block';
+    status.innerHTML='⚠ Please upload your receipt image.'; return;
+  }
+  if (file.size > 512000) {
+    status.className='alert alert-danger mt-2'; status.style.display='block';
+    status.innerHTML='⚠ Image is too large. Maximum size is 500KB. Please compress the image and try again.'; return;
+  }
+  if (!['image/jpeg','image/png','image/webp'].includes(file.type)) {
+    status.className='alert alert-danger mt-2'; status.style.display='block';
+    status.innerHTML='⚠ Only JPEG, PNG or WebP images are accepted.'; return;
+  }
+
+  // ── Duplicate reference check ──────────────────────────
+  var dupCheck = await sbFetch(
+    'payment_submissions?reference=eq.' + encodeURIComponent(ref) + '&select=id&limit=1'
+  );
+  if (dupCheck && dupCheck.length > 0) {
+    status.className='alert alert-danger mt-2'; status.style.display='block';
+    status.innerHTML='⚠ This reference number has already been submitted. If you believe this is an error, contact the Finance Office.'; return;
+  }
+
+  // ── Pending submission check ───────────────────────────
+  var pendingCheck = await sbFetch(
+    'payment_submissions?email=eq.' + encodeURIComponent(em) +
+    '&status=eq.PENDING&select=id&limit=1'
+  );
+  if (pendingCheck && pendingCheck.length > 0) {
+    status.className='alert alert-warning mt-2'; status.style.display='block';
+    status.innerHTML='⚠ You already have a submission awaiting review. Please wait for Finance to process it first.'; return;
+  }
+
+  // ── Amount sanity check ────────────────────────────────
+  var activeYear = _stuActiveYear || await stuGetActiveYear(userSession.level);
+  var sfRows = await sbFetch(
+    'student_finance?email=eq.' + encodeURIComponent(em) +
+    '&academic_year=eq.' + encodeURIComponent(activeYear) +
+    '&select=total_required&limit=1'
+  );
+  if (sfRows && sfRows.length) {
+    var totalReq = Number(sfRows[0].total_required);
+    var payRows  = await sbFetch(
+      'payments?email=eq.' + encodeURIComponent(em) +
+      '&academic_year=eq.' + encodeURIComponent(activeYear) + '&select=amount'
+    );
+    var totalPaid = (payRows || []).reduce(function(s,p){ return s + Number(p.amount); }, 0);
+    var maxAllowed = (totalReq - totalPaid) * 1.05; // 5% buffer for rounding
+    if (amount > maxAllowed && maxAllowed > 0) {
+      status.className='alert alert-danger mt-2'; status.style.display='block';
+      status.innerHTML='⚠ Amount exceeds your outstanding balance of GH₵ ' + (totalReq - totalPaid).toFixed(2) + '. Please check the amount and try again.'; return;
+    }
+  }
+
+  // ── Upload receipt image to Supabase Storage ───────────
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading receipt...';
+  status.className='alert alert-info mt-2'; status.style.display='block';
+  status.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Uploading receipt image...';
+
+  var ext       = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+  var filePath  = activeYear.replace('/','-') + '/' + em + '/' + Date.now() + '.' + ext;
+
+  var uploadRes = await _supabaseClient.storage
+    .from('receipts')
+    .upload(filePath, file, { contentType: file.type, upsert: false });
+
+  if (uploadRes.error) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-upload me-2"></i>Submit Payment for Verification';
+    status.className='alert alert-danger mt-2';
+    status.innerHTML='⚠ Upload failed: ' + uploadRes.error.message; return;
+  }
+
+  var receiptUrl = filePath; // store path, Finance uses signed URL to view
+
+  // ── Write to payment_submissions ──────────────────────
+  status.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Saving submission...';
+
+  var subRes = await fetch(SUPABASE_URL + '/rest/v1/payment_submissions', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({
+      email:        em,
+      academic_year: activeYear,
+      amount:       amount,
+      payment_date: date,
+      reference:    ref,
+      receipt_url:  receiptUrl,
+      status:       'PENDING'
+    })
+  });
+
+  if (!subRes.ok) {
+    var errText = await subRes.text();
+    // Check for unique constraint violation on reference
+    if (errText.includes('unique') || errText.includes('duplicate')) {
+      status.className='alert alert-danger mt-2';
+      status.innerHTML='⚠ This reference number has already been used. Contact Finance if this is an error.';
+    } else {
+      status.className='alert alert-danger mt-2';
+      status.innerHTML='⚠ Submission failed: ' + errText;
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-upload me-2"></i>Submit Payment for Verification';
+    return;
+  }
+
+  // ── Success ────────────────────────────────────────────
+  status.className='alert alert-success mt-2';
+  status.innerHTML='✅ Receipt submitted successfully! Finance will verify and update your balance shortly.';
+  btn.disabled = true;
+  btn.innerHTML = '✅ Submitted — Awaiting Review';
+
+  // Reload finance tab after 2 seconds to show pending state
+  setTimeout(function(){ loadStudentFinanceTab(); }, 2000);
+}
+  async function printStudentReceipt() {
   const select = document.getElementById('receiptYearSelect');
   if (!select) { alert('Please load the Finance tab first.'); return; }
   const year = select.value;
