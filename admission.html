@@ -204,7 +204,8 @@
     <!-- Upload form — shown when ADMITTED or REJECTED -->
     <div id="pay-upload-view">
       <h5 class="fw-bold mb-1"><i class="bi bi-bank me-2 text-primary"></i>Upload Payment Slip</h5>
-      <p class="text-muted small mb-4">Pay your admission fees at the bank and upload the payment slip here for verification.</p>
+      <div id="admRequiredFeeNotice" class="alert alert-primary py-2 px-3 small mb-3" style="display:none;"></div>
+      <p class="text-muted small mb-3">Pay your admission fees at the bank and upload the payment slip here for verification.</p>
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Amount Paid (GH₵) <span class="text-danger">*</span></label>
@@ -684,6 +685,17 @@ function admLoadPaymentScreen() {
   document.getElementById('pay-rejected-view').style.display = 'none';
   document.getElementById('pay-upload-view').style.display   = 'block';
 
+    // Show required fee if available
+    var feeEl = document.getElementById('admRequiredFeeNotice');
+    if (feeEl && _adm.academic_year) {
+      admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount&limit=1').then(function(fr) {
+        if (fr && fr.length) {
+          feeEl.innerHTML = '<i class="bi bi-info-circle me-1"></i>Required admission fee for ' + _adm.academic_year + ': <strong>GH₵ ' + Number(fr[0].amount).toFixed(2) + '</strong>';
+          feeEl.style.display = 'block';
+        }
+      });
+    }
+
   if (s === 'PAYMENT_PENDING') {
     document.getElementById('pay-pending-view').style.display = 'block';
     document.getElementById('pay-upload-view').style.display  = 'none';
@@ -709,6 +721,17 @@ async function admSubmitPayment() {
 
   if (!amount || amount <= 0) { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Enter a valid amount.'; return; }
   if (!date)  { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Select the payment date.'; return; }
+
+  // Fee validation — check required admission fee
+  var feeRows = await admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount&limit=1');
+  if (feeRows && feeRows.length) {
+    var requiredFee = Number(feeRows[0].amount);
+    if (amount < requiredFee) {
+      st.className='alert alert-danger small'; st.style.display='block';
+      st.innerHTML='⚠ The required admission fee is <strong>GH₵ ' + requiredFee.toFixed(2) + '</strong>. You entered GH₵ ' + amount.toFixed(2) + '. Please enter the correct amount.';
+      return;
+    }
+  }
   if (!ref)   { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Enter the bank reference number.'; return; }
   if (!file)  { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Upload your payment slip image.'; return; }
   if (file.size > 512000) { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Image too large. Max 500KB.'; return; }
@@ -1048,15 +1071,20 @@ async function admDownloadLetter() {
   doc.setFillColor(240, 248, 255);
   doc.setDrawColor(2, 132, 199);
   doc.setLineWidth(0.3);
-  doc.roundedRect(mL, y, usableW, 32, 2, 2, 'FD');
+  doc.roundedRect(mL, y, usableW, 38, 2, 2, 'FD');
 
   doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(2,132,199);
   doc.text('ADMISSION DETAILS', mL+4, y+7);
 
   doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(0,0,0);
-  doc.text('Programme:', mL+4, y+15);
+  doc.text('Programme:', mL+4, y+8);
   doc.setFont('times','normal');
-  doc.text(String(_adm.programme||'').toUpperCase(), mL+40, y+15);
+  doc.text(String(_adm.programme||'').toUpperCase(), mL+40, y+8);
+
+  doc.setFont('times','bold');
+  doc.text('Specialization:', mL+4, y+15);
+  doc.setFont('times','normal');
+  doc.text(String(_adm.specialization||'N/A').toUpperCase(), mL+40, y+15);
 
   doc.setFont('times','bold');
   doc.text('Level:', mL+4, y+22);
@@ -1068,7 +1096,7 @@ async function admDownloadLetter() {
   doc.setFont('times','normal');
   doc.text(String(_adm.academic_year||''), mL+40, y+29);
 
-  y += 40;
+  y += 42;
 
   // Conditions
   doc.setFont('times','bold'); doc.setFontSize(11);
@@ -1098,18 +1126,53 @@ async function admDownloadLetter() {
   doc.text(closingLines, mL, y);
   y += closingLines.length * 6 + 10;
 
-  doc.text('Yours faithfully,', mL, y);
-  y += 20;
+ doc.text('Yours faithfully,', mL, y);
+  y += 6;
 
-  doc.setFont('times','bold');
-  doc.text('REGISTRAR', mL, y);
+  // Load principal settings and signature
+  var settingsRows = await admFetch('pce_settings?select=key,value');
+  var sMap = {};
+  (settingsRows||[]).forEach(function(r){ sMap[r.key] = r.value; });
+  var principalName  = sMap['principal_name']  || 'THE PRINCIPAL';
+  var principalTitle = sMap['principal_title'] || 'Principal';
+  var sigUrl         = sMap['signature_url'];
+
+  // Try to load signature image
+  var sigData = null;
+  if (sigUrl && sigUrl !== 'null') {
+    try {
+      var sigSigned = await _sc.storage.from('signatures').createSignedUrl(sigUrl, 3600);
+      if (!sigSigned.error && sigSigned.data) {
+        var sigResp = await fetch(sigSigned.data.signedUrl);
+        var sigBlob = await sigResp.blob();
+        sigData = await new Promise(function(resolve){
+          var rd = new FileReader();
+          rd.onload = function(){ resolve(rd.result); };
+          rd.readAsDataURL(sigBlob);
+        });
+      }
+    } catch(e){}
+  }
+
+  if (sigData) {
+    doc.addImage(sigData, 'JPEG', mL, y, 50, 18);
+    y += 20;
+  } else {
+    y += 18; // space for signature line
+    doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
+    doc.line(mL, y, mL+60, y);
+    y += 4;
+  }
+
+  doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(0,0,0);
+  doc.text(principalName.toUpperCase(), mL, y);
   doc.setFont('times','normal');
-  doc.text('Presbyterian College of Education', mL, y+5);
-  doc.text('Akropong-Akuapem', mL, y+10);
+  doc.text(principalTitle, mL, y+5);
+  doc.text('Presbyterian College of Education', mL, y+10);
+  doc.text('Akropong-Akuapem', mL, y+15);
 
-  // Application ref bottom right
   doc.setFont('times','italic'); doc.setFontSize(9); doc.setTextColor(120,120,120);
-  doc.text('Application Ref: ' + (_adm.application_ref||''), pageW-mR, y+10, { align:'right' });
+  doc.text('Application Ref: ' + (_adm.application_ref||''), pageW-mR, y+15, { align:'right' });;
 
   // Footer
   doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
