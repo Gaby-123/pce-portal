@@ -32,6 +32,10 @@
       <a class="menu-item" data-section="reg-manual-entry"><i class="bi bi-person-plus"></i><span>Manual Entry</span></a>
       <a class="menu-item" data-section="reg-student-search"><i class="bi bi-search"></i><span>Search Students</span></a>
       <a class="menu-item" data-section="reg-reports"><i class="bi bi-file-earmark-bar-graph"></i><span>Reports &amp; Export</span></a>
+      <a class="menu-item" data-section="reg-admissions">
+        <i class="bi bi-mortarboard"></i><span>Admissions</span>
+        <span class="badge bg-danger ms-auto" id="admNewBadge" style="display:none;font-size:0.65rem;"></span>
+      </a>
       <a class="menu-item" data-section="reg-maintenance"><i class="bi bi-gear"></i><span>System Maintenance</span></a>
     </nav>
   </aside>
@@ -257,6 +261,133 @@
       </div>
     </section>
 
+
+    <!-- ⑦ ADMISSIONS -->
+    <section id="reg-admissions" class="reg-section">
+      <div class="section-header">
+        <h4><i class="bi bi-mortarboard me-2"></i>Admissions Management</h4>
+        <p class="text-muted mb-0">Upload admission lists and track applicant progress</p>
+      </div>
+
+      <!-- Upload Card -->
+      <div class="stat-card mb-4">
+        <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>UPLOAD ADMISSION LIST</h6>
+        <div class="alert alert-info py-2 px-3 small mb-3">
+          <strong>CSV Format:</strong> ApplicationRef, FullName, Phone, Programme<br>
+          <strong>Example:</strong> APP/2025/001234, John Kwame Mensah, 0241234567, PRIMARY EDUCATION
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Academic Year <span class="text-danger">*</span></label>
+            <input type="text" id="admUploadYear" class="form-control" placeholder="e.g. 2025/2026">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">CSV File <span class="text-danger">*</span></label>
+            <input type="file" id="admUploadFile" class="form-control" accept=".csv">
+          </div>
+          <div class="col-md-4 d-flex align-items-end gap-2">
+            <button class="btn btn-outline-primary btn-sm fw-bold flex-fill" onclick="admDownloadTemplate()">
+              <i class="bi bi-download me-1"></i>Template
+            </button>
+            <button class="btn btn-primary btn-sm fw-bold flex-fill" onclick="admPreviewUpload()">
+              <i class="bi bi-eye me-1"></i>Preview
+            </button>
+          </div>
+        </div>
+        <div id="admUploadStatus" class="mt-2" style="display:none;"></div>
+      </div>
+
+      <!-- Search + Filter -->
+      <div class="stat-card mb-3">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Search</label>
+            <input type="text" id="admSearch" class="form-control form-control-sm" placeholder="Name or reference...">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold">Status</label>
+            <select id="admStatusFilter" class="form-select form-select-sm">
+              <option value="ALL">All Statuses</option>
+              <option value="ADMITTED">Admitted</option>
+              <option value="PAYMENT_PENDING">Payment Pending</option>
+              <option value="PAYMENT_VERIFIED">Payment Verified</option>
+              <option value="BIODATA_SUBMITTED">Biodata Submitted</option>
+              <option value="ENROLLED">Enrolled</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold">Year</label>
+            <select id="admYearFilter" class="form-select form-select-sm">
+              <option value="ALL">All Years</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-dark btn-sm w-100" onclick="admLoadList()">
+              <i class="bi bi-search me-1"></i>Search
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admissions Table -->
+      <div class="stat-card p-0 mb-4" style="overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Applicant</th>
+                <th>Reference</th>
+                <th>Programme</th>
+                <th>Year</th>
+                <th class="text-center">Status</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admListBody">
+              <tr><td colspan="6" class="text-center p-4 text-muted">Click Search to load admissions</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Portal Link Card -->
+      <div class="stat-card" style="background:#f0fdf4;border:1px solid #86efac;">
+        <h6 class="text-uppercase text-success small fw-bold mb-2"><i class="bi bi-link-45deg me-2"></i>APPLICANT PORTAL LINK</h6>
+        <p class="small text-muted mb-2">Copy this link and include it in your SMS to admitted students.</p>
+        <div class="input-group">
+          <input type="text" class="form-control form-control-sm" id="admPortalLink" readonly>
+          <button class="btn btn-success btn-sm fw-bold" onclick="admCopyLink()">
+            <i class="bi bi-clipboard me-1"></i>Copy
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMISSION PREVIEW MODAL -->
+    <div class="modal fade" id="admPreviewModal" tabindex="-1">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Admission Upload Preview</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-0">
+            <div class="alert alert-info m-3 mb-0 small">
+              <strong>Review carefully:</strong> <span id="admPreviewCount">0</span> applicants detected.
+              Existing records will only be updated if status is still ADMITTED.
+            </div>
+            <div id="admPreviewContent" style="max-height:450px;overflow-y:auto;"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-primary fw-bold px-4" onclick="admConfirmUpload()">
+              <i class="bi bi-check-circle me-1"></i>Confirm Upload
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ⑥ MAINTENANCE -->
     <section id="reg-maintenance" class="reg-section">
       <div class="section-header">
@@ -364,7 +495,8 @@ let regPendingUploadRows = [];
 function regShowSection(id) {
   document.querySelectorAll('.reg-section').forEach(s => { s.style.display = s.id === id ? 'block' : 'none'; });
   document.querySelectorAll('#regSidebarMenu .menu-item').forEach(n => { n.classList.toggle('active', n.getAttribute('data-section') === id); });
-  if (id === 'reg-dashboard') regLoadDashboardStats();
+  if (id === 'reg-dashboard')   regLoadDashboardStats();
+  if (id === 'reg-admissions')  { admRegLoadYears(); admRegUpdateBadge(); admLoadList(); }
 }
 document.querySelectorAll('#regSidebarMenu .menu-item').forEach(item => {
   item.addEventListener('click', function() { regShowSection(this.getAttribute('data-section')); });
@@ -889,11 +1021,278 @@ async function regRunMasterReset() {
   }
 }
 
+  // ═══════════════════════════════════════════════════════════════
+// ADMISSIONS — REGISTRY
+// ═══════════════════════════════════════════════════════════════
+var _admPending = [];
+
+function admCopyLink() {
+  var el = document.getElementById('admPortalLink');
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(function() {
+    Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Link copied!', showConfirmButton:false, timer:2000 });
+  });
+}
+
+function admDownloadTemplate() {
+  var csv = 'ApplicationRef,FullName,Phone,Programme\nAPP/2025/001234,John Kwame Mensah,0241234567,PRIMARY EDUCATION\nAPP/2025/001235,Abena Asante Boateng,0501234567,JHS EDUCATION';
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'Admission_Upload_Template.csv';
+  a.click();
+  Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Template downloaded!', showConfirmButton:false, timer:2500 });
+}
+
+async function admRegLoadYears() {
+  var sel = document.getElementById('admYearFilter');
+  if (!sel) return;
+  var rows = await sbFetch('admissions?select=academic_year&order=academic_year.desc');
+  var years = [...new Set((rows||[]).map(function(r){ return r.academic_year; }).filter(Boolean))];
+  sel.innerHTML = '<option value="ALL">All Years</option>' + years.map(function(y){
+    return '<option value="' + y + '">' + y + '</option>';
+  }).join('');
+}
+
+async function admRegUpdateBadge() {
+  var badge = document.getElementById('admNewBadge');
+  if (!badge) return;
+  var rows = await sbFetch('admissions?status=eq.ADMITTED&select=id');
+  var count = rows ? rows.length : 0;
+  badge.style.display = count > 0 ? 'inline-block' : 'none';
+  badge.innerText = count;
+}
+
+async function admPreviewUpload() {
+  var year = document.getElementById('admUploadYear').value.trim();
+  var file = document.getElementById('admUploadFile').files[0];
+  var st   = document.getElementById('admUploadStatus');
+
+  if (!year) { Swal.fire({ icon:'warning', title:'Missing Year', text:'Please enter the academic year.', confirmButtonColor:'#0284c7' }); return; }
+  if (!file) { Swal.fire({ icon:'warning', title:'No File', text:'Please select a CSV file.', confirmButtonColor:'#0284c7' }); return; }
+
+  Swal.fire({ title:'Reading CSV...', allowOutsideClick:false, didOpen:function(){ Swal.showLoading(); } });
+
+  var text  = await file.text();
+  var lines = text.trim().split('\n').filter(function(l){ return l.trim(); });
+
+  if (lines.length < 2) { Swal.close(); Swal.fire({ icon:'error', title:'Empty File', text:'CSV has no data rows.' }); return; }
+
+  var parsed = [], errors = [];
+  lines.slice(1).forEach(function(line, i) {
+    var cols = line.split(',').map(function(c){ return c.replace(/"/g,'').trim(); });
+    var ref  = (cols[0]||'').toUpperCase();
+    var name = cols[1]||'';
+    var phone= cols[2]||'';
+    var prog = (cols[3]||'').toUpperCase();
+
+    if (!ref)   { errors.push('Row '+(i+2)+': Missing application reference'); return; }
+    if (!name)  { errors.push('Row '+(i+2)+': Missing full name'); return; }
+    if (!phone) { errors.push('Row '+(i+2)+': Missing phone number'); return; }
+
+    parsed.push({ application_ref:ref, full_name:name, phone:phone, programme:prog, academic_year:year });
+  });
+
+  Swal.close();
+
+  if (!parsed.length) {
+    Swal.fire({ icon:'warning', title:'No Valid Records', html: errors.length ? '<ul class="text-start small">'+errors.map(function(e){ return '<li>'+e+'</li>'; }).join('')+'</ul>' : 'No valid rows found.' });
+    return;
+  }
+
+  var tableRows = parsed.map(function(r, i) {
+    return '<tr>' +
+      '<td class="small">'+(i+1)+'</td>' +
+      '<td class="small fw-bold">'+r.application_ref+'</td>' +
+      '<td class="small">'+r.full_name+'</td>' +
+      '<td class="small">'+r.phone+'</td>' +
+      '<td class="small">'+r.programme+'</td>' +
+      '<td class="small"><span class="badge bg-info text-dark">'+year+'</span></td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('admPreviewCount').innerText = parsed.length;
+  document.getElementById('admPreviewContent').innerHTML =
+    '<table class="table table-sm table-hover mb-0">' +
+    '<thead class="table-dark sticky-top"><tr><th>#</th><th>Ref</th><th>Name</th><th>Phone</th><th>Programme</th><th>Year</th></tr></thead>' +
+    '<tbody>' + tableRows + '</tbody></table>';
+
+  if (errors.length) {
+    document.getElementById('admPreviewContent').innerHTML +=
+      '<div class="alert alert-warning m-3 small"><strong>⚠ '+errors.length+' row(s) skipped:</strong><ul class="mb-0 mt-1">'+
+      errors.map(function(e){ return '<li>'+e+'</li>'; }).join('')+'</ul></div>';
+  }
+
+  _admPending = parsed;
+  new bootstrap.Modal(document.getElementById('admPreviewModal')).show();
+}
+
+async function admConfirmUpload() {
+  var modal = bootstrap.Modal.getInstance(document.getElementById('admPreviewModal'));
+  if (modal) modal.hide();
+
+  var st = document.getElementById('admUploadStatus');
+  st.style.display='block'; st.className='alert alert-info small';
+  st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Uploading ' + _admPending.length + ' records...';
+
+  var ok = 0, skipped = 0, fail = 0;
+
+  for (var i = 0; i < _admPending.length; i++) {
+    var rec = _admPending[i];
+    var existing = await sbFetch('admissions?application_ref=eq.' + encodeURIComponent(rec.application_ref) + '&select=id,status&limit=1');
+
+    if (existing && existing.length > 0) {
+      if (existing[0].status === 'ADMITTED') {
+        var patchRes = await fetch(SUPABASE_URL + '/rest/v1/admissions?id=eq.' + encodeURIComponent(existing[0].id), {
+          method: 'PATCH',
+          headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+          body: JSON.stringify({ full_name:rec.full_name, phone:rec.phone, programme:rec.programme })
+        });
+        if (patchRes.ok) ok++; else fail++;
+      } else {
+        skipped++;
+      }
+    } else {
+      var postRes = await fetch(SUPABASE_URL + '/rest/v1/admissions', {
+        method: 'POST',
+        headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+        body: JSON.stringify(rec)
+      });
+      if (postRes.ok) ok++; else fail++;
+    }
+  }
+
+  var msg = '✅ ' + ok + ' record(s) uploaded/updated.';
+  if (skipped > 0) msg += ' ' + skipped + ' skipped (students already in progress).';
+  if (fail > 0)    msg += ' ⚠ ' + fail + ' failed.';
+
+  st.className = 'alert alert-' + (fail > 0 ? 'warning' : 'success') + ' small';
+  st.innerHTML = msg;
+  document.getElementById('admUploadFile').value = '';
+  _admPending = [];
+  admRegUpdateBadge();
+  admLoadList();
+  Swal.fire({ icon: fail > 0 ? 'warning' : 'success', title:'Upload Complete', html:msg, confirmButtonColor:'#0284c7' });
+}
+
+async function admLoadList() {
+  var search = (document.getElementById('admSearch').value||'').trim().toLowerCase();
+  var status = document.getElementById('admStatusFilter').value;
+  var year   = document.getElementById('admYearFilter').value;
+  var tbody  = document.getElementById('admListBody');
+
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading...</td></tr>';
+
+  var q = 'admissions?select=*&order=created_at.desc&limit=200';
+  if (status !== 'ALL') q += '&status=eq.' + status;
+  if (year   !== 'ALL') q += '&academic_year=eq.' + encodeURIComponent(year);
+
+  var rows = await sbFetch(q);
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-5">No admissions found</td></tr>';
+    return;
+  }
+
+  if (search) {
+    rows = rows.filter(function(r){
+      return (r.full_name||'').toLowerCase().includes(search) ||
+             (r.application_ref||'').toLowerCase().includes(search) ||
+             (r.phone||'').includes(search);
+    });
+  }
+
+  var statusColors = {
+    'ADMITTED':          'bg-info text-dark',
+    'PAYMENT_PENDING':   'bg-warning text-dark',
+    'PAYMENT_VERIFIED':  'bg-success',
+    'BIODATA_SUBMITTED': 'bg-primary',
+    'ENROLLED':          'bg-success'
+  };
+
+  tbody.innerHTML = rows.map(function(r) {
+    var sc = statusColors[r.status] || 'bg-secondary';
+    var actions = '';
+    if (r.status === 'PAYMENT_PENDING') {
+      actions = '<button class="btn btn-sm btn-outline-warning" onclick="admRegViewSlip(\'' + r.id + '\')"><i class="bi bi-eye me-1"></i>View Slip</button>';
+    } else if (r.status === 'BIODATA_SUBMITTED' || r.status === 'ENROLLED') {
+      actions = '<button class="btn btn-sm btn-outline-primary" onclick="admRegViewBiodata(\'' + r.id + '\')"><i class="bi bi-person-lines-fill me-1"></i>View Biodata</button>';
+    } else {
+      actions = '<span class="text-muted small">—</span>';
+    }
+    return '<tr>' +
+      '<td><strong class="small">'+(r.full_name||'').toUpperCase()+'</strong><br><small class="text-muted">'+(r.phone||'')+'</small></td>' +
+      '<td><code class="small">'+(r.application_ref||'')+'</code></td>' +
+      '<td class="small">'+(r.programme||'—')+'</td>' +
+      '<td class="small">'+(r.academic_year||'')+'</td>' +
+      '<td class="text-center"><span class="badge '+sc+' small">'+(r.status||'').replace(/_/g,' ')+'</span></td>' +
+      '<td class="text-center">'+actions+'</td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function admRegViewSlip(admId) {
+  var rows = await sbFetch('admissions?id=eq.' + encodeURIComponent(admId) + '&select=*&limit=1');
+  if (!rows || !rows.length) return;
+  var adm = rows[0];
+  if (!adm.payment_slip_url) { Swal.fire({ icon:'warning', title:'No slip uploaded yet.' }); return; }
+
+  var signedRes = await _supabaseClient.storage.from('receipts').createSignedUrl(adm.payment_slip_url, 3600);
+  if (signedRes.error) { Swal.fire({ icon:'error', title:'Could not load slip', text:signedRes.error.message }); return; }
+
+  Swal.fire({
+    title: adm.full_name,
+    html:
+      '<div class="text-center mb-3">' +
+        '<img src="'+signedRes.data.signedUrl+'" style="max-width:100%;max-height:380px;border-radius:8px;">' +
+      '</div>' +
+      '<div class="row g-2 small text-start">' +
+        '<div class="col-4"><span class="text-muted d-block">Amount</span><strong>GH₵ '+Number(adm.payment_amount||0).toFixed(2)+'</strong></div>' +
+        '<div class="col-4"><span class="text-muted d-block">Reference</span><strong>'+(adm.payment_ref||'—')+'</strong></div>' +
+        '<div class="col-4"><span class="text-muted d-block">Date</span><strong>'+(adm.payment_date ? new Date(adm.payment_date).toLocaleDateString('en-GB') : '—')+'</strong></div>' +
+      '</div>' +
+      '<div class="alert alert-info small mt-3 mb-0">Payment approval is handled in the Finance portal under Admission Payments.</div>',
+    confirmButtonText: 'Close',
+    confirmButtonColor: '#0284c7'
+  });
+}
+
+async function admRegViewBiodata(admId) {
+  var rows = await sbFetch('admissions?id=eq.' + encodeURIComponent(admId) + '&select=*&limit=1');
+  if (!rows || !rows.length) return;
+  var adm = rows[0];
+
+  var fields = [
+    ['Full Name', adm.full_name], ['Programme', adm.programme], ['Academic Year', adm.academic_year],
+    ['Application Ref', adm.application_ref], ['Phone', adm.phone], ['Email', adm.email||'—'],
+    ['Date of Birth', adm.date_of_birth ? new Date(adm.date_of_birth).toLocaleDateString('en-GB') : '—'],
+    ['Gender', adm.gender||'—'], ['Nationality', adm.nationality||'—'], ['Hometown', adm.hometown||'—'],
+    ['Region', adm.region||'—'], ['Ghana Card', adm.ghana_card_no||'—'],
+    ['Previous School', adm.prev_school||'—'], ['WASSCE Index', adm.wassce_index||'—'],
+    ['WASSCE Year', adm.wassce_year||'—'], ['Best Six Aggregate', adm.wassce_aggregate||'—'],
+    ['NOK Name', adm.nok_name||'—'], ['NOK Phone', adm.nok_phone||'—'], ['NOK Relation', adm.nok_relation||'—']
+  ];
+
+  var html = '<div class="row g-2 small text-start">' +
+    fields.map(function(f){
+      return '<div class="col-6"><span class="text-muted d-block" style="font-size:0.72rem;">'+f[0]+'</span><strong>'+(f[1]||'—')+'</strong></div>';
+    }).join('') + '</div>';
+
+  if (adm.wassce_results && adm.wassce_results.length) {
+    html += '<hr><div class="small text-start"><strong>WASSCE Results:</strong><br>' +
+      adm.wassce_results.map(function(r){ return r.subject+': '+r.grade; }).join(' &nbsp;|&nbsp; ') + '</div>';
+  }
+
+  Swal.fire({ title:'Biodata — '+adm.full_name, html:html, width:700, confirmButtonText:'Close', confirmButtonColor:'#0284c7' });
+}
+
 // ── Auto-init ──────────────────────────────────────────────────
 (async function() {
   document.querySelectorAll('.reg-section').forEach(s => {
     s.style.display = s.id === 'reg-dashboard' ? 'block' : 'none';
   });
   await regLoadDashboardStats();
+  admRegUpdateBadge();
+  // Set portal link
+  var linkEl = document.getElementById('admPortalLink');
+  if (linkEl) linkEl.value = window.location.origin + '/admission.html';
 })();
 </script>
