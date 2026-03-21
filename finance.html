@@ -71,6 +71,9 @@
         <i class="bi bi-mortarboard"></i><span>Admission Payments</span>
         <span class="badge bg-warning text-dark ms-auto" id="admPayBadge" style="display:none;font-size:0.65rem;"></span>
       </a>
+      <a class="menu-item" data-section="admission-fees">
+        <i class="bi bi-cash-coin"></i><span>Admission Fees</span>
+      </a>
       <a class="menu-item" data-section="reports">
         <i class="bi bi-file-earmark-bar-graph"></i><span>Reports &amp; Export</span>
       </a>
@@ -438,6 +441,47 @@
         </div>
       </div>
     </section>
+
+    <!-- ADMISSION FEES -->
+    <section id="admission-fees" class="finance-section">
+      <div class="section-header">
+        <h4><i class="bi bi-cash-coin me-2"></i>Admission Fees Setup</h4>
+        <p class="text-muted mb-0">Set the admission fee applicants must pay before filling their biodata</p>
+      </div>
+      <div class="row">
+        <div class="col-md-5">
+          <div class="stat-card">
+            <h6 class="text-primary small fw-bold mb-3"><i class="bi bi-plus-circle me-2"></i>SET ADMISSION FEE</h6>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Academic Year <span class="text-danger">*</span></label>
+              <input type="text" id="admFeeYear" class="form-control" placeholder="e.g. 2025/2026">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold">Admission Fee Amount (GH₵) <span class="text-danger">*</span></label>
+              <input type="number" id="admFeeAmount" class="form-control" placeholder="e.g. 500.00" step="0.01" min="1">
+              <div class="form-text">This is the fee applicants must pay at the bank before they can fill their biodata form.</div>
+            </div>
+            <button class="btn btn-primary w-100" onclick="finSaveAdmFee()">
+              <i class="bi bi-save me-2"></i>Save Admission Fee
+            </button>
+            <div id="admFeeStatus" class="mt-2" style="display:none;"></div>
+          </div>
+        </div>
+        <div class="col-md-7">
+          <div class="stat-card">
+            <h6 class="text-primary small fw-bold mb-3"><i class="bi bi-table me-2"></i>CONFIGURED ADMISSION FEES</h6>
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-dark">
+                <tr><th>Academic Year</th><th class="text-end">Fee Amount (GH₵)</th><th class="text-muted small">Set By</th><th class="text-muted small">Date</th></tr>
+              </thead>
+              <tbody id="admFeeTable">
+                <tr><td colspan="4" class="text-center text-muted p-4">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
     
     <!-- 6. REPORTS -->
     <section id="reports" class="finance-section">
@@ -559,6 +603,7 @@ function finShowSection(id) {
   if (id === 'debt-upload')      finLoadPreSystemRecords();
   if (id === 'payment-approvals')  { finLoadApprovals(); }
   if (id === 'admission-payments') { finLoadAdmPayments(); finLoadAdmPayYears(); }
+  if (id === 'admission-fees')     { finLoadAdmFeeTable(); }
 }
 
 // Attach sidebar clicks via JS — no onclick attributes needed
@@ -2181,6 +2226,68 @@ async function finRejectAdmPayment(adm) {
   Swal.fire({ icon:'info', title:'Rejected', text:'Applicant can resubmit their payment slip.', timer:2000, showConfirmButton:false });
   finLoadAdmPayments();
   finUpdateAdmPayBadge();
+}
+
+  // ═══════════════════════════════════════════════════════════════
+// ADMISSION FEES
+// ═══════════════════════════════════════════════════════════════
+async function finSaveAdmFee() {
+  var year   = document.getElementById('admFeeYear').value.trim();
+  var amount = parseFloat(document.getElementById('admFeeAmount').value);
+  var st     = document.getElementById('admFeeStatus');
+
+  if (!year || !year.includes('/')) {
+    st.className='alert alert-danger mt-2'; st.style.display='block';
+    st.innerHTML='⚠ Enter a valid academic year e.g. 2025/2026'; return;
+  }
+  if (!amount || amount <= 0) {
+    st.className='alert alert-danger mt-2'; st.style.display='block';
+    st.innerHTML='⚠ Enter a valid fee amount'; return;
+  }
+
+  st.className='alert alert-info mt-2'; st.style.display='block';
+  st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Saving...';
+
+  var res = await fetch(SUPABASE_URL + '/rest/v1/admission_fees?on_conflict=academic_year', {
+    method: 'POST',
+    headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ academic_year:year, amount:amount, set_by: userSession.email || 'Finance Officer' })
+  });
+
+  if (!res.ok) {
+    st.className='alert alert-danger mt-2';
+    st.innerHTML='⚠ Failed: ' + await res.text(); return;
+  }
+
+  st.className='alert alert-success mt-2';
+  st.innerHTML='✅ Admission fee of GH₵ ' + amount.toFixed(2) + ' set for ' + year;
+  document.getElementById('admFeeAmount').value = '';
+  finLoadAdmFeeTable();
+  Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Admission fee saved!', showConfirmButton:false, timer:2500 });
+}
+
+async function finLoadAdmFeeTable() {
+  var tbody = document.getElementById('admFeeTable');
+  if (!tbody) return;
+  var rows = await sbFetch('admission_fees?select=*&order=created_at.desc');
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">No admission fees configured yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(r) {
+    return '<tr>' +
+      '<td class="fw-bold">' + (r.academic_year||'') + '</td>' +
+      '<td class="text-end fw-bold text-success">GH₵ ' + Number(r.amount).toFixed(2) + '</td>' +
+      '<td class="small text-muted">' + (r.set_by||'—') + '</td>' +
+      '<td class="small text-muted">' + (r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '—') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+// Helper used by admission.html to fetch required fee
+async function finGetAdmissionFee(academicYear) {
+  var rows = await sbFetch('admission_fees?academic_year=eq.' + encodeURIComponent(academicYear) + '&select=amount&limit=1');
+  return rows && rows.length ? Number(rows[0].amount) : null;
 }
   
 // ── Auto-init when fragment loads ──────────────────────────────
