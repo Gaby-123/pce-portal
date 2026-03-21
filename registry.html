@@ -272,9 +272,9 @@
       <!-- Upload Card -->
       <div class="stat-card mb-4">
         <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>UPLOAD ADMISSION LIST</h6>
-        <div class="alert alert-info py-2 px-3 small mb-3">
-          <strong>CSV Format:</strong> ApplicationRef, FullName, Phone, Programme<br>
-          <strong>Example:</strong> APP/2025/001234, John Kwame Mensah, 0241234567, PRIMARY EDUCATION
+        admission preview
+          <strong>CSV Format:</strong> ApplicationRef, FullName, Phone, Programme, Specialization<br>
+          <strong>Example:</strong> 2560001, Gabriel Odame, 0256977765, PRIMARY EDUCATION, MATHEMATICS AND SCIENCE
         </div>
         <div class="row g-3 mb-3">
           <div class="col-md-4">
@@ -360,6 +360,116 @@
             <i class="bi bi-clipboard me-1"></i>Copy
           </button>
         </div>
+
+        <!-- Download by Status -->
+      <div class="stat-card mt-4">
+        <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-download me-2"></i>DOWNLOAD ADMISSIONS LIST</h6>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Filter by Status</label>
+            <select id="admDlStatus" class="form-select form-select-sm">
+              <option value="ALL">All Statuses</option>
+              <option value="ADMITTED">Admitted (not yet paid)</option>
+              <option value="PAYMENT_PENDING">Payment Pending</option>
+              <option value="PAYMENT_VERIFIED">Payment Verified</option>
+              <option value="BIODATA_SUBMITTED">Biodata Submitted</option>
+              <option value="ENROLLED">Enrolled</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Academic Year</label>
+            <select id="admDlYear" class="form-select form-select-sm">
+              <option value="ALL">All Years</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <button class="btn btn-success btn-sm w-100 fw-bold" onclick="admDownloadList()">
+              <i class="bi bi-download me-1"></i>Download CSV
+            </button>
+          </div>
+        </div>
+        <div id="admDlStatus" class="mt-2" style="display:none;"></div>
+      </div>
+
+      <!-- Enrollment Section -->
+      <div class="stat-card mt-4" style="border-left:4px solid #1d4ed8;">
+        <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-person-check me-2"></i>STUDENT ENROLLMENT</h6>
+        <p class="small text-muted mb-3">Use this section to assign official index numbers and activate student portal accounts for applicants who have submitted their biodata.</p>
+
+        <!-- Step 1 -->
+        <div class="mb-4">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-primary rounded-circle" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">1</span>
+            <strong class="small">Upload Index Numbers</strong>
+          </div>
+          <div class="alert alert-secondary py-2 px-3 small mb-3">
+            <strong>CSV Format:</strong> ApplicationRef, IndexNumber, Email<br>
+            <strong>Example:</strong> 2560001, PCE/2025/0001, gabriel.odame@pce.edu.gh
+          </div>
+          <div class="row g-2">
+            <div class="col-md-5">
+              <input type="file" id="enrollIndexFile" class="form-control form-control-sm" accept=".csv">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+              <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="admDownloadEnrollTemplate()">
+                <i class="bi bi-download me-1"></i>Template
+              </button>
+              <button class="btn btn-primary btn-sm flex-fill" onclick="admUploadIndexNumbers()">
+                <i class="bi bi-upload me-1"></i>Upload
+              </button>
+            </div>
+          </div>
+          <div id="enrollUploadStatus" class="mt-2" style="display:none;"></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-success rounded-circle" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">2</span>
+            <strong class="small">Activate Student Portals</strong>
+          </div>
+          <p class="small text-muted mb-3">This creates portal accounts for all applicants whose status is <strong>BIODATA_SUBMITTED</strong> and have both an index number and email assigned.</p>
+          <div id="enrollReadyCount" class="alert alert-info py-2 px-3 small mb-3" style="display:none;"></div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="admCheckEnrollReady()">
+              <i class="bi bi-search me-1"></i>Check Who Is Ready
+            </button>
+            <button class="btn btn-success btn-sm fw-bold px-4" onclick="admActivatePortals()">
+              <i class="bi bi-person-check me-1"></i>Activate Student Portals
+            </button>
+          </div>
+          <div id="enrollActivateStatus" class="mt-2" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Settings: Principal Signature -->
+      <div class="stat-card mt-4" style="border-left:4px solid #0284c7;">
+        <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-pen me-2"></i>ADMISSION LETTER SETTINGS</h6>
+        <p class="small text-muted mb-3">These details appear on every admission letter PDF.</p>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Principal's Full Name</label>
+            <input type="text" id="settingPrincipalName" class="form-control" placeholder="e.g. Prof. John Kwame Asante">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Title / Designation</label>
+            <input type="text" id="settingPrincipalTitle" class="form-control" placeholder="e.g. Principal">
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-bold">Signature Image (optional)</label>
+            <input type="file" id="settingSignatureFile" class="form-control" accept="image/jpeg,image/png">
+            <div class="form-text">Upload a scanned signature image. Max 500KB. JPEG or PNG.</div>
+            <div id="sigPreviewBox" class="mt-2" style="display:none;">
+              <img id="sigCurrentPreview" style="max-height:60px;border:1px solid #e2e8f0;border-radius:4px;padding:4px;">
+              <span class="small text-muted ms-2">Current signature</span>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary mt-3" onclick="admSaveSettings()">
+          <i class="bi bi-save me-2"></i>Save Settings
+        </button>
+        <div id="settingsStatus" class="mt-2" style="display:none;"></div>
+      </div>
       </div>
     </section>
 
@@ -496,7 +606,7 @@ function regShowSection(id) {
   document.querySelectorAll('.reg-section').forEach(s => { s.style.display = s.id === id ? 'block' : 'none'; });
   document.querySelectorAll('#regSidebarMenu .menu-item').forEach(n => { n.classList.toggle('active', n.getAttribute('data-section') === id); });
   if (id === 'reg-dashboard')   regLoadDashboardStats();
-  if (id === 'reg-admissions')  { admRegLoadYears(); admRegUpdateBadge(); admLoadList(); }
+  if (id === 'reg-admissions')  { admRegLoadYears(); admRegUpdateBadge(); admLoadList(); admLoadDlYears(); admLoadSettings(); }
 }
 document.querySelectorAll('#regSidebarMenu .menu-item').forEach(item => {
   item.addEventListener('click', function() { regShowSection(this.getAttribute('data-section')); });
@@ -1035,7 +1145,7 @@ function admCopyLink() {
 }
 
 function admDownloadTemplate() {
-  var csv = 'ApplicationRef,FullName,Phone,Programme\nAPP/2025/001234,John Kwame Mensah,0241234567,PRIMARY EDUCATION\nAPP/2025/001235,Abena Asante Boateng,0501234567,JHS EDUCATION';
+  var csv = 'ApplicationRef,FullName,Phone,Programme,Specialization\n2560001,Gabriel Odame,0256977765,PRIMARY EDUCATION,MATHEMATICS AND SCIENCE\n2560002,Eric Odame,0501234567,JHS EDUCATION,HISTORY AND SOCIAL STUDIES';
   var a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
   a.download = 'Admission_Upload_Template.csv';
@@ -1092,7 +1202,8 @@ async function admPreviewUpload() {
     if (!name)  { errors.push('Row '+(i+2)+': Missing full name'); return; }
     if (!phone) { errors.push('Row '+(i+2)+': Missing phone number'); return; }
 
-    parsed.push({ application_ref:ref, full_name:name, phone:phone, programme:prog, academic_year:year });
+    var spec = (cols[4]||'').toUpperCase();
+    parsed.push({ application_ref:ref, full_name:name, phone:phone, programme:prog, specialization:spec, academic_year:year });
   });
 
   Swal.close();
@@ -1109,6 +1220,7 @@ async function admPreviewUpload() {
       '<td class="small">'+r.full_name+'</td>' +
       '<td class="small">'+r.phone+'</td>' +
       '<td class="small">'+r.programme+'</td>' +
+      '<td class="small">'+r.specialization+'</td>' +
       '<td class="small"><span class="badge bg-info text-dark">'+year+'</span></td>' +
     '</tr>';
   }).join('');
@@ -1116,7 +1228,7 @@ async function admPreviewUpload() {
   document.getElementById('admPreviewCount').innerText = parsed.length;
   document.getElementById('admPreviewContent').innerHTML =
     '<table class="table table-sm table-hover mb-0">' +
-    '<thead class="table-dark sticky-top"><tr><th>#</th><th>Ref</th><th>Name</th><th>Phone</th><th>Programme</th><th>Year</th></tr></thead>' +
+    '<thead class="table-dark sticky-top"><tr><th>#</th><th>Ref</th><th>Name</th><th>Phone</th><th>Programme</th><th>Specialization</th><th>Year</th></tr></thead>' +
     '<tbody>' + tableRows + '</tbody></table>';
 
   if (errors.length) {
@@ -1285,6 +1397,333 @@ async function admRegViewBiodata(admId) {
   }
 
   Swal.fire({ title:'Biodata — '+adm.full_name, html:html, width:700, confirmButtonText:'Close', confirmButtonColor:'#0284c7' });
+}
+
+  // ═══════════════════════════════════════════════════════════════
+// ADMISSIONS — DOWNLOAD BY STATUS
+// ═══════════════════════════════════════════════════════════════
+async function admLoadDlYears() {
+  var sel = document.getElementById('admDlYear');
+  if (!sel) return;
+  var rows = await sbFetch('admissions?select=academic_year&order=academic_year.desc');
+  var years = [...new Set((rows||[]).map(function(r){ return r.academic_year; }).filter(Boolean))];
+  sel.innerHTML = '<option value="ALL">All Years</option>' + years.map(function(y){
+    return '<option value="'+y+'">'+y+'</option>';
+  }).join('');
+}
+
+async function admDownloadList() {
+  var status = document.getElementById('admDlStatus').value;
+  var year   = document.getElementById('admDlYear').value;
+  var st     = document.getElementById('admDlStatus');
+
+  st.style.display='block'; st.className='alert alert-info small';
+  st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Fetching records...';
+
+  var q = 'admissions?select=*&order=full_name.asc&limit=1000';
+  if (status !== 'ALL') q += '&status=eq.' + status;
+  if (year   !== 'ALL') q += '&academic_year=eq.' + encodeURIComponent(year);
+
+  var rows = await sbFetch(q);
+  if (!rows || !rows.length) {
+    st.className='alert alert-warning small';
+    st.innerHTML='⚠ No records found for the selected filters.'; return;
+  }
+
+  var headers = ['ApplicationRef','FullName','Phone','Programme','Specialization','AcademicYear','Status','Email','IndexNumber','PaymentAmount','PaymentDate','BiodataSubmitted'];
+  var csvRows = rows.map(function(r) {
+    return [
+      r.application_ref||'',
+      r.full_name||'',
+      r.phone||'',
+      r.programme||'',
+      r.specialization||'',
+      r.academic_year||'',
+      r.status||'',
+      r.email||'',
+      r.index_number||'',
+      r.payment_amount ? Number(r.payment_amount).toFixed(2) : '',
+      r.payment_date ? new Date(r.payment_date).toLocaleDateString('en-GB') : '',
+      r.biodata_submitted_at ? new Date(r.biodata_submitted_at).toLocaleDateString('en-GB') : ''
+    ];
+  });
+
+  var csv = [headers, ...csvRows]
+    .map(function(row){ return row.map(function(c){ return '"'+String(c||'').replace(/"/g,'""')+'"'; }).join(','); })
+    .join('\n');
+
+  var statusLabel = status === 'ALL' ? 'All' : status;
+  var yearLabel   = year   === 'ALL' ? 'AllYears' : year.replace('/','-');
+  var fname = 'Admissions_' + statusLabel + '_' + yearLabel + '_' + new Date().toISOString().slice(0,10) + '.csv';
+
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = fname; a.click();
+
+  st.className='alert alert-success small';
+  st.innerHTML='✅ ' + rows.length + ' record(s) downloaded.';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENROLLMENT
+// ═══════════════════════════════════════════════════════════════
+function admDownloadEnrollTemplate() {
+  var csv = 'ApplicationRef,IndexNumber,Email\n2560001,PCE/2025/0001,gabriel.odame@pce.edu.gh\n2560002,PCE/2025/0002,eric.odame@pce.edu.gh';
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'Enrollment_Index_Template.csv';
+  a.click();
+  Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Template downloaded!', showConfirmButton:false, timer:2000 });
+}
+
+async function admUploadIndexNumbers() {
+  var file = document.getElementById('enrollIndexFile').files[0];
+  var st   = document.getElementById('enrollUploadStatus');
+
+  if (!file) { Swal.fire({ icon:'warning', title:'No File', text:'Please select a CSV file.', confirmButtonColor:'#0284c7' }); return; }
+
+  st.style.display='block'; st.className='alert alert-info small';
+  st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Reading CSV...';
+
+  var text  = await file.text();
+  var lines = text.trim().split('\n').filter(function(l){ return l.trim(); });
+  if (lines.length < 2) { st.className='alert alert-warning small'; st.innerHTML='⚠ CSV has no data rows.'; return; }
+
+  var firstLine = lines[0] || '';
+  var delim = firstLine.includes('\t') ? '\t' : ',';
+  var records = [], errors = [];
+
+  lines.slice(1).forEach(function(line, i) {
+    var cols  = line.split(delim).map(function(c){ return c.replace(/"/g,'').trim(); });
+    var ref   = (cols[0]||'').toUpperCase();
+    var idx   = (cols[1]||'').trim();
+    var email = (cols[2]||'').trim().toLowerCase();
+
+    if (!ref)   { errors.push('Row '+(i+2)+': Missing application reference'); return; }
+    if (!idx)   { errors.push('Row '+(i+2)+': Missing index number'); return; }
+    if (!email || !email.includes('@')) { errors.push('Row '+(i+2)+': Invalid email'); return; }
+    records.push({ ref:ref, index:idx, email:email });
+  });
+
+  if (!records.length) {
+    st.className='alert alert-warning small';
+    st.innerHTML='⚠ No valid records. Errors: ' + errors.join(', '); return;
+  }
+
+  st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Updating ' + records.length + ' records...';
+
+  var ok = 0, notFound = 0, fail = 0;
+  for (var i = 0; i < records.length; i++) {
+    var r = records[i];
+    var existing = await sbFetch('admissions?application_ref=eq.' + encodeURIComponent(r.ref) + '&select=id&limit=1');
+    if (!existing || !existing.length) { notFound++; continue; }
+
+    var res = await fetch(SUPABASE_URL + '/rest/v1/admissions?id=eq.' + encodeURIComponent(existing[0].id), {
+      method: 'PATCH',
+      headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+      body: JSON.stringify({ index_number: r.index, email: r.email })
+    });
+    if (res.ok) ok++; else fail++;
+  }
+
+  var msg = '✅ ' + ok + ' index number(s) assigned.';
+  if (notFound > 0) msg += ' ' + notFound + ' application ref(s) not found.';
+  if (fail > 0)     msg += ' ⚠ ' + fail + ' failed.';
+
+  st.className = 'alert alert-' + (fail > 0 ? 'warning' : 'success') + ' small';
+  st.innerHTML = msg;
+  document.getElementById('enrollIndexFile').value = '';
+
+  Swal.fire({ icon: fail > 0 ? 'warning' : 'success', title:'Index Numbers Uploaded', html:msg, confirmButtonColor:'#0284c7' });
+  admLoadList();
+}
+
+async function admCheckEnrollReady() {
+  var rows = await sbFetch('admissions?status=eq.BIODATA_SUBMITTED&select=id,full_name,index_number,email');
+  var ready = (rows||[]).filter(function(r){ return r.index_number && r.email; });
+  var missing = (rows||[]).filter(function(r){ return !r.index_number || !r.email; });
+  var el = document.getElementById('enrollReadyCount');
+  el.style.display = 'block';
+  if (ready.length === 0) {
+    el.className = 'alert alert-warning py-2 px-3 small mb-3';
+    el.innerHTML = '⚠ No students are ready for enrollment yet. Make sure index numbers and emails are uploaded for BIODATA_SUBMITTED applicants.';
+  } else {
+    el.className = 'alert alert-success py-2 px-3 small mb-3';
+    el.innerHTML = '✅ <strong>' + ready.length + '</strong> student(s) ready to enroll.' +
+      (missing.length > 0 ? ' <span class="text-warning">' + missing.length + ' still missing index number or email.</span>' : '');
+  }
+}
+
+async function admActivatePortals() {
+  var rows = await sbFetch('admissions?status=eq.BIODATA_SUBMITTED&select=*');
+  var ready = (rows||[]).filter(function(r){ return r.index_number && r.email; });
+
+  if (!ready.length) {
+    Swal.fire({ icon:'warning', title:'No Students Ready', text:'Run "Check Who Is Ready" first to see who can be enrolled.', confirmButtonColor:'#0284c7' });
+    return;
+  }
+
+  var confirm = await Swal.fire({
+    title: 'Activate ' + ready.length + ' Student Portal(s)?',
+    html: '<p>This will create student portal accounts for <strong>' + ready.length + '</strong> applicant(s).</p><p class="small text-muted">Default password: <code>PCE@1848</code></p>',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#10b981',
+    confirmButtonText: 'Yes, Activate Portals'
+  });
+  if (!confirm.isConfirmed) return;
+
+  Swal.fire({ title:'Activating Portals...', html:'<div class="spinner-border text-success"></div>', allowOutsideClick:false, showConfirmButton:false });
+
+  var hashedPwd = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'))
+    .then(function(buf){ return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join(''); });
+
+  var enrolled = 0, skipped = 0, fail = 0;
+
+  for (var i = 0; i < ready.length; i++) {
+    var adm = ready[i];
+    var em  = adm.email.toLowerCase().trim();
+
+    // Check if email already exists in users
+    var existing = await sbFetch('users?email=eq.' + encodeURIComponent(em) + '&select=email&limit=1');
+    if (existing && existing.length > 0) { skipped++; continue; }
+
+    // Build student_bio payload using only existing columns
+    var bioPayload = {
+      email:          em,
+      name:           adm.full_name || '',
+      index_number:   adm.index_number,
+      level:          '100',
+      program:        adm.programme || '',
+      specialization: adm.specialization || '',
+      gender:         adm.gender || '',
+      dob:            adm.date_of_birth || null,
+      phone:          adm.phone || '',
+      status:         'PENDING'
+    };
+
+    // Insert student_bio
+    var bioRes = await fetch(SUPABASE_URL + '/rest/v1/student_bio?on_conflict=email', {
+      method: 'POST',
+      headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(bioPayload)
+    });
+
+    if (!bioRes.ok) { fail++; continue; }
+
+    // Insert users
+    var userRes = await fetch(SUPABASE_URL + '/rest/v1/users?on_conflict=email', {
+      method: 'POST',
+      headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ email:em, password:hashedPwd, role:'STUDENT', is_first_login:true, failed_attempts:0, locked_until:null })
+    });
+
+    if (!userRes.ok) { fail++; continue; }
+
+    // Update admissions status to ENROLLED
+    await fetch(SUPABASE_URL + '/rest/v1/admissions?id=eq.' + encodeURIComponent(adm.id), {
+      method: 'PATCH',
+      headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+      body: JSON.stringify({ status:'ENROLLED', enrolled_at: new Date().toISOString(), enrolled_by: userSession.email || 'Registry' })
+    });
+
+    enrolled++;
+  }
+
+  Swal.close();
+
+  var msg = '✅ ' + enrolled + ' student portal(s) activated.';
+  if (skipped > 0) msg += ' ' + skipped + ' skipped (email already exists).';
+  if (fail > 0)    msg += ' ⚠ ' + fail + ' failed.';
+
+  var st = document.getElementById('enrollActivateStatus');
+  st.style.display='block';
+  st.className = 'alert alert-' + (fail > 0 ? 'warning' : 'success') + ' small';
+  st.innerHTML = msg;
+
+  Swal.fire({ icon: fail > 0 ? 'warning' : 'success', title:'Enrollment Complete', html:msg, confirmButtonColor:'#0284c7' });
+  admLoadList();
+  admRegUpdateBadge();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS — PRINCIPAL SIGNATURE
+// ═══════════════════════════════════════════════════════════════
+async function admLoadSettings() {
+  var rows = await sbFetch('pce_settings?select=key,value');
+  if (!rows || !rows.length) return;
+  var map = {};
+  rows.forEach(function(r){ map[r.key] = r.value; });
+
+  var nameEl  = document.getElementById('settingPrincipalName');
+  var titleEl = document.getElementById('settingPrincipalTitle');
+  if (nameEl  && map['principal_name'])  nameEl.value  = map['principal_name'];
+  if (titleEl && map['principal_title']) titleEl.value = map['principal_title'];
+
+  if (map['signature_url'] && map['signature_url'] !== 'null') {
+    var signedRes = await _supabaseClient.storage.from('signatures').createSignedUrl(map['signature_url'], 3600);
+    if (!signedRes.error && signedRes.data) {
+      var previewBox = document.getElementById('sigPreviewBox');
+      var previewImg = document.getElementById('sigCurrentPreview');
+      if (previewBox && previewImg) {
+        previewImg.src = signedRes.data.signedUrl;
+        previewBox.style.display = 'block';
+      }
+    }
+  }
+}
+
+async function admSaveSettings() {
+  var name      = document.getElementById('settingPrincipalName').value.trim();
+  var title     = document.getElementById('settingPrincipalTitle').value.trim();
+  var sigFile   = document.getElementById('settingSignatureFile').files[0];
+  var st        = document.getElementById('settingsStatus');
+
+  if (!name) {
+    st.className='alert alert-danger mt-2'; st.style.display='block';
+    st.innerHTML='⚠ Principal name is required.'; return;
+  }
+
+  st.className='alert alert-info mt-2'; st.style.display='block';
+  st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Saving...';
+
+  var sigUrl = null;
+
+  if (sigFile) {
+    if (sigFile.size > 512000) {
+      st.className='alert alert-danger mt-2';
+      st.innerHTML='⚠ Signature image too large. Max 500KB.'; return;
+    }
+    var ext = sigFile.type === 'image/png' ? 'png' : 'jpg';
+    var filePath = 'principal-signature.' + ext;
+    var uploadRes = await _supabaseClient.storage.from('signatures').upload(filePath, sigFile, { contentType:sigFile.type, upsert:true });
+    if (uploadRes.error) {
+      st.className='alert alert-danger mt-2';
+      st.innerHTML='⚠ Signature upload failed: ' + uploadRes.error.message; return;
+    }
+    sigUrl = filePath;
+  }
+
+  // Upsert all settings
+  var settings = [
+    { key:'principal_name',  value:name },
+    { key:'principal_title', value:title || 'Principal' }
+  ];
+  if (sigUrl) settings.push({ key:'signature_url', value:sigUrl });
+
+  for (var i = 0; i < settings.length; i++) {
+    await fetch(SUPABASE_URL + '/rest/v1/pce_settings?on_conflict=key', {
+      method: 'POST',
+      headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(settings[i])
+    });
+  }
+
+  st.className='alert alert-success mt-2';
+  st.innerHTML='✅ Settings saved successfully.';
+  document.getElementById('settingSignatureFile').value = '';
+  admLoadSettings();
+  Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Settings saved!', showConfirmButton:false, timer:2000 });
 }
 
 // ── Auto-init ──────────────────────────────────────────────────
