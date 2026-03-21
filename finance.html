@@ -2070,11 +2070,10 @@ async function finLoadAdmPayments() {
 
   tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading...</td></tr>';
 
-  var q = 'admissions?select=*&order=created_at.desc&limit=200';
   if (status !== 'ALL') {
     q += '&status=eq.' + status;
   } else {
-    q += '&status=in.(PAYMENT_PENDING,PAYMENT_VERIFIED)';
+    q += '&status=in.(PAYMENT_PENDING,PAYMENT_VERIFIED,BIODATA_SUBMITTED,ENROLLED)';
   }
   if (year !== 'ALL') q += '&academic_year=eq.' + encodeURIComponent(year);
 
