@@ -1628,6 +1628,90 @@ async function admActivatePortals() {
       body: JSON.stringify({ status:'ENROLLED', enrolled_at: new Date().toISOString(), enrolled_by: userSession.email || 'Registry' })
     });
 
+    // ── Carry admission payment into student finance ──────────
+    // Fetch the admission fee for this academic year
+    var admFeeRows = await sbFetch(
+      'admission_fees?academic_year=eq.' + encodeURIComponent(adm.academic_year) + '&select=amount&limit=1'
+    );
+    var admFeeAmount = admFeeRows && admFeeRows.length ? Number(admFeeRows[0].amount) : Number(adm.payment_amount || 0);
+
+    if (admFeeAmount > 0) {
+      // 1. Ensure fee_structure has a record for Level 100 this year
+      await fetch(SUPABASE_URL + '/rest/v1/fee_structure?on_conflict=academic_year,level', {
+        method: 'POST',
+        headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({
+          academic_year: adm.academic_year,
+          level:         '100',
+          amount:        admFeeAmount,
+          status:        'ACTIVE',
+          set_by:        'Admission Enrollment'
+        })
+      });
+
+      // 2. Create student_finance record
+      await fetch(SUPABASE_URL + '/rest/v1/student_finance?on_conflict=email,academic_year', {
+        method: 'POST',
+        headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({
+          email:          em,
+          name:           adm.full_name || '',
+          level:          '100',
+          academic_year:  adm.academic_year,
+          base_fees:      admFeeAmount,
+          carry_over:     0,
+          total_required: admFeeAmount,
+          total_paid:     0,
+          balance:        admFeeAmount,
+          percentage:     0,
+          can_register:   false
+        })
+      });
+
+      // 3. Write the admission payment to payments table
+      var paidAmount = Number(adm.payment_amount || 0);
+      if (paidAmount > 0) {
+        await fetch(SUPABASE_URL + '/rest/v1/payments', {
+          method: 'POST',
+          headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+          body: JSON.stringify({
+            email:         em,
+            amount:        paidAmount,
+            type:          'PAYMENT',
+            payment_date:  adm.payment_date || new Date().toISOString().slice(0,10),
+            reference:     adm.payment_ref || 'ADMISSION_PAYMENT',
+            academic_year: adm.academic_year,
+            recorded_by:   'Admission Portal'
+          })
+        });
+
+        // 4. Sync finance row — recalculate totals and update status
+        var payRows = await sbFetch(
+          'payments?email=eq.' + encodeURIComponent(em) +
+          '&academic_year=eq.' + encodeURIComponent(adm.academic_year) + '&select=amount'
+        );
+        var totalPaid  = (payRows||[]).reduce(function(s,p){ return s + Number(p.amount); }, 0);
+        var balance    = admFeeAmount - totalPaid;
+        var percentage = admFeeAmount > 0 ? parseFloat(((totalPaid / admFeeAmount) * 100).toFixed(1)) : 0;
+        var canReg     = percentage >= 70;
+
+        await fetch(SUPABASE_URL + '/rest/v1/student_finance?email=eq.' + encodeURIComponent(em) +
+          '&academic_year=eq.' + encodeURIComponent(adm.academic_year), {
+          method: 'PATCH',
+          headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+          body: JSON.stringify({ total_paid:totalPaid, balance:balance, percentage:percentage, can_register:canReg })
+        });
+
+        // 5. Update student_bio status based on payment percentage
+        var bioStatus = percentage >= 100 ? 'CLEARED' : percentage >= 70 ? 'ELIGIBLE' : 'PENDING';
+        await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(em), {
+          method: 'PATCH',
+          headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+          body: JSON.stringify({ status: bioStatus })
+        });
+      }
+    }
+
     enrolled++;
   }
 
