@@ -269,10 +269,10 @@
         <p class="text-muted mb-0">Upload admission lists and track applicant progress</p>
       </div>
 
-      <!-- Upload Card -->
+      <!-- ── 1. UPLOAD ADMISSION LIST ── -->
       <div class="stat-card mb-4">
         <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>UPLOAD ADMISSION LIST</h6>
-        admission preview
+        <div class="alert alert-info py-2 px-3 small mb-3">
           <strong>CSV Format:</strong> ApplicationRef, FullName, Phone, Programme, Specialization<br>
           <strong>Example:</strong> 2560001, Gabriel Odame, 0256977765, PRIMARY EDUCATION, MATHEMATICS AND SCIENCE
         </div>
@@ -297,7 +297,7 @@
         <div id="admUploadStatus" class="mt-2" style="display:none;"></div>
       </div>
 
-      <!-- Search + Filter -->
+      <!-- ── 2. SEARCH + FILTER ── -->
       <div class="stat-card mb-3">
         <div class="row g-3 align-items-end">
           <div class="col-md-4">
@@ -329,7 +329,7 @@
         </div>
       </div>
 
-      <!-- Admissions Table -->
+      <!-- ── 3. ADMISSIONS TABLE ── -->
       <div class="stat-card p-0 mb-4" style="overflow:hidden;">
         <div style="overflow-x:auto;">
           <table class="table table-hover table-sm mb-0">
@@ -350,8 +350,8 @@
         </div>
       </div>
 
-      <!-- Portal Link Card -->
-      <div class="stat-card" style="background:#f0fdf4;border:1px solid #86efac;">
+      <!-- ── 4. PORTAL LINK ── -->
+      <div class="stat-card mb-4" style="background:#f0fdf4;border:1px solid #86efac;">
         <h6 class="text-uppercase text-success small fw-bold mb-2"><i class="bi bi-link-45deg me-2"></i>APPLICANT PORTAL LINK</h6>
         <p class="small text-muted mb-2">Copy this link and include it in your SMS to admitted students.</p>
         <div class="input-group">
@@ -360,9 +360,10 @@
             <i class="bi bi-clipboard me-1"></i>Copy
           </button>
         </div>
+      </div>
 
-        <!-- Download by Status -->
-      <div class="stat-card mt-4">
+      <!-- ── 5. DOWNLOAD BY STATUS ── -->
+      <div class="stat-card mb-4">
         <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-download me-2"></i>DOWNLOAD ADMISSIONS LIST</h6>
         <div class="row g-3 align-items-end">
           <div class="col-md-4">
@@ -388,16 +389,16 @@
             </button>
           </div>
         </div>
-        <div id="admDlStatus" class="mt-2" style="display:none;"></div>
+        <div id="admDlStatusMsg" class="mt-2" style="display:none;"></div>
       </div>
 
-      <!-- Enrollment Section -->
-      <div class="stat-card mt-4" style="border-left:4px solid #1d4ed8;">
+      <!-- ── 6. ENROLLMENT ── -->
+      <div class="stat-card mb-4" style="border-left:4px solid #1d4ed8;">
         <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-person-check me-2"></i>STUDENT ENROLLMENT</h6>
         <p class="small text-muted mb-3">Use this section to assign official index numbers and activate student portal accounts for applicants who have submitted their biodata.</p>
 
         <!-- Step 1 -->
-        <div class="mb-4">
+        <div class="mb-4 pb-4 border-bottom">
           <div class="d-flex align-items-center gap-2 mb-2">
             <span class="badge bg-primary rounded-circle" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">1</span>
             <strong class="small">Upload Index Numbers</strong>
@@ -410,7 +411,7 @@
             <div class="col-md-5">
               <input type="file" id="enrollIndexFile" class="form-control form-control-sm" accept=".csv">
             </div>
-            <div class="col-md-3 d-flex gap-2">
+            <div class="col-md-4 d-flex gap-2">
               <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="admDownloadEnrollTemplate()">
                 <i class="bi bi-download me-1"></i>Template
               </button>
@@ -442,8 +443,8 @@
         </div>
       </div>
 
-      <!-- Settings: Principal Signature -->
-      <div class="stat-card mt-4" style="border-left:4px solid #0284c7;">
+      <!-- ── 7. ADMISSION LETTER SETTINGS ── -->
+      <div class="stat-card" style="border-left:4px solid #0284c7;">
         <h6 class="text-uppercase text-primary small fw-bold mb-3"><i class="bi bi-pen me-2"></i>ADMISSION LETTER SETTINGS</h6>
         <p class="small text-muted mb-3">These details appear on every admission letter PDF.</p>
         <div class="row g-3">
@@ -470,7 +471,7 @@
         </button>
         <div id="settingsStatus" class="mt-2" style="display:none;"></div>
       </div>
-      </div>
+
     </section>
 
     <!-- ADMISSION PREVIEW MODAL -->
@@ -1415,7 +1416,7 @@ async function admLoadDlYears() {
 async function admDownloadList() {
   var status = document.getElementById('admDlStatus').value;
   var year   = document.getElementById('admDlYear').value;
-  var st     = document.getElementById('admDlStatus');
+  var st     = document.getElementById('admDlStatusMsg');
 
   st.style.display='block'; st.className='alert alert-info small';
   st.innerHTML='<div class="spinner-border spinner-border-sm me-2"></div>Fetching records...';
