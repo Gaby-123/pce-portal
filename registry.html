@@ -1078,8 +1078,11 @@ async function admPreviewUpload() {
   if (lines.length < 2) { Swal.close(); Swal.fire({ icon:'error', title:'Empty File', text:'CSV has no data rows.' }); return; }
 
   var parsed = [], errors = [];
+  // Auto-detect delimiter — tab or comma
+  var firstLine = lines[0] || '';
+  var delim = firstLine.includes('\t') ? '\t' : ',';
   lines.slice(1).forEach(function(line, i) {
-    var cols = line.split(',').map(function(c){ return c.replace(/"/g,'').trim(); });
+    var cols = line.split(delim).map(function(c){ return c.replace(/"/g,'').trim(); });
     var ref  = (cols[0]||'').toUpperCase();
     var name = cols[1]||'';
     var phone= cols[2]||'';
