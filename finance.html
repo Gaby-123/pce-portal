@@ -2070,15 +2070,40 @@ async function finLoadAdmPayments() {
 
   tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading...</td></tr>';
 
-  if (status !== 'ALL') {
-    q += '&status=eq.' + status;
-  } else {
-    q += '&status=in.(PAYMENT_PENDING,PAYMENT_VERIFIED,BIODATA_SUBMITTED,ENROLLED)';
-  }
-  if (year !== 'ALL') q += '&academic_year=eq.' + encodeURIComponent(year);
+  // Build query — Supabase REST uses 'in.' with parentheses but only for simple lists
+  // Safer to use separate calls and merge than to rely on 'in.' with complex status lists
+  var rows = [];
 
-  var rows = await sbFetch(q);
-  if (!rows || !rows.length) {
+  try {
+    if (status === 'ALL') {
+      // Fetch each status separately and merge — avoids 'in.' syntax issues
+      var [r1, r2, r3, r4] = await Promise.all([
+        sbFetch('admissions?status=eq.PAYMENT_PENDING&select=*&order=created_at.desc&limit=200'  + (year !== 'ALL' ? '&academic_year=eq.' + encodeURIComponent(year) : '')),
+        sbFetch('admissions?status=eq.PAYMENT_VERIFIED&select=*&order=created_at.desc&limit=200' + (year !== 'ALL' ? '&academic_year=eq.' + encodeURIComponent(year) : '')),
+        sbFetch('admissions?status=eq.BIODATA_SUBMITTED&select=*&order=created_at.desc&limit=200'+ (year !== 'ALL' ? '&academic_year=eq.' + encodeURIComponent(year) : '')),
+        sbFetch('admissions?status=eq.ENROLLED&select=*&order=created_at.desc&limit=200'         + (year !== 'ALL' ? '&academic_year=eq.' + encodeURIComponent(year) : ''))
+      ]);
+      // Merge and keep only records that actually have a payment
+      var merged = [...(r1||[]), ...(r2||[]), ...(r3||[]), ...(r4||[])];
+      rows = merged.filter(function(r){ return r.payment_amount && Number(r.payment_amount) > 0; });
+      // Sort by created_at desc
+      rows.sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); });
+
+    } else {
+      var q = 'admissions?status=eq.' + encodeURIComponent(status) + '&select=*&order=created_at.desc&limit=200';
+      if (year !== 'ALL') q += '&academic_year=eq.' + encodeURIComponent(year);
+      rows = await sbFetch(q) || [];
+      // For specific status filters also only show those with payments
+      if (status !== 'PAYMENT_PENDING') {
+        rows = rows.filter(function(r){ return r.payment_amount && Number(r.payment_amount) > 0; });
+      }
+    }
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger p-4">Error loading records: ' + e.message + '</td></tr>';
+    return;
+  }
+
+  if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted p-5">No records found</td></tr>';
     if (label) label.innerText = '0 records';
     finUpdateAdmPayBadge();
@@ -2088,11 +2113,13 @@ async function finLoadAdmPayments() {
   if (label) label.innerText = rows.length + ' record(s)';
 
   tbody.innerHTML = rows.map(function(r) {
-    var sc    = r.status === 'PAYMENT_VERIFIED' ? 'bg-success' : 'bg-warning text-dark';
+    var sc    = r.status === 'PAYMENT_VERIFIED'  ? 'bg-success' :
+                r.status === 'BIODATA_SUBMITTED' ? 'bg-primary' :
+                r.status === 'ENROLLED'          ? 'bg-dark'    : 'bg-warning text-dark';
     var payDt = r.payment_date ? new Date(r.payment_date).toLocaleDateString('en-GB') : '—';
     var btn   = r.status === 'PAYMENT_PENDING'
       ? '<button class="btn btn-sm btn-outline-primary fw-bold" onclick="finOpenAdmSlip(\'' + r.id + '\')"><i class="bi bi-eye me-1"></i>Review</button>'
-      : '<span class="text-muted small">Approved</span>';
+      : '<button class="btn btn-sm btn-outline-secondary btn-sm" onclick="finOpenAdmSlip(\'' + r.id + '\')"><i class="bi bi-eye me-1"></i>View</button>';
     return '<tr>' +
       '<td><strong class="small">'+(r.full_name||'').toUpperCase()+'</strong><br><small class="text-muted">'+(r.phone||'')+'</small></td>' +
       '<td><code class="small">'+(r.application_ref||'')+'</code></td>' +
