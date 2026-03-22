@@ -416,7 +416,7 @@
         <h6><i class="bi bi-radioactive me-2"></i>Nuclear Reset — Wipe All Supabase Data</h6>
         <p class="small mb-3" style="color:#94a3b8;line-height:1.6;">
           This permanently deletes ALL records from every Supabase table:
-          <code style="color:#fca5a5;">users, student_bio, courses, registrations, results, fee_structure, payments, student_finance</code>.
+          <code style="color:#fca5a5;">users, student_bio, courses, registrations, results, fee_structure, payments, student_finance, admissions, payment_submissions, admission_fees, pce_settings</code>.
           <br><strong style="color:#f87171;">This action cannot be undone.</strong>
         </p>
         <p class="small mb-3" style="color:#94a3b8;">
@@ -446,15 +446,19 @@
   var admUnlocked    = false;
 
   var TABLES = [
-    { key: 'users',           label: 'Users'           },
-    { key: 'student_bio',     label: 'Student Bio'     },
-    { key: 'courses',         label: 'Courses'         },
-    { key: 'registrations',   label: 'Registrations'   },
-    { key: 'results',         label: 'Results'         },
-    { key: 'fee_structure',   label: 'Fee Structure'   },
-    { key: 'payments',        label: 'Payments'        },
-    { key: 'student_finance', label: 'Student Finance' },
-    { key: 'sessions',        label: 'Sessions'        }
+    { key: 'users',              label: 'Users'              },
+    { key: 'student_bio',        label: 'Student Bio'        },
+    { key: 'courses',            label: 'Courses'            },
+    { key: 'registrations',      label: 'Registrations'      },
+    { key: 'results',            label: 'Results'            },
+    { key: 'fee_structure',      label: 'Fee Structure'      },
+    { key: 'payments',           label: 'Payments'           },
+    { key: 'student_finance',    label: 'Student Finance'    },
+    { key: 'sessions',           label: 'Sessions'           },
+    { key: 'admissions',         label: 'Admissions'         },
+    { key: 'payment_submissions',label: 'Payment Submissions'},
+    { key: 'admission_fees',     label: 'Admission Fees'     },
+    { key: 'pce_settings',       label: 'PCE Settings'       }
   ];
 
   /* ══════════════════════════════════════════════════════
@@ -779,15 +783,19 @@
     admShowStatus(status, 'info', '<span class="spinner-border spinner-border-sm me-2"></span>Wiping all tables…');
 
     var filters = {
-      student_finance: 'email=neq.NONE',
-      payments:        'email=neq.NONE',
-      fee_structure:   'academic_year=neq.NONE',
-      results:         'email=neq.NONE',
-      registrations:   'email=neq.NONE',
-      courses:         'course_code=neq.NONE',
-      users:           'email=neq.NONE',
-      student_bio:     'email=neq.NONE',
-      sessions:        'session_token=neq.NONE'
+      student_finance:    'email=neq.NONE',
+      payments:           'email=neq.NONE',
+      fee_structure:      'academic_year=neq.NONE',
+      results:            'email=neq.NONE',
+      registrations:      'email=neq.NONE',
+      courses:            'course_code=neq.NONE',
+      users:              'email=neq.NONE',
+      student_bio:        'email=neq.NONE',
+      sessions:           'session_token=neq.NONE',
+      admissions:         'id=neq.00000000-0000-0000-0000-000000000000',
+      payment_submissions:'id=neq.00000000-0000-0000-0000-000000000000',
+      admission_fees:     'id=neq.00000000-0000-0000-0000-000000000000',
+      pce_settings:       'key=neq.NONE'
     };
 
     var errors = [];
