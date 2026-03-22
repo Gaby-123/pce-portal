@@ -1013,131 +1013,25 @@ async function admDownloadLetter() {
   if (!_adm) return;
   Swal.fire({ title:'Generating Admission Letter...', html:'<div class="spinner-border text-primary"></div>', allowOutsideClick:false, showConfirmButton:false });
 
-  var logo = await admLoadLogo();
-  var { jsPDF } = window.jspdf;
-  var doc    = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-  var pageW  = doc.internal.pageSize.getWidth();
-  var pageH  = doc.internal.pageSize.getHeight();
-  var mL = 25, mR = 25;
-  var usableW = pageW - mL - mR;
-  var y = 20;
+  // Load logo, settings and fee in parallel
+  var [logo, settingsRows, feeRows] = await Promise.all([
+    admLoadLogo(),
+    admFetch('pce_settings?select=key,value'),
+    admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount,payment_deadline&limit=1')
+  ]);
 
-  // Logo
-  if (logo) {
-    doc.addImage(logo, 'PNG', mL, y, 22, 22);
-  }
-
-  // Header
-  doc.setFont('times','bold'); doc.setFontSize(13); doc.setTextColor(0,0,0);
-  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION', pageW/2, y+8, { align:'center' });
-  doc.setFont('times','normal'); doc.setFontSize(10); doc.setTextColor(60,60,60);
-  doc.text('Akropong-Akuapem, Eastern Region, Ghana', pageW/2, y+14, { align:'center' });
-  doc.text('Tel: +233 (0) 256 977 765  |  www.pce.edu.gh', pageW/2, y+19, { align:'center' });
-
-  y += 26;
-  doc.setDrawColor(0,0,0); doc.setLineWidth(1.0);
-  doc.line(mL, y, pageW-mR, y);
-  y += 3;
-  doc.setLineWidth(0.3);
-  doc.line(mL, y, pageW-mR, y);
-  y += 10;
-
-  // Ref and date
-  doc.setFont('times','normal'); doc.setFontSize(10);
-  doc.text('Ref: PCE/ADM/' + (_adm.academic_year||'').replace('/','-') + '/' + (_adm.application_ref||'').replace(/\//g,''), mL, y);
-  doc.text('Date: ' + new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }), pageW-mR, y, { align:'right' });
-  y += 12;
-
-  // Title
-  doc.setFont('times','bold'); doc.setFontSize(13); doc.setTextColor(0,0,0);
-  doc.text('LETTER OF ADMISSION', pageW/2, y, { align:'center' });
-  var tw = doc.getTextWidth('LETTER OF ADMISSION');
-  doc.setLineWidth(0.5);
-  doc.line((pageW-tw)/2, y+1, (pageW+tw)/2, y+1);
-  y += 12;
-
-  // Salutation
-  doc.setFont('times','normal'); doc.setFontSize(11);
-  doc.text('Dear ' + _adm.full_name + ',', mL, y);
-  y += 10;
-
-  // Body
-  var body1 = 'On behalf of the Principal and Management of Presbyterian College of Education, Akropong-Akuapem, I am pleased to inform you that you have been offered admission to pursue the under-listed programme for the ' + (_adm.academic_year||'') + ' academic year.';
-  var lines1 = doc.splitTextToSize(body1, usableW);
-  doc.text(lines1, mL, y);
-  y += lines1.length * 6 + 6;
-
-  // Programme details box
-  doc.setFillColor(240, 248, 255);
-  doc.setDrawColor(2, 132, 199);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(mL, y, usableW, 38, 2, 2, 'FD');
-
-  doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(2,132,199);
-  doc.text('ADMISSION DETAILS', mL+4, y+7);
-
-  doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(0,0,0);
-  doc.text('Programme:', mL+4, y+8);
-  doc.setFont('times','normal');
-  doc.text(String(_adm.programme||'').toUpperCase(), mL+40, y+8);
-
-  doc.setFont('times','bold');
-  doc.text('Specialization:', mL+4, y+15);
-  doc.setFont('times','normal');
-  doc.text(String(_adm.specialization||'N/A').toUpperCase(), mL+40, y+15);
-
-  doc.setFont('times','bold');
-  doc.text('Level:', mL+4, y+22);
-  doc.setFont('times','normal');
-  doc.text('100 (First Year)', mL+40, y+22);
-
-  doc.setFont('times','bold');
-  doc.text('Academic Year:', mL+4, y+29);
-  doc.setFont('times','normal');
-  doc.text(String(_adm.academic_year||''), mL+40, y+29);
-
-  y += 42;
-
-  // Conditions
-  doc.setFont('times','bold'); doc.setFontSize(11);
-  doc.text('CONDITIONS OF ADMISSION', mL, y);
-  y += 7;
-
-  var conditions = [
-    'This admission is subject to the verification of all original certificates and documents.',
-    'You are required to pay the prescribed fees before or upon reporting to the College.',
-    'You must report to the Registrar\'s Office with all original academic certificates.',
-    'This letter must be presented upon reporting to the College.',
-    'Admission may be withdrawn if any information provided is found to be false or misleading.'
-  ];
-
-  doc.setFont('times','normal'); doc.setFontSize(10);
-  conditions.forEach(function(c, i) {
-    var lines = doc.splitTextToSize((i+1) + '. ' + c, usableW);
-    doc.text(lines, mL, y);
-    y += lines.length * 5.5 + 2;
-  });
-
-  y += 6;
-
-  // Closing
-  var closing = 'We congratulate you on this achievement and look forward to welcoming you to Presbyterian College of Education. Please do not hesitate to contact the Registrar\'s Office if you require any further information.';
-  var closingLines = doc.splitTextToSize(closing, usableW);
-  doc.text(closingLines, mL, y);
-  y += closingLines.length * 6 + 10;
-
- doc.text('Yours faithfully,', mL, y);
-  y += 6;
-
-  // Load principal settings and signature
-  var settingsRows = await admFetch('pce_settings?select=key,value');
   var sMap = {};
   (settingsRows||[]).forEach(function(r){ sMap[r.key] = r.value; });
   var principalName  = sMap['principal_name']  || 'THE PRINCIPAL';
   var principalTitle = sMap['principal_title'] || 'Principal';
   var sigUrl         = sMap['signature_url'];
 
-  // Try to load signature image
+  var feeAmount   = feeRows && feeRows.length ? Number(feeRows[0].amount) : null;
+  var feeDeadline = feeRows && feeRows.length && feeRows[0].payment_deadline
+    ? new Date(feeRows[0].payment_deadline).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })
+    : null;
+
+  // Try load signature
   var sigData = null;
   if (sigUrl && sigUrl !== 'null') {
     try {
@@ -1146,40 +1040,190 @@ async function admDownloadLetter() {
         var sigResp = await fetch(sigSigned.data.signedUrl);
         var sigBlob = await sigResp.blob();
         sigData = await new Promise(function(resolve){
-          var rd = new FileReader();
-          rd.onload = function(){ resolve(rd.result); };
-          rd.readAsDataURL(sigBlob);
+          var rd = new FileReader(); rd.onload = function(){ resolve(rd.result); }; rd.readAsDataURL(sigBlob);
         });
       }
     } catch(e){}
   }
 
+  var { jsPDF } = window.jspdf;
+  var doc   = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  var pageW = doc.internal.pageSize.getWidth();
+  var pageH = doc.internal.pageSize.getHeight();
+  var mL = 20, mR = 20;
+  var usableW = pageW - mL - mR;
+  var y = 15;
+
+  // ── HEADER ────────────────────────────────────────────────
+  if (logo) {
+    // Watermark
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.05 }));
+    doc.addImage(logo, 'PNG', (pageW-80)/2, 80, 80, 80);
+    doc.restoreGraphicsState();
+    doc.addImage(logo, 'PNG', mL, y, 22, 22);
+  }
+
+  doc.setFont('times','bold'); doc.setFontSize(14); doc.setTextColor(10,36,99);
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION', pageW/2, y+7, { align:'center' });
+  doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(80,80,80);
+  doc.text('Akropong-Akuapem, Eastern Region, Ghana', pageW/2, y+13, { align:'center' });
+  doc.text('Tel: +233 (0) 256 977 765  |  Email: info@pce.edu.gh  |  www.pce.edu.gh', pageW/2, y+18, { align:'center' });
+
+  y += 23;
+  doc.setDrawColor(10,36,99); doc.setLineWidth(1.2);
+  doc.line(mL, y, pageW-mR, y);
+  doc.setLineWidth(0.3);
+  doc.line(mL, y+2, pageW-mR, y+2);
+  y += 9;
+
+  // ── REF & DATE ────────────────────────────────────────────
+  doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(60,60,60);
+  var refNo = 'PCE/ADM/' + (_adm.academic_year||'').replace('/','-') + '/' + (_adm.application_ref||'');
+  doc.text('Ref: ' + refNo, mL, y);
+  doc.text('Date: ' + new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }), pageW-mR, y, { align:'right' });
+  y += 9;
+
+  // ── TITLE ─────────────────────────────────────────────────
+  doc.setFillColor(10,36,99);
+  doc.rect(mL, y, usableW, 9, 'F');
+  doc.setFont('times','bold'); doc.setFontSize(12); doc.setTextColor(255,255,255);
+  doc.text('LETTER OF ADMISSION', pageW/2, y+6.5, { align:'center' });
+  y += 15;
+
+  // ── SALUTATION ────────────────────────────────────────────
+  doc.setFont('times','normal'); doc.setFontSize(11); doc.setTextColor(0,0,0);
+  doc.text('Dear ' + (_adm.full_name||'').toUpperCase() + ',', mL, y);
+  y += 9;
+
+  // ── OPENING PARAGRAPH ─────────────────────────────────────
+  var body1 = 'On behalf of the Principal and Management of Presbyterian College of Education, Akropong-Akuapem, I am pleased to inform you that you have been offered admission to pursue the under-listed programme for the ' + (_adm.academic_year||'') + ' academic year, subject to the conditions stated below.';
+  doc.setFont('times','normal'); doc.setFontSize(10.5); doc.setTextColor(30,30,30);
+  var lines1 = doc.splitTextToSize(body1, usableW);
+  doc.text(lines1, mL, y);
+  y += lines1.length * 6 + 7;
+
+  // ── ADMISSION DETAILS BOX ─────────────────────────────────
+  doc.setFillColor(235,245,255);
+  doc.setDrawColor(10,36,99);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(mL, y, usableW, 44, 2, 2, 'FD');
+
+  // Box title bar
+  doc.setFillColor(10,36,99);
+  doc.roundedRect(mL, y, usableW, 7, 2, 2, 'F');
+  doc.rect(mL, y+3, usableW, 4, 'F'); // flatten bottom corners of title bar
+  doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+  doc.text('ADMISSION DETAILS', pageW/2, y+5, { align:'center' });
+
+  var bx = mL+5, by = y+12;
+  var lW = 38; // label column width
+
+  function detailRow(label, value, rowY) {
+    doc.setFont('times','bold'); doc.setFontSize(9.5); doc.setTextColor(10,36,99);
+    doc.text(label, bx, rowY);
+    doc.setFont('times','normal'); doc.setTextColor(0,0,0);
+    doc.text(String(value||'—').toUpperCase(), bx+lW, rowY);
+  }
+
+  detailRow('Programme:', _adm.programme||'', by);
+  detailRow('Specialization:', _adm.specialization||'N/A', by+7);
+  detailRow('Level:', 'Year One (Level 100)', by+14);
+  detailRow('Academic Year:', _adm.academic_year||'', by+21);
+  detailRow('Application Ref:', _adm.application_ref||'', by+28);
+
+  y += 50;
+
+  // ── PAYMENT BOX ───────────────────────────────────────────
+  if (feeAmount) {
+    doc.setFillColor(255,250,235);
+    doc.setDrawColor(180,120,0);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(mL, y, usableW, 22, 2, 2, 'FD');
+
+    // Box title
+    doc.setFillColor(180,120,0);
+    doc.roundedRect(mL, y, usableW, 7, 2, 2, 'F');
+    doc.rect(mL, y+3, usableW, 4, 'F');
+    doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+    doc.text('ADMISSION FEE PAYMENT', pageW/2, y+5, { align:'center' });
+
+    var px = mL+5, py = y+12;
+    doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(150,80,0);
+    doc.text('Required Amount:', px, py);
+    doc.setFont('times','bold'); doc.setFontSize(11); doc.setTextColor(10,36,99);
+    doc.text('GH₵ ' + feeAmount.toFixed(2), px+45, py);
+
+    if (feeDeadline) {
+      doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(150,80,0);
+      doc.text('Payment Deadline:', px, py+7);
+      doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(180,0,0);
+      doc.text(feeDeadline, px+45, py+7);
+    }
+
+    y += 28;
+  }
+
+  // ── CONDITIONS ────────────────────────────────────────────
+  doc.setFillColor(10,36,99);
+  doc.rect(mL, y, usableW, 6, 'F');
+  doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+  doc.text('CONDITIONS OF ADMISSION', pageW/2, y+4.5, { align:'center' });
+  y += 9;
+
+  var conditions = [
+    'This admission is subject to the verification of all original certificates and documents upon reporting.',
+    'You are required to pay GH₵ ' + (feeAmount ? feeAmount.toFixed(2) : 'the prescribed fees') + ' at any GCB Bank branch' + (feeDeadline ? ' on or before ' + feeDeadline : '') + ' and upload your payment slip through the admission portal.',
+    'You must report to the Registrar\'s Office with all original academic certificates and a printed copy of this letter.',
+    'Admission will be withdrawn if any information provided is found to be false or misleading.',
+    'Students are expected to abide by the rules and regulations of the College at all times.'
+  ];
+
+  doc.setFont('times','normal'); doc.setFontSize(10); doc.setTextColor(20,20,20);
+  conditions.forEach(function(c, i) {
+    var cLines = doc.splitTextToSize((i+1) + '.  ' + c, usableW-5);
+    doc.text(cLines, mL+4, y);
+    y += cLines.length * 5.5 + 2.5;
+  });
+
+  y += 4;
+
+  // ── CLOSING ───────────────────────────────────────────────
+  var closing = 'We congratulate you on this achievement and look forward to welcoming you to the Presbyterian College of Education. Please contact the Admissions Office for any enquiries.';
+  doc.setFont('times','italic'); doc.setFontSize(10); doc.setTextColor(40,40,40);
+  var cLines = doc.splitTextToSize(closing, usableW);
+  doc.text(cLines, mL, y);
+  y += cLines.length * 6 + 8;
+
+  // ── SIGNATURE ─────────────────────────────────────────────
+  doc.setFont('times','normal'); doc.setFontSize(10); doc.setTextColor(0,0,0);
+  doc.text('Yours faithfully,', mL, y);
+  y += 7;
+
   if (sigData) {
-    doc.addImage(sigData, 'JPEG', mL, y, 50, 18);
-    y += 20;
+    doc.addImage(sigData, 'JPEG', mL, y, 45, 16);
+    y += 18;
   } else {
-    y += 18; // space for signature line
     doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
-    doc.line(mL, y, mL+60, y);
-    y += 4;
+    doc.line(mL, y+12, mL+55, y+12);
+    y += 16;
   }
 
   doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(0,0,0);
   doc.text(principalName.toUpperCase(), mL, y);
-  doc.setFont('times','normal');
-  doc.text(principalTitle, mL, y+5);
-  doc.text('Presbyterian College of Education', mL, y+10);
-  doc.text('Akropong-Akuapem', mL, y+15);
+  doc.setFont('times','normal'); doc.setFontSize(9.5);
+  doc.text(principalTitle, mL, y+5.5);
+  doc.text('Presbyterian College of Education, Akropong-Akuapem', mL, y+11);
 
-  doc.setFont('times','italic'); doc.setFontSize(9); doc.setTextColor(120,120,120);
-  doc.text('Application Ref: ' + (_adm.application_ref||''), pageW-mR, y+15, { align:'right' });;
+  // ── FOOTER ────────────────────────────────────────────────
+  doc.setDrawColor(10,36,99); doc.setLineWidth(0.5);
+  doc.line(mL, pageH-15, pageW-mR, pageH-15);
+  doc.setFillColor(10,36,99);
+  doc.rect(mL, pageH-14, usableW, 0.4, 'F');
 
-  // Footer
-  doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
-  doc.line(mL, pageH-18, pageW-mR, pageH-18);
-  doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(150,150,150);
-  doc.text('This is an official document of Presbyterian College of Education, Akropong-Akuapem.', pageW/2, pageH-13, { align:'center' });
-  doc.text('Generated: ' + new Date().toLocaleDateString('en-GB'), pageW/2, pageH-8, { align:'center' });
+  doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(80,80,80);
+  doc.text('This is an official document of Presbyterian College of Education, Akropong-Akuapem  |  Generated: ' + new Date().toLocaleDateString('en-GB'), pageW/2, pageH-9, { align:'center' });
+  doc.text('Ref: ' + refNo, pageW/2, pageH-5, { align:'center' });
 
   Swal.close();
   doc.save('AdmissionLetter_' + (_adm.application_ref||'PCE').replace(/\//g,'-') + '.pdf');
@@ -1199,9 +1243,7 @@ async function admPrintBiodata() {
         var resp = await fetch(signedRes.data.signedUrl);
         var blob = await resp.blob();
         photoData = await new Promise(function(resolve){
-          var r = new FileReader();
-          r.onload = function(){ resolve(r.result); };
-          r.readAsDataURL(blob);
+          var r = new FileReader(); r.onload = function(){ resolve(r.result); }; r.readAsDataURL(blob);
         });
       } catch(e){}
     }
@@ -1211,150 +1253,222 @@ async function admPrintBiodata() {
   var doc    = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
   var pageW  = doc.internal.pageSize.getWidth();
   var pageH  = doc.internal.pageSize.getHeight();
-  var mL = 15, mR = 15;
+  var mL = 12, mR = 12;
   var usableW = pageW - mL - mR;
   var y = 12;
 
-  // Header
-  if (logo) doc.addImage(logo, 'PNG', mL, y, 20, 20);
-  doc.setFont('times','bold'); doc.setFontSize(12); doc.setTextColor(0,0,0);
+  // ── HEADER ────────────────────────────────────────────────
+  if (logo) {
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.05 }));
+    doc.addImage(logo, 'PNG', (pageW-80)/2, 70, 80, 80);
+    doc.restoreGraphicsState();
+    doc.addImage(logo, 'PNG', mL, y, 20, 20);
+  }
+
+  doc.setFont('times','bold'); doc.setFontSize(13); doc.setTextColor(10,36,99);
   doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', pageW/2, y+7, { align:'center' });
-  doc.setFont('times','normal'); doc.setFontSize(9);
+  doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(80,80,80);
   doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh', pageW/2, y+13, { align:'center' });
-  doc.setDrawColor(0,0,0); doc.setLineWidth(0.6);
+
+  doc.setDrawColor(10,36,99); doc.setLineWidth(0.8);
   doc.line(mL, y+17, pageW-mR, y+17);
-  y += 22;
+  doc.setLineWidth(0.2);
+  doc.line(mL, y+19, pageW-mR, y+19);
+  y += 24;
 
-  // Title
-  doc.setFont('times','bold'); doc.setFontSize(12);
-  doc.text('STUDENT BIODATA FORM', pageW/2, y, { align:'center' });
-  doc.setLineWidth(0.3);
-  var tw = doc.getTextWidth('STUDENT BIODATA FORM');
-  doc.line((pageW-tw)/2, y+1, (pageW+tw)/2, y+1);
-  y += 8;
+  // ── FORM TITLE ────────────────────────────────────────────
+  doc.setFillColor(10,36,99);
+  doc.rect(mL, y, usableW, 8, 'F');
+  doc.setFont('times','bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
+  doc.text('STUDENT BIODATA FORM', pageW/2, y+5.5, { align:'center' });
+  y += 12;
 
-  // Photo box + basic info side by side
-  var photoX = pageW - mR - 35;
-  doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
-  doc.rect(photoX, y, 35, 42);
+  // ── PHOTO + BASIC INFO ────────────────────────────────────
+  var photoW = 33, photoH = 40;
+  var photoX = pageW - mR - photoW;
+
+  // Photo box
+  doc.setDrawColor(10,36,99); doc.setLineWidth(0.4);
+  doc.rect(photoX, y, photoW, photoH);
   if (photoData) {
-    doc.addImage(photoData, 'JPEG', photoX+1, y+1, 33, 40);
+    doc.addImage(photoData, 'JPEG', photoX+0.5, y+0.5, photoW-1, photoH-1);
   } else {
-    doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(150,150,150);
-    doc.text('Passport', photoX+17.5, y+20, { align:'center' });
-    doc.text('Photo', photoX+17.5, y+25, { align:'center' });
+    doc.setFillColor(240,245,255);
+    doc.rect(photoX+0.5, y+0.5, photoW-1, photoH-1, 'F');
+    doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
+    doc.text('Passport', photoX+photoW/2, y+18, { align:'center' });
+    doc.text('Photo', photoX+photoW/2, y+23, { align:'center' });
   }
-  doc.setTextColor(0,0,0);
+  doc.setFont('times','italic'); doc.setFontSize(7); doc.setTextColor(100,100,100);
+  doc.text('Passport Photo', photoX+photoW/2, y+photoH+4, { align:'center' });
 
-  // Info rows left side
-  function bioRow(label, value, yPos) {
-    doc.setFont('times','bold'); doc.setFontSize(9);
-    doc.text(label, mL, yPos);
-    doc.setFont('times','normal');
-    doc.text(String(value||'—'), mL + 35, yPos);
-    doc.setDrawColor(200,200,200); doc.setLineWidth(0.15);
-    doc.line(mL, yPos+1.5, photoX-5, yPos+1.5);
+  // Basic info on left
+  var infoW = photoX - mL - 6;
+
+  function topRow(label, value, rowY) {
+    doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(10,36,99);
+    doc.text(label, mL, rowY);
+    doc.setFont('times','normal'); doc.setTextColor(0,0,0);
+    var maxW = infoW - doc.getTextWidth(label) - 3;
+    var val  = String(value||'—').toUpperCase();
+    while (doc.getTextWidth(val) > maxW && val.length > 1) val = val.slice(0,-1);
+    if (val !== String(value||'—').toUpperCase()) val = val.slice(0,-1) + '…';
+    doc.text(val, mL + doc.getTextWidth(label) + 2, rowY);
+    doc.setDrawColor(210,220,235); doc.setLineWidth(0.15);
+    doc.line(mL, rowY+1.8, mL+infoW, rowY+1.8);
   }
 
-  bioRow('Full Name:', _adm.full_name||'', y+6);
-  bioRow('Application Ref:', _adm.application_ref||'', y+12);
-  bioRow('Programme:', _adm.programme||'', y+18);
-  bioRow('Academic Year:', _adm.academic_year||'', y+24);
-  bioRow('Date of Birth:', _adm.date_of_birth ? new Date(_adm.date_of_birth).toLocaleDateString('en-GB') : '—', y+30);
-  bioRow('Gender:', _adm.gender||'', y+36);
-  y += 50;
+  var rowH = 6.8;
+  topRow('Full Name:',       _adm.full_name||'',       y+6);
+  topRow('Application Ref:', _adm.application_ref||'', y+6+rowH);
+  topRow('Programme:',       _adm.programme||'',       y+6+rowH*2);
+  topRow('Specialization:',  _adm.specialization||'',  y+6+rowH*3);
+  topRow('Academic Year:',   _adm.academic_year||'',   y+6+rowH*4);
 
-  // Section helper
-  function sectionTitle(title, yPos) {
-    doc.setFillColor(22,52,90);
+  y += photoH + 8;
+
+  // ── SECTION HELPER ────────────────────────────────────────
+  function sectionHeader(title, yPos) {
+    doc.setFillColor(10,36,99);
     doc.rect(mL, yPos, usableW, 6, 'F');
     doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
-    doc.text(title, mL+2, yPos+4.5);
+    doc.text(('  ' + title).toUpperCase(), mL+2, yPos+4.3);
     doc.setTextColor(0,0,0);
     return yPos + 8;
   }
 
-  function infoRow(label, value, x, yPos, colW) {
-    doc.setFont('times','bold'); doc.setFontSize(8.5);
-    doc.text(label, x, yPos);
-    doc.setFont('times','normal');
-    var maxW = colW - doc.getTextWidth(label) - 4;
+  function dataCell(label, value, x, yPos, cellW) {
+    var lbl = String(label);
     var val = String(value||'—');
+    doc.setFont('times','bold'); doc.setFontSize(8); doc.setTextColor(60,80,120);
+    doc.text(lbl, x+1, yPos);
+    doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
+    var maxW = cellW - doc.getTextWidth(lbl) - 5;
     while (doc.getTextWidth(val) > maxW && val.length > 1) val = val.slice(0,-1);
     if (val !== String(value||'—')) val = val.slice(0,-1) + '…';
-    doc.text(val, x + doc.getTextWidth(label) + 2, yPos);
-    doc.setDrawColor(220,220,220); doc.setLineWidth(0.15);
-    doc.line(x, yPos+1.5, x+colW, yPos+1.5);
+    doc.text(val, x + doc.getTextWidth(lbl) + 3, yPos);
+    doc.setDrawColor(215,225,240); doc.setLineWidth(0.15);
+    doc.line(x, yPos+2, x+cellW, yPos+2);
   }
 
-  var half = usableW / 2;
-  var rowH = 6.5;
+  var half = usableW / 2 - 2;
+  var rH   = 6.5;
 
-  // Personal Info
-  y = sectionTitle('PERSONAL INFORMATION', y);
-  infoRow('Nationality:', _adm.nationality||'Ghanaian', mL, y, half-3); infoRow('Hometown:', _adm.hometown||'', mL+half, y, half); y+=rowH;
-  infoRow('Region:', _adm.region||'', mL, y, half-3); infoRow('Religion:', _adm.religion||'', mL+half, y, half); y+=rowH;
-  infoRow('Marital Status:', _adm.marital_status||'', mL, y, half-3); infoRow('Ghana Card:', _adm.ghana_card_no||'', mL+half, y, half); y+=rowH;
-  infoRow('Email:', _adm.email||'', mL, y, usableW); y+=rowH;
-  infoRow('Phone:', _adm.phone||'', mL, y, half-3); infoRow('Alt Phone:', _adm.phone_alt||'', mL+half, y, half); y+=rowH;
-  infoRow('Residential Address:', _adm.residential_addr||'', mL, y, usableW); y+=rowH;
-  infoRow('Postal Address:', _adm.postal_addr||'', mL, y, usableW); y+=rowH+2;
+  // ── PERSONAL INFORMATION ──────────────────────────────────
+  y = sectionHeader('Personal Information', y);
+  dataCell('Date of Birth:', _adm.date_of_birth ? new Date(_adm.date_of_birth).toLocaleDateString('en-GB') : '—', mL, y, half);
+  dataCell('Gender:', _adm.gender||'', mL+half+4, y, half); y+=rH;
+  dataCell('Nationality:', _adm.nationality||'Ghanaian', mL, y, half);
+  dataCell('Religion:', _adm.religion||'', mL+half+4, y, half); y+=rH;
+  dataCell('Hometown:', _adm.hometown||'', mL, y, half);
+  dataCell('Region:', _adm.region||'', mL+half+4, y, half); y+=rH;
+  dataCell('Marital Status:', _adm.marital_status||'', mL, y, half);
+  dataCell('Ghana Card No:', _adm.ghana_card_no||'', mL+half+4, y, half); y+=rH;
+  dataCell('Email Address:', _adm.email||'', mL, y, usableW); y+=rH;
+  dataCell('Phone:', _adm.phone||'', mL, y, half);
+  dataCell('Alt Phone:', _adm.phone_alt||'', mL+half+4, y, half); y+=rH;
+  dataCell('Residential Address:', _adm.residential_addr||'', mL, y, usableW); y+=rH;
+  dataCell('Postal Address:', _adm.postal_addr||'', mL, y, usableW); y+=rH+3;
 
-  // Academic Info
-  y = sectionTitle('ACADEMIC BACKGROUND', y);
-  infoRow('Previous School:', _adm.prev_school||'', mL, y, usableW); y+=rowH;
-  infoRow('WASSCE Index:', _adm.wassce_index||'', mL, y, half-3); infoRow('WASSCE Year:', _adm.wassce_year||'', mL+half, y, half); y+=rowH;
-  infoRow('Best Six Aggregate:', String(_adm.wassce_aggregate||'—'), mL, y, usableW); y+=rowH+2;
+  // ── ACADEMIC BACKGROUND ───────────────────────────────────
+  y = sectionHeader('Academic Background', y);
+  dataCell('Previous School:', _adm.prev_school||'', mL, y, usableW); y+=rH;
+  dataCell('WASSCE Index Number:', _adm.wassce_index||'', mL, y, half);
+  dataCell('WASSCE Year:', _adm.wassce_year||'', mL+half+4, y, half); y+=rH;
+  dataCell('Best Six Aggregate:', String(_adm.wassce_aggregate||'—'), mL, y, usableW); y+=rH+3;
 
-  // WASSCE Results
+  // ── WASSCE RESULTS ────────────────────────────────────────
   if (_adm.wassce_results && _adm.wassce_results.length) {
-    y = sectionTitle('WASSCE RESULTS', y);
+    y = sectionHeader('WASSCE Subject Results', y);
+
+    // Table header
+    doc.setFillColor(230,238,255);
+    doc.rect(mL, y-1, usableW, 5.5, 'F');
+    doc.setFont('times','bold'); doc.setFontSize(8); doc.setTextColor(10,36,99);
+    var qW = usableW/4;
+    doc.text('Subject', mL+2, y+3);
+    doc.text('Grade', mL+qW-2, y+3, { align:'right' });
+    doc.text('Subject', mL+qW+2, y+3);
+    doc.text('Grade', mL+qW*2-2, y+3, { align:'right' });
+    doc.text('Subject', mL+qW*2+2, y+3);
+    doc.text('Grade', mL+qW*3-2, y+3, { align:'right' });
+    doc.text('Subject', mL+qW*3+2, y+3);
+    doc.text('Grade', mL+usableW-2, y+3, { align:'right' });
+    y += 6;
+
     var results = _adm.wassce_results;
-    var colWw = usableW / 4;
-    for (var i = 0; i < results.length; i+=2) {
+    // Display 2 per row (subject + grade pairs)
+    for (var i = 0; i < results.length; i += 2) {
       var r1 = results[i], r2 = results[i+1];
-      doc.setFont('times','normal'); doc.setFontSize(8.5);
-      doc.text(String(i+1)+'. '+r1.subject, mL, y); doc.text(r1.grade, mL+colWw-5, y);
-      if (r2) { doc.text(String(i+2)+'. '+r2.subject, mL+usableW/2, y); doc.text(r2.grade, mL+usableW-5, y); }
-      doc.setDrawColor(220,220,220); doc.setLineWidth(0.15);
-      doc.line(mL, y+1.5, mL+usableW, y+1.5);
-      y += rowH;
+      doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
+
+      // Left pair
+      doc.text(String(i+1)+'. '+r1.subject, mL+1, y+rH-2);
+      doc.setFont('times','bold'); doc.setTextColor(10,36,99);
+      doc.text(r1.grade, mL+qW*2-3, y+rH-2, { align:'right' });
+
+      // Right pair
+      if (r2) {
+        doc.setFont('times','normal'); doc.setTextColor(0,0,0);
+        doc.text(String(i+2)+'. '+r2.subject, mL+qW*2+1, y+rH-2);
+        doc.setFont('times','bold'); doc.setTextColor(10,36,99);
+        doc.text(r2.grade, mL+usableW-3, y+rH-2, { align:'right' });
+      }
+
+      doc.setDrawColor(215,225,240); doc.setLineWidth(0.15);
+      doc.line(mL, y+rH, mL+usableW, y+rH);
+      doc.setTextColor(0,0,0);
+      y += rH;
     }
-    y += 2;
+    y += 4;
   }
 
-  // Next of Kin
-  y = sectionTitle('NEXT OF KIN', y);
-  infoRow('Name:', _adm.nok_name||'', mL, y, half-3); infoRow('Relationship:', _adm.nok_relation||'', mL+half, y, half); y+=rowH;
-  infoRow('Phone:', _adm.nok_phone||'', mL, y, half-3); infoRow('Address:', _adm.nok_address||'', mL+half, y, half); y+=rowH+4;
+  // ── NEXT OF KIN ───────────────────────────────────────────
+  y = sectionHeader('Next of Kin Information', y);
+  dataCell('Full Name:', _adm.nok_name||'', mL, y, half);
+  dataCell('Relationship:', _adm.nok_relation||'', mL+half+4, y, half); y+=rH;
+  dataCell('Phone Number:', _adm.nok_phone||'', mL, y, half);
+  dataCell('Address:', _adm.nok_address||'', mL+half+4, y, half); y+=rH+5;
 
-  // Signature
-  doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
-  doc.line(mL, y+15, mL+60, y+15);
-  doc.line(pageW-mR-60, y+15, pageW-mR, y+15);
-  doc.setFont('times','bold'); doc.setFontSize(9);
-  doc.text("STUDENT'S SIGNATURE", mL, y+20);
-  doc.text('DATE', pageW-mR-60, y+20);
-  y += 28;
+  // ── DECLARATION ───────────────────────────────────────────
+  var declaration = 'I hereby declare that the information provided in this form is true, accurate and complete to the best of my knowledge. I understand that any false information may lead to the withdrawal of my admission.';
+  doc.setFont('times','italic'); doc.setFontSize(8.5); doc.setTextColor(60,60,60);
+  var dLines = doc.splitTextToSize(declaration, usableW);
+  doc.text(dLines, mL, y);
+  y += dLines.length * 5 + 8;
 
-  // Official use box
+  // ── SIGNATURE ROW ─────────────────────────────────────────
   doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
+  var sigLineW = 58;
+  doc.line(mL, y+14, mL+sigLineW, y+14);
+  doc.line(pageW-mR-sigLineW, y+14, pageW-mR, y+14);
+  doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
+  doc.text("STUDENT'S SIGNATURE & DATE", mL, y+19);
+  doc.text("OFFICIAL STAMP & DATE", pageW-mR-sigLineW, y+19);
+  y += 26;
+
+  // ── OFFICIAL USE BOX ──────────────────────────────────────
+  doc.setDrawColor(10,36,99); doc.setLineWidth(0.4);
   doc.rect(mL, y, usableW, 18);
-  doc.setFont('times','bold'); doc.setFontSize(8.5);
-  doc.text('FOR OFFICIAL USE ONLY', mL+2, y+5);
-  doc.setFont('times','normal'); doc.setFontSize(8);
-  doc.text('Received by: _______________________     Date: ___________     Signature: ___________________', mL+2, y+12);
+  doc.setFillColor(10,36,99);
+  doc.rect(mL, y, usableW, 6, 'F');
+  doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
+  doc.text('FOR OFFICIAL USE ONLY', mL+3, y+4.3);
+  doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
+  doc.text('Received by: ________________________________', mL+3, y+11);
+  doc.text('Date: ________________   Signature: ___________________________', mL+3, y+16);
 
-  // Footer
-  doc.setDrawColor(200,200,200); doc.setLineWidth(0.2);
+  // ── FOOTER ────────────────────────────────────────────────
+  doc.setDrawColor(10,36,99); doc.setLineWidth(0.4);
   doc.line(mL, pageH-12, pageW-mR, pageH-12);
-  doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(130,130,130);
-  doc.text('Generated by PCE Admission Portal  |  ' + new Date().toLocaleDateString('en-GB'), pageW/2, pageH-7, { align:'center' });
+  doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(100,100,100);
+  doc.text('Presbyterian College of Education, Akropong-Akuapem  |  Generated: ' + new Date().toLocaleDateString('en-GB'), pageW/2, pageH-7, { align:'center' });
+  doc.text('Application Ref: ' + (_adm.application_ref||''), pageW/2, pageH-3, { align:'center' });
 
   Swal.close();
   doc.save('Biodata_' + (_adm.application_ref||'PCE').replace(/\//g,'-') + '.pdf');
 }
-
 // ── Logo loader ───────────────────────────────────────────────
 async function admLoadLogo() {
   try {
