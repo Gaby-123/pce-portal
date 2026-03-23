@@ -550,17 +550,19 @@
     try {
       var logoBase64 = '';
       try {
-        var lr = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
-        if (lr.ok) {
-          var lb = await lr.blob();
-          logoBase64 = await new Promise(function(rs) {
-            var rd = new FileReader();
-            rd.onload  = function() { rs(rd.result); };
-            rd.onerror = function() { rs(''); };
-            rd.readAsDataURL(lb);
-          });
-        }
-      } catch(e) { /* logo optional */ }
+  var lr = await fetch(
+    'https://ilgfjyokqyoonteqzgbx.supabase.co/storage/v1/object/public/assets/logo.png'
+  );
+  if (lr.ok) {
+    var lb = await lr.blob();
+    logoBase64 = await new Promise(function(rs) {
+      var rd = new FileReader();
+      rd.onload  = function() { rs(rd.result); };
+      rd.onerror = function() { rs(''); };
+      rd.readAsDataURL(lb);
+    });
+  }
+} catch(e) { /* logo optional */ }
 
       var year     = document.getElementById('hodYearSelect').value || 'All Years';
       var sem      = document.getElementById('hodSemSelect').value  || 'All Semesters';
