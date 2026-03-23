@@ -351,7 +351,7 @@ function _bsMsg(el,type,html){ el.className='alert alert-'+type+' py-2 px-3 smal
 
 async function _asmLogo() {
   try {
-    var r=await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
+    var r=await fetch('https://ilgfjyokqyoonteqzgbx.supabase.co/storage/v1/object/public/assets/logo.png');
     if(!r.ok) return '';
     var b=await r.blob();
     return await new Promise(function(rs){var rd=new FileReader();rd.onload=function(){rs(rd.result);};rd.onerror=function(){rs('');};rd.readAsDataURL(b);});
