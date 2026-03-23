@@ -1374,7 +1374,9 @@ async function finPrintFinanceReceipt(email, academicYear, calledBy) {
 // ── Finance PDF helpers (mirror student portal pce* helpers) ──
 async function pceLoadLogoFin() {
   try {
-    const resp = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
+    const resp = await fetch(
+      'https://ilgfjyokqyoonteqzgbx.supabase.co/storage/v1/object/public/assets/logo.png'
+    );
     if (!resp.ok) return null;
     const blob = await resp.blob();
     return await new Promise(resolve => {
