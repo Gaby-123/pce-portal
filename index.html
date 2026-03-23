@@ -394,6 +394,13 @@ async function loadConfig() {
   const btnSpn   = document.getElementById('pce-btnSpinner');
   const errEl    = document.getElementById('pce-errorDisplay');
   const errTxt   = document.getElementById('pce-errorText');
+  const { error: sessionError } = await db.from('sessions').insert({
+  token:       sessionToken,
+  email:       user.email,
+  role:        String(user.role).toUpperCase(),
+  expires_at:  expiresAt,
+  last_active: new Date().toISOString()
+});  
  
   errEl.style.display = 'none';
  
@@ -468,7 +475,7 @@ async function loadConfig() {
     const expiresAt    = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(); // 8 hours
  
     await db.from('sessions').insert({
-      session_token: sessionToken,
+      token:         sessionToken,
       email:         user.email,
       role:          String(user.role).toUpperCase(),
       expires_at:    expiresAt,
