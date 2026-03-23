@@ -111,14 +111,36 @@ const _supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   }
 
   // Shared logout — called by role fragments too
-  function logout() {
-    Swal.fire({
-      title: 'Logging out?', icon: 'question', showCancelButton: true,
-      confirmButtonColor: '#dc3545', confirmButtonText: 'Yes, logout'
-    }).then(r => {
-      if (r.isConfirmed) { sessionStorage.removeItem('pce_session'); window.location.href = 'index.html'; }
-    });
-  }
+  async function logout() {
+  Swal.fire({
+    title: 'Logging out?', icon: 'question', showCancelButton: true,
+    confirmButtonColor: '#dc3545', confirmButtonText: 'Yes, logout'
+  }).then(async r => {
+    if (r.isConfirmed) {
+      // Delete the session token from Supabase
+      const raw = sessionStorage.getItem('pce_session');
+      if (raw) {
+        try {
+          const session = JSON.parse(raw);
+          if (session.token) {
+            await fetch(SUPABASE_URL + '/rest/v1/sessions?session_token=eq.' + encodeURIComponent(session.token), {
+              method: 'DELETE',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+              }
+            });
+          }
+        } catch(e) {
+          // Silent fail — still log out even if token cleanup fails
+          console.warn('Session cleanup failed:', e);
+        }
+      }
+      sessionStorage.removeItem('pce_session');
+      window.location.href = 'index.html';
+    }
+  });
+}
 
   function showAccessDenied() {
     document.getElementById('loadingScreen').style.display = 'none';
