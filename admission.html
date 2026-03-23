@@ -1030,29 +1030,44 @@ async function admSubmitBiodata() {
 }
 
 // ── DOWNLOAD ADMISSION LETTER ─────────────────────────────────
+// ── Main function ─────────────────────────────────────────────────────────
 async function admDownloadLetter() {
   if (!_adm) return;
-  Swal.fire({ title:'Generating Admission Letter...', html:'<div class="spinner-border text-primary"></div>', allowOutsideClick:false, showConfirmButton:false });
-
-  // Load logo, settings and fee in parallel
-  var [logo, settingsRows, feeRows] = await Promise.all([
-    admLoadLogo(),
+ 
+  Swal.fire({
+    title: 'Generating Admission Letter...',
+    html:  '<div class="spinner-border text-primary"></div>',
+    allowOutsideClick: false,
+    showConfirmButton:  false
+  });
+ 
+  // ── 1. Fetch all required data in parallel ────────────────────────────
+  var [settingsRows, feeRows, logo] = await Promise.all([
     admFetch('pce_settings?select=key,value'),
-    admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount,payment_deadline&limit=1')
+    admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount,payment_deadline&limit=1'),
+    admLoadLogo()
   ]);
-
+ 
+  // ── 2. Parse settings ────────────────────────────────────────────────
   var sMap = {};
-  (settingsRows||[]).forEach(function(r){ sMap[r.key] = r.value; });
-  var principalName  = sMap['principal_name']  || 'THE PRINCIPAL';
-  var principalTitle = sMap['principal_title'] || 'Principal';
-  var sigUrl         = sMap['signature_url'];
-
-  var feeAmount   = feeRows && feeRows.length ? Number(feeRows[0].amount) : null;
-  var feeDeadline = feeRows && feeRows.length && feeRows[0].payment_deadline
-    ? new Date(feeRows[0].payment_deadline).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })
-    : null;
-
-  // Try load signature
+  (settingsRows || []).forEach(function(r) { sMap[r.key] = r.value; });
+ 
+  var principalName  = sMap['principal_name']  || 'REV DR NICHOLAS APREH SIAW';
+  var principalTitle = sMap['principal_title'] || 'PRINCIPAL';
+  var startDate      = sMap['start_date']      || '';   // e.g. "2023-01-30"
+  var sigUrl         = sMap['signature_url']   || null;
+ 
+  // ── 3. Parse fee data ────────────────────────────────────────────────
+  var feeAmount   = (feeRows && feeRows.length) ? Number(feeRows[0].amount) : null;
+  var feeDeadline = (feeRows && feeRows.length && feeRows[0].payment_deadline)
+    ? feeRows[0].payment_deadline : null;
+ 
+  var feeAmountFormatted  = feeAmount ? feeAmount.toFixed(2) : null;
+  var feeAmountWords      = feeAmount ? numberToWords(feeAmount) : null;
+  var feeDeadlineFormatted = feeDeadline ? formatDateLong(feeDeadline) : null;
+  var startDateFormatted   = startDate   ? formatDateLong(startDate)   : null;
+ 
+  // ── 4. Load signature image ──────────────────────────────────────────
   var sigData = null;
   if (sigUrl && sigUrl !== 'null') {
     try {
@@ -1060,196 +1075,333 @@ async function admDownloadLetter() {
       if (!sigSigned.error && sigSigned.data) {
         var sigResp = await fetch(sigSigned.data.signedUrl);
         var sigBlob = await sigResp.blob();
-        sigData = await new Promise(function(resolve){
-          var rd = new FileReader(); rd.onload = function(){ resolve(rd.result); }; rd.readAsDataURL(sigBlob);
+        sigData = await new Promise(function(resolve) {
+          var rd = new FileReader();
+          rd.onload = function() { resolve(rd.result); };
+          rd.readAsDataURL(sigBlob);
         });
       }
-    } catch(e){}
+    } catch(e) { sigData = null; }
   }
-
+ 
+  // ── 5. Initialise jsPDF ──────────────────────────────────────────────
   var { jsPDF } = window.jspdf;
-  var doc   = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-  var pageW = doc.internal.pageSize.getWidth();
-  var pageH = doc.internal.pageSize.getHeight();
-  var mL = 20, mR = 20;
-  var usableW = pageW - mL - mR;
-  var y = 15;
-
-  // ── HEADER ────────────────────────────────────────────────
+  var doc   = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  var pageW = doc.internal.pageSize.getWidth();   // 210
+  var pageH = doc.internal.pageSize.getHeight();  // 297
+  var mL    = 20;   // left margin
+  var mR    = 20;   // right margin
+  var usableW = pageW - mL - mR;                  // 170
+ 
+  // Today's date for top-right
+  var todayFormatted = formatDateLong(new Date().toISOString().slice(0, 10));
+ 
+  // ── 6. FAINT WATERMARK LOGO ──────────────────────────────────────────
   if (logo) {
-    // Watermark
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.05 }));
-    doc.addImage(logo, 'PNG', (pageW-80)/2, 80, 80, 80);
+    doc.addImage(logo, 'PNG', (pageW - 100) / 2, (pageH - 100) / 2, 100, 100);
     doc.restoreGraphicsState();
-    doc.addImage(logo, 'PNG', mL, y, 22, 22);
   }
-
-  doc.setFont('times','bold'); doc.setFontSize(14); doc.setTextColor(10,36,99);
-  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION', pageW/2, y+7, { align:'center' });
-  doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(80,80,80);
-  doc.text('Akropong-Akuapem, Eastern Region, Ghana', pageW/2, y+13, { align:'center' });
-  doc.text('Tel: +233 (0) 256 977 765  |  Email: info@pce.edu.gh  |  www.pce.edu.gh', pageW/2, y+18, { align:'center' });
-
-  y += 23;
-  doc.setDrawColor(10,36,99); doc.setLineWidth(1.2);
-  doc.line(mL, y, pageW-mR, y);
-  doc.setLineWidth(0.3);
-  doc.line(mL, y+2, pageW-mR, y+2);
-  y += 9;
-
-  // ── REF & DATE ────────────────────────────────────────────
-  doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(60,60,60);
-  var refNo = 'PCE/ADM/' + (_adm.academic_year||'').replace('/','-') + '/' + (_adm.application_ref||'');
-  doc.text('Ref: ' + refNo, mL, y);
-  doc.text('Date: ' + new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }), pageW-mR, y, { align:'right' });
-  y += 9;
-
-  // ── TITLE ─────────────────────────────────────────────────
-  doc.setFillColor(10,36,99);
-  doc.rect(mL, y, usableW, 9, 'F');
-  doc.setFont('times','bold'); doc.setFontSize(12); doc.setTextColor(255,255,255);
-  doc.text('LETTER OF ADMISSION', pageW/2, y+6.5, { align:'center' });
-  y += 15;
-
-  // ── SALUTATION ────────────────────────────────────────────
-  doc.setFont('times','normal'); doc.setFontSize(11); doc.setTextColor(0,0,0);
-  doc.text('Dear ' + (_adm.full_name||'').toUpperCase() + ',', mL, y);
-  y += 9;
-
-  // ── OPENING PARAGRAPH ─────────────────────────────────────
-  var body1 = 'On behalf of the Principal and Management of Presbyterian College of Education, Akropong-Akuapem, I am pleased to inform you that you have been offered admission to pursue the under-listed programme for the ' + (_adm.academic_year||'') + ' academic year, subject to the conditions stated below.';
-  doc.setFont('times','normal'); doc.setFontSize(10.5); doc.setTextColor(30,30,30);
-  var lines1 = doc.splitTextToSize(body1, usableW);
-  doc.text(lines1, mL, y);
-  y += lines1.length * 6 + 7;
-
-  // ── ADMISSION DETAILS BOX ─────────────────────────────────
-  doc.setFillColor(235,245,255);
-  doc.setDrawColor(10,36,99);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(mL, y, usableW, 44, 2, 2, 'FD');
-
-  // Box title bar
-  doc.setFillColor(10,36,99);
-  doc.roundedRect(mL, y, usableW, 7, 2, 2, 'F');
-  doc.rect(mL, y+3, usableW, 4, 'F'); // flatten bottom corners of title bar
-  doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
-  doc.text('ADMISSION DETAILS', pageW/2, y+5, { align:'center' });
-
-  var bx = mL+5, by = y+12;
-  var lW = 38; // label column width
-
-  function detailRow(label, value, rowY) {
-    doc.setFont('times','bold'); doc.setFontSize(9.5); doc.setTextColor(10,36,99);
-    doc.text(label, bx, rowY);
-    doc.setFont('times','normal'); doc.setTextColor(0,0,0);
-    doc.text(String(value||'—').toUpperCase(), bx+lW, rowY);
-  }
-
-  detailRow('Programme:', _adm.programme||'', by);
-  detailRow('Specialization:', _adm.specialization||'N/A', by+7);
-  detailRow('Level:', 'Year One (Level 100)', by+14);
-  detailRow('Academic Year:', _adm.academic_year||'', by+21);
-  detailRow('Application Ref:', _adm.application_ref||'', by+28);
-
-  y += 50;
-
-  // ── PAYMENT BOX ───────────────────────────────────────────
-  if (feeAmount) {
-    doc.setFillColor(255,250,235);
-    doc.setDrawColor(180,120,0);
-    doc.setLineWidth(0.4);
-    doc.roundedRect(mL, y, usableW, 22, 2, 2, 'FD');
-
-    // Box title
-    doc.setFillColor(180,120,0);
-    doc.roundedRect(mL, y, usableW, 7, 2, 2, 'F');
-    doc.rect(mL, y+3, usableW, 4, 'F');
-    doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
-    doc.text('ADMISSION FEE PAYMENT', pageW/2, y+5, { align:'center' });
-
-    var px = mL+5, py = y+12;
-    doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(150,80,0);
-    doc.text('Required Amount:', px, py);
-    doc.setFont('times','bold'); doc.setFontSize(11); doc.setTextColor(10,36,99);
-    doc.text('GH₵ ' + feeAmount.toFixed(2), px+45, py);
-
-    if (feeDeadline) {
-      doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(150,80,0);
-      doc.text('Payment Deadline:', px, py+7);
-      doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(180,0,0);
-      doc.text(feeDeadline, px+45, py+7);
-    }
-
-    y += 28;
-  }
-
-  // ── CONDITIONS ────────────────────────────────────────────
-  doc.setFillColor(10,36,99);
-  doc.rect(mL, y, usableW, 6, 'F');
-  doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
-  doc.text('CONDITIONS OF ADMISSION', pageW/2, y+4.5, { align:'center' });
-  y += 9;
-
-  var conditions = [
-    'This admission is subject to the verification of all original certificates and documents upon reporting.',
-    'You are required to pay GH₵ ' + (feeAmount ? feeAmount.toFixed(2) : 'the prescribed fees') + ' at any GCB Bank branch' + (feeDeadline ? ' on or before ' + feeDeadline : '') + ' and upload your payment slip through the admission portal.',
-    'You must report to the Registrar\'s Office with all original academic certificates and a printed copy of this letter.',
-    'Admission will be withdrawn if any information provided is found to be false or misleading.',
-    'Students are expected to abide by the rules and regulations of the College at all times.'
-  ];
-
-  doc.setFont('times','normal'); doc.setFontSize(10); doc.setTextColor(20,20,20);
-  conditions.forEach(function(c, i) {
-    var cLines = doc.splitTextToSize((i+1) + '.  ' + c, usableW-5);
-    doc.text(cLines, mL+4, y);
-    y += cLines.length * 5.5 + 2.5;
-  });
-
-  y += 4;
-
-  // ── CLOSING ───────────────────────────────────────────────
-  var closing = 'We congratulate you on this achievement and look forward to welcoming you to the Presbyterian College of Education. Please contact the Admissions Office for any enquiries.';
-  doc.setFont('times','italic'); doc.setFontSize(10); doc.setTextColor(40,40,40);
-  var cLines = doc.splitTextToSize(closing, usableW);
-  doc.text(cLines, mL, y);
-  y += cLines.length * 6 + 8;
-
-  // ── SIGNATURE ─────────────────────────────────────────────
-  doc.setFont('times','normal'); doc.setFontSize(10); doc.setTextColor(0,0,0);
-  doc.text('Yours faithfully,', mL, y);
+ 
+  // ─────────────────────────────────────────────────────────────────────
+  // ── 7. HEADER SECTION ────────────────────────────────────────────────
+  // Mirrors original: institution name centred at top, logo in centre,
+  // left-column address, right-column contact details, thick rule.
+  // ─────────────────────────────────────────────────────────────────────
+  var y = 14;
+ 
+  // Institution name — large bold centred
+  doc.setFont('times', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(0, 0, 0);
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION', pageW / 2, y, { align: 'center' });
+  y += 6;
+ 
+  // Sub-name — smaller bold centred
+  doc.setFontSize(10);
+  doc.text('AKROPONG - AKUAPEM', pageW / 2, y, { align: 'center' });
+  y += 5;
+  doc.text('(FOUNDED 1848)', pageW / 2, y, { align: 'center' });
   y += 7;
-
+ 
+  // ── Three-column mid-header ──────────────────────────────────────────
+  // LEFT: address + ref lines  |  CENTRE: logo  |  RIGHT: contact details
+ 
+  var colMidY = y;
+  var logoSize = 28;                         // logo square size in mm
+  var logoX    = (pageW - logoSize) / 2;     // centred
+  var logoY    = colMidY;
+ 
+  // Draw logo in centre column
+  if (logo) {
+    doc.addImage(logo, 'PNG', logoX, logoY, logoSize, logoSize);
+  }
+ 
+  // LEFT COLUMN — address
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  var lx = mL;
+  var ly = colMidY + 1;
+  doc.text('P. O. Box 27', lx, ly);          ly += 4.5;
+  doc.text('Akropong-Akuapem', lx, ly);      ly += 4.5;
+  doc.setFont('times', 'italic');
+  doc.text('Ghana, West Africa', lx, ly);    ly += 8;
+  doc.setFont('times', 'normal');
+ 
+  // Our Ref & Your Ref lines — dotted
+  doc.setFontSize(8.5);
+  doc.text('Our Ref:', lx, ly);
+  // draw dotted line after "Our Ref:"
+  var refLabelW = doc.getTextWidth('Our Ref:') + 1;
+  _drawDotLine(doc, lx + refLabelW, ly, lx + 72, ly);
+  ly += 5.5;
+ 
+  doc.text('Your Ref:', lx, ly);
+  var yourRefLabelW = doc.getTextWidth('Your Ref:') + 1;
+  _drawDotLine(doc, lx + yourRefLabelW, ly, lx + 72, ly);
+ 
+  // RIGHT COLUMN — contact details
+  var rx = pageW - mR;   // right-align from here
+  var ry = colMidY + 1;
+  doc.setFont('times', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+ 
+  // Email (blue underlined to match original)
+  doc.setTextColor(0, 0, 200);
+  doc.text('Email: info@pceakropong.edu.gh', rx, ry, { align: 'right' }); ry += 4.5;
+  doc.text('Website: www.pceakropong.edu.gh', rx, ry, { align: 'right' }); ry += 4.5;
+ 
+  // Tel in italic bold to match original styling
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('times', 'italic');
+  doc.text('Tel: +233 (0)553970432/(0)506851969', rx, ry, { align: 'right' }); ry += 4.5;
+ 
+  // Bankers bold italic
+  doc.setFont('times', 'bolditalic');
+  doc.text('Bankers: GCB Bank, Akropong-Akuapem', rx, ry, { align: 'right' }); ry += 8;
+ 
+  // Date — right aligned, underlined style matching original
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Date: ', rx - doc.getTextWidth(todayFormatted) - 2, ry);
+  doc.setFont('times', 'normal');
+  doc.text(todayFormatted, rx, ry, { align: 'right' });
+  // Underline the date
+  var dateLineY = ry + 0.8;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.line(rx - doc.getTextWidth(todayFormatted), dateLineY, rx, dateLineY);
+ 
+  // Advance y past the three-column header
+  y = Math.max(ly, ry, logoY + logoSize) + 4;
+ 
+  // ── THICK DOUBLE RULE ────────────────────────────────────────────────
+  // Original has a thick rule then a thin rule (double line effect)
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(1.8);
+  doc.line(mL, y, pageW - mR, y);
+  y += 1.2;
+  doc.setLineWidth(0.4);
+  doc.line(mL, y, pageW - mR, y);
+  y += 1;
+ 
+  // Thin horizontal separator (original has a second line lower)
+  doc.setLineWidth(0.3);
+  doc.line(mL, y + 0.8, pageW - mR, y + 0.8);
+  y += 6;
+ 
+  // ─────────────────────────────────────────────────────────────────────
+  // ── 8. SALUTATION ────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────
+  doc.setFont('times', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Dear ' + String(_adm.full_name || '').toUpperCase(), mL, y);
+  y += 9;
+ 
+  // ─────────────────────────────────────────────────────────────────────
+  // ── 9. TITLE ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────
+  doc.setFont('times', 'bold');
+  doc.setFontSize(11);
+  doc.text(
+    'OFFER OF ADMISSION FOR ' + (_adm.academic_year || '') + ' ACADEMIC YEAR',
+    pageW / 2, y, { align: 'center' }
+  );
+  y += 7;
+ 
+  // ─────────────────────────────────────────────────────────────────────
+  // ── 10. BODY PARAGRAPHS — matching the original letter word for word ─
+  // ─────────────────────────────────────────────────────────────────────
+  doc.setFont('times', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+ 
+  var lineH = 6.2;   // line height for body text
+ 
+  // Helper — render a paragraph with mixed bold spans
+  // segments: array of { text, bold } objects rendered inline
+  function renderParagraph(segments, startY, indent) {
+    indent = indent || 0;
+    var x   = mL + indent;
+    var maxW = usableW - indent;
+    // Flatten all text so we can word-wrap as a block, then re-apply bold
+    // We use a token-based approach: split each segment into words, tag each word
+    var tokens = [];
+    segments.forEach(function(seg) {
+      var words = seg.text.split(' ');
+      words.forEach(function(w, wi) {
+        if (w !== '') tokens.push({ word: w, bold: seg.bold });
+      });
+    });
+ 
+    var lines  = [];
+    var cur    = [];
+    var curW   = 0;
+ 
+    tokens.forEach(function(tok) {
+      doc.setFont('times', tok.bold ? 'bold' : 'normal');
+      doc.setFontSize(11);
+      var wW = doc.getTextWidth(tok.word + ' ');
+      if (curW + wW > maxW && cur.length > 0) {
+        lines.push(cur);
+        cur  = [tok];
+        curW = wW;
+      } else {
+        cur.push(tok);
+        curW += wW;
+      }
+    });
+    if (cur.length) lines.push(cur);
+ 
+    var yy = startY;
+    lines.forEach(function(line) {
+      var xx = x;
+      line.forEach(function(tok) {
+        doc.setFont('times', tok.bold ? 'bold' : 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(tok.word, xx, yy);
+        xx += doc.getTextWidth(tok.word + ' ');
+      });
+      yy += lineH;
+    });
+    return yy;
+  }
+ 
+  // ── Paragraph 1 ─────────────────────────────────────────────────────
+  var p1 = 'We write to offer you admission to the Presbyterian College of Education (PCE), ' +
+           'Akropong-Akuapem to pursue a 4- YEAR ' + (_adm.programme || 'BACHELOR OF EDUCATION') +
+           ' programme' +
+           (startDateFormatted ? ' beginning ' + startDateFormatted : '') +
+           '. This admission is granted for the ' + (_adm.academic_year || '') +
+           ' academic year only.';
+ 
+  y = renderParagraph([{ text: p1, bold: false }], y);
+  y += 2;
+ 
+  // ── Paragraph 2 ─────────────────────────────────────────────────────
+  var p2 = 'The College requires that you are declared medically fit by an approved medical outfit. ' +
+           'It would be arranged for you to be medically examined. You are therefore required to bring ' +
+           'your health insurance card.';
+  y = renderParagraph([{ text: p2, bold: false }], y);
+  y += 2;
+ 
+  // ── Paragraph 3 ─────────────────────────────────────────────────────
+  var p3 = 'You will be on probation for the full duration of the programme and may be withdrawn ' +
+           'at any time for unsatisfactory academic work or conduct. You will also be required to ' +
+           'adhere to all College rules and regulations.';
+  y = renderParagraph([{ text: p3, bold: false }], y);
+  y += 2;
+ 
+  // ── Paragraph 4 — fee paragraph with bold spans ──────────────────────
+  if (feeAmount && feeAmountWords && feeAmountFormatted) {
+    var p4segs = [
+      { text: 'You will pay a non-refundable fee of ', bold: false },
+      { text: feeAmountWords + ' (' + feeAmountFormatted + ') excluding examination fee and other charges', bold: true },
+      { text: ' into the ', bold: false },
+      { text: 'Presbyterian College of Education, GCB bank Ltd, Account Number 2091130001620, Akropong Branch.', bold: true },
+      { text: ' The pay-in slip bearing the applicant\'s name will be submitted to the College accounts office for an official receipt and a prospectus.', bold: false }
+    ];
+    y = renderParagraph(p4segs, y);
+    y += 2;
+  }
+ 
+  // ── Paragraph 5 — deadline ───────────────────────────────────────────
+  if (feeDeadlineFormatted) {
+    var p5segs = [
+      { text: 'The deadline for payment of admission fee is ', bold: false },
+      { text: feeDeadlineFormatted + '.', bold: true },
+      { text: ' Freshers who fail to pay their fees and submit the pay-in slip to the College before ' +
+               'or on the deadline will be deemed to have rejected the offer and their place shall be ' +
+               'offered to another candidate on the waiting list.', bold: false }
+    ];
+    y = renderParagraph(p5segs, y);
+    y += 2;
+  }
+ 
+  // ── Paragraph 6 ─────────────────────────────────────────────────────
+  var p6 = 'Please note that any false declaration discovered later regarding your qualification ' +
+           'and admission will lead to an instant Dismissal from the College.';
+  y = renderParagraph([{ text: p6, bold: false }], y);
+  y += 2;
+ 
+  // ── Paragraph 7 ─────────────────────────────────────────────────────
+  var p7 = 'Please accept our congratulations.';
+  y = renderParagraph([{ text: p7, bold: false }], y);
+  y += 10;
+ 
+  // ── Closing ──────────────────────────────────────────────────────────
+  doc.setFont('times', 'normal');
+  doc.setFontSize(11);
+  doc.text('Accept our congratulations.', mL, y);
+  y += 14;
+ 
+  // ─────────────────────────────────────────────────────────────────────
+  // ── 11. SIGNATURE BLOCK ───────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────
   if (sigData) {
-    doc.addImage(sigData, 'JPEG', mL, y, 45, 16);
-    y += 18;
+    // Draw actual signature image
+    doc.addImage(sigData, 'JPEG', mL, y, 50, 18);
+    y += 20;
   } else {
-    doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
-    doc.line(mL, y+12, mL+55, y+12);
+    // Leave blank signature space matching original
     y += 16;
   }
-
-  doc.setFont('times','bold'); doc.setFontSize(10); doc.setTextColor(0,0,0);
+ 
+  // Principal name — bold, matching original "REV DR NICHOLAS APREH SIAW"
+  doc.setFont('times', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
   doc.text(principalName.toUpperCase(), mL, y);
-  doc.setFont('times','normal'); doc.setFontSize(9.5);
-  doc.text(principalTitle, mL, y+5.5);
-  doc.text('Presbyterian College of Education, Akropong-Akuapem', mL, y+11);
-
-  // ── FOOTER ────────────────────────────────────────────────
-  doc.setDrawColor(10,36,99); doc.setLineWidth(0.5);
-  doc.line(mL, pageH-15, pageW-mR, pageH-15);
-  doc.setFillColor(10,36,99);
-  doc.rect(mL, pageH-14, usableW, 0.4, 'F');
-
-  doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(80,80,80);
-  doc.text('This is an official document of Presbyterian College of Education, Akropong-Akuapem  |  Generated: ' + new Date().toLocaleDateString('en-GB'), pageW/2, pageH-9, { align:'center' });
-  doc.text('Ref: ' + refNo, pageW/2, pageH-5, { align:'center' });
-
+  y += 5.5;
+ 
+  // Title in brackets — "(PRINCIPAL)"
+  doc.text('(' + principalTitle.toUpperCase() + ')', mL, y);
+ 
+  // ─────────────────────────────────────────────────────────────────────
+  // ── 12. SAVE ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────
   Swal.close();
-  doc.save('AdmissionLetter_' + (_adm.application_ref||'PCE').replace(/\//g,'-') + '.pdf');
+  var filename = 'AdmissionLetter_' +
+    String(_adm.application_ref || 'PCE').replace(/\//g, '-') + '.pdf';
+  doc.save(filename);
 }
-
+ 
+// ── Internal helper: draw a dotted line ──────────────────────────────────
+function _drawDotLine(doc, x1, y, x2, lineY) {
+  var savedColor = doc.getDrawColor ? doc.getDrawColor() : '#000000';
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  // jsPDF dash pattern: setLineDash([dash, gap])
+  if (doc.setLineDash) doc.setLineDash([0.5, 1.5], 0);
+  doc.line(x1, lineY, x2, lineY);
+  if (doc.setLineDash) doc.setLineDash([], 0);  // reset to solid
+}
 // ── PRINT BIODATA FORM ────────────────────────────────────────
 async function admPrintBiodata() {
   if (!_adm) return;
