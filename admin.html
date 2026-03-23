@@ -883,7 +883,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
     this.disabled = true;
     admShowStatus(status, 'info', '<span class="spinner-border spinner-border-sm me-2"></span>Clearing sessions…');
     try {
-      await admFetch('sessions?session_token=neq.NONE', { method: 'DELETE' });
+      await admFetch('sessions?token=neq.NONE', { method: 'DELETE' });
       admShowStatus(status, 'success', '✅ All sessions cleared — users will be signed out.');
       admLoadDashboard();
     } catch(e) {
@@ -917,7 +917,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
       courses:            'course_code=neq.NONE',
       users:              'email=neq.NONE',
       student_bio:        'email=neq.NONE',
-      sessions:           'session_token=neq.NONE',
+      sessions:           'token=neq.NONE',
       admissions:         'id=neq.00000000-0000-0000-0000-000000000000',
       payment_submissions:'id=neq.00000000-0000-0000-0000-000000000000',
       admission_fees:     'id=neq.00000000-0000-0000-0000-000000000000',
