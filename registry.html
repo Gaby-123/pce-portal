@@ -1798,10 +1798,10 @@ async function admSaveSettings() {
 
   // Upsert all settings
   var settings = [
-    { key:'principal_name',  value:name },
-    { key:'principal_title', value:title || 'Principal' }
-    { key: 'start_date',      value: document.getElementById('settingStartDate').value }
-  ];
+  { key: 'principal_name',  value: name },
+  { key: 'principal_title', value: title || 'Principal' },
+  { key: 'start_date',      value: document.getElementById('settingStartDate').value }
+];
   if (sigUrl) settings.push({ key:'signature_url', value:sigUrl });
 
   for (var i = 0; i < settings.length; i++) {
