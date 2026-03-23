@@ -95,8 +95,10 @@ async function loadConfig() {
     const conf   = await res.json();
     SUPABASE_URL = conf.supabaseUrl;
     SUPABASE_KEY = conf.supabaseKey;
+    // Create ONE client and reuse it for both db and _supabaseClient
+    // This eliminates the "Multiple GoTrueClient instances" warning
     db              = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    _supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    _supabaseClient = db;
   } catch (e) {
     console.error('Config load failed:', e);
     document.body.innerHTML =
