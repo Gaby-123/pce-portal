@@ -83,11 +83,31 @@
 </div>
 
 <script>
-  const SUPABASE_URL = 'https://ilgfjyokqyoonteqzgbx.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsZ2ZqeW9rcXlvb250ZXF6Z2J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDc2NTgsImV4cCI6MjA4Nzc4MzY1OH0.ZWjz-J9J09QjVKFylOIjgXg5ey4Z6rvKU29AM3CQoTQ';
-  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  // Supabase JS client — needed for Storage uploads
-const _supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let SUPABASE_URL = '';
+let SUPABASE_KEY = '';
+let db           = null;
+let _supabaseClient = null;
+
+async function loadConfig() {
+  try {
+    const res  = await fetch('/api/config');
+    if (!res.ok) throw new Error('Config fetch failed');
+    const conf   = await res.json();
+    SUPABASE_URL = conf.supabaseUrl;
+    SUPABASE_KEY = conf.supabaseKey;
+    db              = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    _supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  } catch (e) {
+    console.error('Config load failed:', e);
+    document.body.innerHTML =
+      '<div style="display:flex;flex-direction:column;align-items:center;' +
+      'justify-content:center;height:100vh;font-family:sans-serif;gap:16px;">' +
+      '<div style="font-size:3rem;">⚠️</div>' +
+      '<h3 style="color:#dc2626;margin:0;">System Unavailable</h3>' +
+      '<p style="color:#6b7280;margin:0;">Please refresh the page or try again later.</p>' +
+      '</div>';
+  }
+}
 
   // Global session — role fragments read this
   var userSession = { email: '', role: '', name: '' };
@@ -193,8 +213,9 @@ const _supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   }
 
   window.addEventListener('DOMContentLoaded', async function () {
-    const raw = sessionStorage.getItem('pce_session');
-    if (!raw) { showAccessDenied(); return; }
+  await loadConfig();
+  const raw = sessionStorage.getItem('pce_session');
+  if (!raw) { showAccessDenied(); return; }
     let session;
     try { session = JSON.parse(raw); } catch(e) { showAccessDenied(); return; }
     if (!session.email || !session.role) { showAccessDenied(); return; }
