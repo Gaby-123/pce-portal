@@ -453,6 +453,11 @@
             <input type="text" id="settingPrincipalName" class="form-control" placeholder="e.g. Prof. John Kwame Asante">
           </div>
           <div class="col-md-6">
+  <label class="form-label small fw-bold">Programme Start Date</label>
+  <input type="date" id="settingStartDate" class="form-control">
+  <div class="form-text">The date freshers begin — appears in the admission letter body.</div>
+</div>
+          <div class="col-md-6">
             <label class="form-label small fw-bold">Title / Designation</label>
             <input type="text" id="settingPrincipalTitle" class="form-control" placeholder="e.g. Principal">
           </div>
@@ -1742,9 +1747,11 @@ async function admLoadSettings() {
 
   var nameEl  = document.getElementById('settingPrincipalName');
   var titleEl = document.getElementById('settingPrincipalTitle');
+  var startEl = document.getElementById('settingStartDate');
+
   if (nameEl  && map['principal_name'])  nameEl.value  = map['principal_name'];
   if (titleEl && map['principal_title']) titleEl.value = map['principal_title'];
-
+  if (startEl && map['start_date']) startEl.value = map['start_date'];
   if (map['signature_url'] && map['signature_url'] !== 'null') {
     var signedRes = await _supabaseClient.storage.from('signatures').createSignedUrl(map['signature_url'], 3600);
     if (!signedRes.error && signedRes.data) {
@@ -1793,6 +1800,7 @@ async function admSaveSettings() {
   var settings = [
     { key:'principal_name',  value:name },
     { key:'principal_title', value:title || 'Principal' }
+    { key: 'start_date',      value: document.getElementById('settingStartDate').value }
   ];
   if (sigUrl) settings.push({ key:'signature_url', value:sigUrl });
 
