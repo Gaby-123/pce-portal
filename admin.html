@@ -245,8 +245,12 @@
       <div class="adm-lock-icon">🔐</div>
       <h5>PCE Admin Panel</h5>
       <p>Enter the administrator password to continue</p>
-      <input type="password" id="admPassInput" class="adm-lock-input"
-             placeholder="Administrator password">
+      <input type="email" id="admPassInput" class="adm-lock-input"
+             placeholder="Admin email address"
+        autocomplete="email">
+      <input type="password" id="admPassWordInput" class="adm-lock-input"
+            placeholder="Password" style="margin-top:10px;"
+            autocomplete="current-password">
       <button class="adm-lock-btn" id="admUnlockBtn">
         <i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel
       </button>
@@ -441,7 +445,6 @@
   /* ══════════════════════════════════════════════════════
      GLOBALS
   ══════════════════════════════════════════════════════ */
-  var ADMIN_PASSWORD = 'PCEAdmin2025';
   var admAllUsers    = [];
   var admUnlocked    = false;
 
@@ -461,49 +464,172 @@
     { key: 'pce_settings',       label: 'PCE Settings'       }
   ];
 
+
+async function admHashPassword(password) {
+  var buf = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(password)
+  );
+  return Array.from(new Uint8Array(buf))
+    .map(function(b) { return b.toString(16).padStart(2, '0'); })
+    .join('');
+}
+  
+
   /* ══════════════════════════════════════════════════════
      LOCK / UNLOCK
   ══════════════════════════════════════════════════════ */
-  function admUnlock() {
-    var val = document.getElementById('admPassInput').value;
-    var err = document.getElementById('admLockErr');
-    var btn = document.getElementById('admUnlockBtn');
-    if (!val) { err.textContent = 'Please enter the password.'; return; }
-    if (val !== ADMIN_PASSWORD) {
-      err.textContent = '❌ Incorrect password. Try again.';
-      document.getElementById('admPassInput').value = '';
-      document.getElementById('admPassInput').focus();
+  async function admUnlock() {
+  var emailVal = document.getElementById('admPassInput').value.trim().toLowerCase();
+  //
+  // NOTE: We reuse the password input field for the email, and add a
+  // second field for the password. See the HTML change instructions below.
+  // But if you want minimal HTML changes, we use TWO separate inputs.
+  // The lock card HTML change is described at the bottom of this file.
+  //
+  var passVal  = document.getElementById('admPassWordInput').value;
+  var err      = document.getElementById('admLockErr');
+  var btn      = document.getElementById('admUnlockBtn');
+ 
+  err.textContent = '';
+ 
+  if (!emailVal || !passVal) {
+    err.textContent = 'Please enter your email and password.';
+    return;
+  }
+ 
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying…';
+ 
+  try {
+    // 1. Look up the user by email
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/users?email=eq.' + encodeURIComponent(emailVal) +
+      '&select=email,role,password,failed_attempts,locked_until&limit=1',
+      {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY
+        }
+      }
+    );
+    var users = await res.json();
+ 
+    // 2. User not found
+    if (!users || users.length === 0) {
+      err.textContent = '❌ Invalid credentials.';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel';
       return;
     }
-    err.textContent = '';
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Unlocking…';
+ 
+    var user = users[0];
+ 
+    // 3. Role check — only ADMIN role can unlock
+    if (String(user.role).toUpperCase() !== 'ADMIN') {
+      err.textContent = '❌ You do not have admin access.';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel';
+      return;
+    }
+ 
+    // 4. Lockout check
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      var mins = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      err.textContent = '🔒 Account locked. Try again in ' + mins + ' minute(s).';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel';
+      return;
+    }
+ 
+    // 5. Password check — SHA-256 hash comparison
+    var hashed = await admHashPassword(passVal);
+    var matchesHash  = (hashed === user.password);
+    // Also allow plain-text match for accounts not yet upgraded
+    var matchesPlain = (!matchesHash && passVal === user.password);
+ 
+    if (!matchesHash && !matchesPlain) {
+      // Increment failed attempts
+      var attempts = (user.failed_attempts || 0) + 1;
+      var patch    = attempts >= 5
+        ? { failed_attempts: attempts, locked_until: new Date(Date.now() + 15 * 60000).toISOString() }
+        : { failed_attempts: attempts };
+ 
+      await fetch(SUPABASE_URL + '/rest/v1/users?email=eq.' + encodeURIComponent(emailVal), {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(patch)
+      });
+ 
+      err.textContent = attempts >= 5
+        ? '🔒 Too many failed attempts. Locked for 15 minutes.'
+        : '❌ Incorrect password. ' + (5 - attempts) + ' attempt(s) remaining.';
+ 
+      document.getElementById('admPassWordInput').value = '';
+      document.getElementById('admPassWordInput').focus();
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel';
+      return;
+    }
+ 
+    // 6. Success — reset failed attempts, upgrade plain password to hash silently
+    var upgradePayload = { failed_attempts: 0, locked_until: null };
+    if (matchesPlain) upgradePayload.password = hashed;
+ 
+    await fetch(SUPABASE_URL + '/rest/v1/users?email=eq.' + encodeURIComponent(emailVal), {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(upgradePayload)
+    });
+
     admUnlocked = true;
     document.getElementById('admLock').style.display    = 'none';
     document.getElementById('admSidebar').style.display = 'flex';
     document.getElementById('admMain').style.display    = 'block';
     admLoadDashboard();
     admLoadUsers();
-  }
-
-  function admLock() {
-    admUnlocked = false;
-    document.getElementById('admPassInput').value = '';
-    document.getElementById('admLockErr').textContent = '';
-    var btn = document.getElementById('admUnlockBtn');
+ 
+  } catch (e) {
+    err.textContent = '⚠️ System error: ' + e.message;
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel';
-    document.getElementById('admLock').style.display    = 'flex';
-    document.getElementById('admSidebar').style.display = 'none';
-    document.getElementById('admMain').style.display    = 'none';
   }
+}
 
-  document.getElementById('admUnlockBtn').addEventListener('click', admUnlock);
-  document.getElementById('admPassInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') admUnlock();
-  });
-  document.getElementById('admLockBtn').addEventListener('click', admLock);
-
+  function admLock() {
+  admUnlocked = false;
+  document.getElementById('admPassInput').value     = '';
+  document.getElementById('admPassWordInput').value = '';
+  document.getElementById('admLockErr').textContent = '';
+  var btn = document.getElementById('admUnlockBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-shield-lock me-2"></i>Unlock Admin Panel';
+  document.getElementById('admLock').style.display    = 'flex';
+  document.getElementById('admSidebar').style.display = 'none';
+  document.getElementById('admMain').style.display    = 'none';
+}
+ 
+document.getElementById('admUnlockBtn').addEventListener('click', admUnlock);
+ 
+// Allow Enter key on either field to trigger unlock
+document.getElementById('admPassInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('admPassWordInput').focus();
+});
+document.getElementById('admPassWordInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') admUnlock();
+});
+ 
+document.getElementById('admLockBtn').addEventListener('click', admLock);
   /* ══════════════════════════════════════════════════════
      TAB NAVIGATION
   ══════════════════════════════════════════════════════ */
