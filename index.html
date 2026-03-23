@@ -394,65 +394,58 @@ async function loadConfig() {
   const btnSpn   = document.getElementById('pce-btnSpinner');
   const errEl    = document.getElementById('pce-errorDisplay');
   const errTxt   = document.getElementById('pce-errorText');
-  const { error: sessionError } = await db.from('sessions').insert({
-  token:       sessionToken,
-  email:       user.email,
-  role:        String(user.role).toUpperCase(),
-  expires_at:  expiresAt,
-  last_active: new Date().toISOString()
-});  
- 
+
   errEl.style.display = 'none';
- 
+
   if (!email || !password) {
     Swal.fire({ icon: 'info', title: 'Missing Fields',
       text: 'Please enter both your email and password.',
       confirmButtonColor: '#1a73e8' });
     return;
   }
- 
+
   btn.disabled = true;
   btnTxt.textContent = 'Authenticating...';
   btnIco.style.display = 'none';
   btnSpn.style.display = 'inline-block';
- 
+
   function resetBtn() {
     btn.disabled = false;
     btnTxt.textContent = 'Sign In';
     btnIco.style.display = 'inline';
     btnSpn.style.display = 'none';
   }
- 
+
   function showError(msg) {
     resetBtn();
     errTxt.textContent  = msg;
     errEl.style.display = 'flex';
   }
- 
+
   try {
     // 1. Fetch user
     const { data: users, error } = await db
       .from('users').select('*').eq('email', email).limit(1);
- 
+
     if (error || !users || users.length === 0) {
       showError('Invalid email or password.');
       return;
     }
- 
+
     const user = users[0];
- 
+
     // 2. Lockout check
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
       const mins = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
       showError('Account locked. Try again in ' + mins + ' minute(s).');
       return;
     }
- 
+
     // 3. Password check
     const hashed       = await hashPassword(password);
     const matchesHash  = (hashed === user.password);
     const matchesPlain = (!matchesHash && password === user.password);
- 
+
     if (!matchesHash && !matchesPlain) {
       const attempts = (user.failed_attempts || 0) + 1;
       const patch    = attempts >= 5
@@ -464,33 +457,39 @@ async function loadConfig() {
         : 'Invalid email or password. ' + (5 - attempts) + ' attempt(s) remaining.');
       return;
     }
- 
+
     // 4. Reset failed attempts + upgrade plain password to hash
     const upgradePayload = { failed_attempts: 0, locked_until: null };
     if (matchesPlain) upgradePayload.password = hashed;
     await db.from('users').update(upgradePayload).eq('email', email);
- 
-    // 5. NEW — Generate a session token and store it in Supabase sessions table
+
+    // 5. Generate session token and store in Supabase
+    // Only uses columns that exist: token, email, role, expires_at, last_active
     const sessionToken = crypto.randomUUID();
-    const expiresAt    = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(); // 8 hours
- 
-    await db.from('sessions').insert({
-      token:         sessionToken,
-      email:         user.email,
-      role:          String(user.role).toUpperCase(),
-      expires_at:    expiresAt,
-      user_agent:    navigator.userAgent
+    const expiresAt    = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+
+    const { error: sessionError } = await db.from('sessions').insert({
+      token:       sessionToken,
+      email:       user.email,
+      role:        String(user.role).toUpperCase(),
+      expires_at:  expiresAt,
+      last_active: new Date().toISOString()
     });
- 
-    // 6. Save session including the token
+
+    if (sessionError) {
+      // Non fatal — log but still allow login
+      console.warn('Session insert failed:', sessionError.message);
+    }
+
+    // 6. Save session to sessionStorage
     const session = {
       email:        user.email,
       role:         String(user.role).toUpperCase(),
       isFirstLogin: user.is_first_login === true || String(user.is_first_login).toUpperCase() === 'TRUE',
-      token:        sessionToken   // <-- new: stored in sessionStorage
+      token:        sessionToken
     };
     sessionStorage.setItem('pce_session', JSON.stringify(session));
- 
+
     // 7. Remember email
     const rememberMe = document.getElementById('pce-rememberMe');
     if (rememberMe && rememberMe.checked) {
@@ -498,14 +497,14 @@ async function loadConfig() {
     } else {
       localStorage.removeItem('pce_saved_email');
     }
- 
+
     // 8. Success toast then redirect
     Swal.mixin({ toast: true, position: 'top-end',
       showConfirmButton: false, timer: 1500, timerProgressBar: true })
       .fire({ icon: 'success', title: 'Signed in successfully' });
- 
+
     clearInterval(_timer);
- 
+
     setTimeout(function() {
       if (session.isFirstLogin) {
         window.location.href = 'reset-password.html';
@@ -513,7 +512,7 @@ async function loadConfig() {
         window.location.href = 'dashboard.html';
       }
     }, 1500);
- 
+
   } catch(e) {
     showError('System error: ' + e.message);
   }
