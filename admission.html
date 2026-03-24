@@ -1656,6 +1656,42 @@ async function admLoadLogo() {
     });
   } catch(e){ return null; }
 }
+
+  // ── Number to Words ───────────────────────────────────────────
+function numberToWords(amount) {
+  var ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  var tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function convertHundreds(n) {
+    var str = '';
+    if (n >= 100) { str += ones[Math.floor(n/100)] + ' Hundred'; n = n % 100; if (n > 0) str += ' and '; }
+    if (n >= 20)  { str += tens[Math.floor(n/10)]; if (n % 10 > 0) str += '-' + ones[n % 10]; }
+    else if (n > 0) { str += ones[n]; }
+    return str;
+  }
+  function convertWhole(n) {
+    if (n === 0) return 'Zero';
+    var parts = [];
+    if (n >= 1000000) { parts.push(convertHundreds(Math.floor(n/1000000)) + ' Million'); n = n % 1000000; }
+    if (n >= 1000)    { parts.push(convertHundreds(Math.floor(n/1000)) + ' Thousand'); n = n % 1000; }
+    if (n > 0)        { parts.push(convertHundreds(n)); }
+    return parts.join(', ');
+  }
+  var fixed = parseFloat(amount).toFixed(2).split('.');
+  var cedis = parseInt(fixed[0], 10), pesewas = parseInt(fixed[1], 10);
+  var words = convertWhole(cedis) + ' Ghana Cedis';
+  if (pesewas > 0) words += ', ' + convertWhole(pesewas) + ' Pesewas';
+  return words;
+}
+
+// ── Format date as "6th January, 2023" ───────────────────────
+function formatDateLong(dateStr) {
+  var d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  var day = d.getDate();
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var suffix = (day===1||day===21||day===31)?'st':(day===2||day===22)?'nd':(day===3||day===23)?'rd':'th';
+  return day + suffix + ' ' + months[d.getMonth()] + ', ' + d.getFullYear();
+}
 </script>
 </body>
 </html>
