@@ -747,12 +747,12 @@ async function finConfirmActivateYear() {
       if (!priorByStudent[em]) priorByStudent[em] = [];
       priorByStudent[em].push({ year: r.academic_year, balance: Number(r.balance) || 0 });
     });
-    const prevBalances = {};
-    Object.keys(priorByStudent).forEach(em => {
-      const sorted = priorByStudent[em].sort((a, b) =>
-        (parseInt(String(b.year).split('/')[0])||0) - (parseInt(String(a.year).split('/')[0])||0));
-      if (sorted[0] && sorted[0].balance > 0) prevBalances[em] = sorted[0].balance;
-    });
+    // FIXED — sum ALL prior year positive balances, including PRE-SYSTEM
+const prevBalances = {};
+Object.keys(priorByStudent).forEach(em => {
+  const total = priorByStudent[em].reduce((sum, r) => sum + Math.max(0, r.balance), 0);
+  if (total > 0) prevBalances[em] = total;
+});
 
     const existingRows = await sbFetch('student_finance?academic_year=eq.' + encodeURIComponent(year) + '&select=email') || [];
     const existingEmails = new Set(existingRows.map(r => r.email.toLowerCase().trim()));
@@ -850,11 +850,11 @@ async function finSubmitFeeStructure() {
         if (!prevBalances[em]) prevBalances[em] = [];
         prevBalances[em].push({ year: r.academic_year, balance: Number(r.balance) || 0 });
       });
-      Object.keys(prevBalances).forEach(em => {
-        const sorted = prevBalances[em].sort((a, b) =>
-          (parseInt(String(b.year).split('/')[0]) || 0) - (parseInt(String(a.year).split('/')[0]) || 0));
-        prevBalances[em] = (sorted[0] && sorted[0].balance > 0) ? sorted[0].balance : 0;
-      });
+      // FIXED
+Object.keys(prevBalances).forEach(em => {
+  const total = prevBalances[em].reduce((sum, r) => sum + Math.max(0, r.balance), 0);
+  prevBalances[em] = total > 0 ? total : 0;
+});
 
       const toInsert = [], toRepatch = [];
       studentsAtLevel.forEach(row => {
@@ -1737,58 +1737,98 @@ async function finConfirmDebtUpload() {
   var PRE_SYSTEM_YEAR = 'PRE-SYSTEM';
   var ok = 0, fail = 0;
 
-  try {
-    for (var i = 0; i < _debtPendingRecords.length; i++) {
-      var r = _debtPendingRecords[i];
-
-      // Always upsert — overwrite existing PRE-SYSTEM record for this email
-      var res = await fetch(SUPABASE_URL + '/rest/v1/student_finance?on_conflict=email,academic_year', {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates,return=minimal'
-        },
-        body: JSON.stringify({
-          email:          r.email,
-          name:           '',
-          level:          'PRE-SYSTEM',
-          academic_year:  PRE_SYSTEM_YEAR,
-          base_fees:      0,
-          carry_over:     0,
-          total_required: r.amount,
-          total_paid:     0,
-          balance:        r.amount,
-          percentage:     0,
-          can_register:   false
-        })
-      });
-
-      if (res.ok) ok++;
-      else fail++;
-    }
-
-    status.className = 'alert alert-' + (fail === 0 ? 'success' : 'warning');
-    status.innerHTML = fail === 0
-      ? '✅ ' + ok + ' debt record(s) uploaded successfully. These will be included as carry-over when the next academic year is activated.'
-      : '⚠️ ' + ok + ' uploaded, ' + fail + ' failed. Check your data and try again.';
-
-    if (ok > 0) {
-      document.getElementById('debtUploadFile').value = '';
-      _debtPendingRecords = [];
-      finLoadPreSystemRecords();
-      Swal.fire({
-        icon: 'success',
-        title: 'Debt Records Uploaded!',
-        html: '<strong>' + ok + '</strong> records saved.<br><small class="text-muted">These will automatically become carry-over fees when the next academic year is activated.</small>',
-        confirmButtonColor: '#0284c7'
-      });
-    }
-  } catch(e) {
-    status.className = 'alert alert-danger';
-    status.innerHTML = '⚠️ Error: ' + e.message;
+  for (var i = 0; i < _debtPendingRecords.length; i++) {
+    var r = _debtPendingRecords[i];
+    var res = await fetch(SUPABASE_URL + '/rest/v1/student_finance?on_conflict=email,academic_year', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({
+        email: r.email, name: '', level: 'PRE-SYSTEM',
+        academic_year: PRE_SYSTEM_YEAR,
+        base_fees: 0, carry_over: 0,
+        total_required: r.amount, total_paid: 0,
+        balance: r.amount, percentage: 0, can_register: false
+      })
+    });
+    if (res.ok) ok++; else fail++;
   }
+
+  if (fail > 0) {
+    status.className = 'alert alert-warning';
+    status.innerHTML = '⚠️ ' + ok + ' uploaded, ' + fail + ' failed. Check your data and try again.';
+    return;
+  }
+
+  // ── APPLY PRE-SYSTEM DEBTS TO THE ACTIVE YEAR IMMEDIATELY ──────────
+  // If the academic year is already active, existing student_finance rows
+  // won't be touched by activation. We patch them here instead.
+  status.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>' + ok + ' records saved. Applying to active academic year...';
+
+  var activeYear = await finGetActiveAcademicYear();
+  var applied = 0;
+
+  if (activeYear) {
+    for (var j = 0; j < _debtPendingRecords.length; j++) {
+      var rec = _debtPendingRecords[j];
+      var sfRows = await sbFetch(
+        'student_finance?email=eq.' + encodeURIComponent(rec.email) +
+        '&academic_year=eq.' + encodeURIComponent(activeYear) +
+        '&select=base_fees,carry_over,total_required,total_paid&limit=1'
+      );
+      if (!sfRows || !sfRows.length) continue; // No active year row yet — activation will handle it
+
+      var sf       = sfRows[0];
+      var newCarry = Number(sf.carry_over || 0) + rec.amount;
+      var newTotal = Number(sf.base_fees  || 0) + newCarry;
+      var paid     = Number(sf.total_paid || 0);
+      var balance  = newTotal - paid;
+      var pct      = newTotal > 0 ? parseFloat(((paid / newTotal) * 100).toFixed(1)) : 0;
+
+      var patchRes = await fetch(
+        SUPABASE_URL + '/rest/v1/student_finance?email=eq.' + encodeURIComponent(rec.email) +
+        '&academic_year=eq.' + encodeURIComponent(activeYear), {
+        method: 'PATCH',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ carry_over: newCarry, total_required: newTotal, balance: balance, percentage: pct, can_register: pct >= 70 })
+      });
+
+      if (patchRes.ok) {
+        applied++;
+        // Zero out PRE-SYSTEM balance so it isn't double-counted on next activation
+        await fetch(
+          SUPABASE_URL + '/rest/v1/student_finance?email=eq.' + encodeURIComponent(rec.email) +
+          '&academic_year=eq.PRE-SYSTEM', {
+          method: 'PATCH',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ balance: 0 })
+        });
+        // Sync student_bio status
+        var bioStatus = pct >= 100 ? 'CLEARED' : pct >= 70 ? 'ELIGIBLE' : 'PENDING';
+        await fetch(SUPABASE_URL + '/rest/v1/student_bio?email=eq.' + encodeURIComponent(rec.email), {
+          method: 'PATCH',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ status: bioStatus })
+        });
+      }
+    }
+  }
+
+  status.className = 'alert alert-success';
+  status.innerHTML = '✅ ' + ok + ' debt record(s) saved.'
+    + (applied > 0 ? ' ' + applied + ' student(s) immediately updated in ' + (activeYear || 'active year') + '.' : ' (Will be applied as carry-over on next year activation.)')
+    + '<br><small class="text-muted">PRE-SYSTEM records with active-year rows have been zeroed out to prevent double-counting.</small>';
+
+  document.getElementById('debtUploadFile').value = '';
+  _debtPendingRecords = [];
+  finLoadPreSystemRecords();
+  Swal.fire({
+    icon: 'success', title: 'Debt Records Applied!',
+    html: '<strong>' + ok + '</strong> saved. <strong>' + applied + '</strong> student finance row(s) updated immediately.',
+    confirmButtonColor: '#0284c7'
+  });
 }
 
 async function finLoadPreSystemRecords() {
