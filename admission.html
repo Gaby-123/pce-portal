@@ -577,11 +577,9 @@ function admStatusClass(status) {
 // ── Init ──────────────────────────────────────────────────────
 (async function(){
   await loadConfig();
-  // Set max date for payment
   var payDateEl = document.getElementById('payDate');
   if (payDateEl) payDateEl.max = new Date().toISOString().slice(0,10);
 
-  // Populate WASSCE year dropdown
   var yrSel = document.getElementById('bioWassceYear');
   var curYr = new Date().getFullYear();
   for (var y = curYr; y >= curYr - 10; y--) {
@@ -590,7 +588,6 @@ function admStatusClass(status) {
     yrSel.add(o);
   }
 
-  // Build WASSCE rows
   var tbody = document.getElementById('wassceBody');
   var grades = ['A1','B2','B3','C4','C5','C6','D7','E8','F9'];
   for (var i = 1; i <= 8; i++) {
@@ -623,7 +620,6 @@ async function admLogin() {
     '&select=*&limit=1'
   );
 
-  // Temporary debug — remove after fixing
   console.log('Searching for ref:', ref);
   console.log('Result:', rows);
 
@@ -634,7 +630,6 @@ async function admLogin() {
 
   var adm = rows[0];
 
-  // Normalise phone for comparison — strip spaces, leading zeros, country code
   function normPhone(p) {
     return String(p||'').replace(/\s+/g,'').replace(/^(\+233|0)/, '');
   }
@@ -662,7 +657,6 @@ function admLoadStatusScreen() {
   document.getElementById('admHeroRef').innerText    = _adm.application_ref || '';
   document.getElementById('admTopYear').innerText    = _adm.academic_year || '';
 
-  // Update timeline based on status
   var s = _adm.status;
   var paid     = ['PAYMENT_PENDING','PAYMENT_VERIFIED','BIODATA_SUBMITTED','ENROLLED'].includes(s);
   var verified = ['PAYMENT_VERIFIED','BIODATA_SUBMITTED','ENROLLED'].includes(s);
@@ -682,7 +676,6 @@ function admLoadStatusScreen() {
     document.getElementById('tl-enrolled-text').innerText = 'Enrolled — portal access granted';
   }
 
-  // Update continue button based on status
   var btn = document.querySelector('#scr-status .btn-adm-primary');
   if (s === 'BIODATA_SUBMITTED' || s === 'ENROLLED') {
     btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Biodata Already Submitted';
@@ -706,16 +699,15 @@ function admLoadPaymentScreen() {
   document.getElementById('pay-rejected-view').style.display = 'none';
   document.getElementById('pay-upload-view').style.display   = 'block';
 
-    // Show required fee if available
-    var feeEl = document.getElementById('admRequiredFeeNotice');
-    if (feeEl && _adm.academic_year) {
-      admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount&limit=1').then(function(fr) {
-        if (fr && fr.length) {
-          feeEl.innerHTML = '<i class="bi bi-info-circle me-1"></i>Required admission fee for ' + _adm.academic_year + ': <strong>GH₵ ' + Number(fr[0].amount).toFixed(2) + '</strong>';
-          feeEl.style.display = 'block';
-        }
-      });
-    }
+  var feeEl = document.getElementById('admRequiredFeeNotice');
+  if (feeEl && _adm.academic_year) {
+    admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount&limit=1').then(function(fr) {
+      if (fr && fr.length) {
+        feeEl.innerHTML = '<i class="bi bi-info-circle me-1"></i>Required admission fee for ' + _adm.academic_year + ': <strong>GH₵ ' + Number(fr[0].amount).toFixed(2) + '</strong>';
+        feeEl.style.display = 'block';
+      }
+    });
+  }
 
   if (s === 'PAYMENT_PENDING') {
     document.getElementById('pay-pending-view').style.display = 'block';
@@ -743,7 +735,6 @@ async function admSubmitPayment() {
   if (!amount || amount <= 0) { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Enter a valid amount.'; return; }
   if (!date)  { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Select the payment date.'; return; }
 
-  // Fee validation — check required admission fee
   var feeRows = await admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount&limit=1');
   if (feeRows && feeRows.length) {
     var requiredFee = Number(feeRows[0].amount);
@@ -757,7 +748,6 @@ async function admSubmitPayment() {
   if (!file)  { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Upload your payment slip image.'; return; }
   if (file.size > 512000) { st.className='alert alert-danger small'; st.style.display='block'; st.innerHTML='⚠ Image too large. Max 500KB.'; return; }
 
-  // Duplicate reference check
   var dup = await admFetch('admissions?payment_ref=eq.' + encodeURIComponent(ref) + '&select=id&limit=1');
   if (dup && dup.length > 0 && dup[0].id !== _adm.id) {
     st.className='alert alert-danger small'; st.style.display='block';
@@ -767,7 +757,6 @@ async function admSubmitPayment() {
   st.className='alert alert-info small'; st.style.display='block';
   st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Uploading payment slip...';
 
-  // Upload to Supabase Storage
   var ext      = file.type === 'image/png' ? 'png' : 'jpg';
   var filePath = 'admission/' + _adm.application_ref.replace(/\//g,'-') + '/' + Date.now() + '.' + ext;
 
@@ -779,7 +768,6 @@ async function admSubmitPayment() {
 
   st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
 
-  // Update admissions record
   var patchRes = await fetch(SUPABASE_URL + '/rest/v1/admissions?id=eq.' + encodeURIComponent(_adm.id), {
     method: 'PATCH',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
@@ -816,7 +804,6 @@ async function admSubmitPayment() {
 var _bioStep = 1;
 
 function admInitBiodata() {
-  // Pre-fill from admission record
   if (_adm) {
     var nameEl = document.getElementById('bioName');
     if (nameEl && !nameEl.value) nameEl.value = _adm.full_name || '';
@@ -843,7 +830,6 @@ function admGoToBioStep(step) {
 
 function admBioNext(step) {
   if (step === 1) {
-    // Validate step 1
     var required = [
       ['bioName',        'Full Name'],
       ['bioDOB',         'Date of Birth'],
@@ -862,7 +848,6 @@ function admBioNext(step) {
         return;
       }
     }
-    // Email validation
     var email = document.getElementById('bioEmail').value.trim();
     if (!email.includes('@') || !email.includes('.')) {
       Swal.fire({ icon:'warning', title:'Invalid Email', text:'Please enter a valid email address.', confirmButtonColor:'#1d4ed8' });
@@ -871,7 +856,6 @@ function admBioNext(step) {
   }
 
   if (step === 2) {
-    // Validate step 2
     if (!document.getElementById('bioPrevSchool').value.trim()) {
       Swal.fire({ icon:'warning', title:'Required', text:'Please enter your previous school.', confirmButtonColor:'#1d4ed8' }); return;
     }
@@ -881,7 +865,6 @@ function admBioNext(step) {
     if (!document.getElementById('bioWassceYear').value) {
       Swal.fire({ icon:'warning', title:'Required', text:'Please select your WASSCE year.', confirmButtonColor:'#1d4ed8' }); return;
     }
-    // Validate at least 6 subjects filled
     var filled = 0;
     for (var i = 1; i <= 8; i++) {
       var subj  = document.getElementById('wsSubj'  + i).value.trim();
@@ -956,7 +939,6 @@ async function admSubmitBiodata() {
   st.className='alert alert-info small'; st.style.display='block';
   st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Uploading photo...';
 
-  // Upload photo to Supabase Storage
   var ext      = file.type === 'image/png' ? 'png' : 'jpg';
   var filePath = _adm.application_ref.replace(/\//g,'-') + '/' + Date.now() + '.' + ext;
 
@@ -968,7 +950,6 @@ async function admSubmitBiodata() {
 
   st.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Saving your details...';
 
-  // Collect WASSCE results
   var wassceResults = [];
   for (var i = 1; i <= 8; i++) {
     var subj  = document.getElementById('wsSubj'  + i).value.trim();
@@ -976,7 +957,6 @@ async function admSubmitBiodata() {
     if (subj && grade) wassceResults.push({ subject: subj.toUpperCase(), grade: grade });
   }
 
-  // Build biodata payload
   var payload = {
     status:               'BIODATA_SUBMITTED',
     full_name:            document.getElementById('bioName').value.trim().toUpperCase(),
@@ -1016,7 +996,6 @@ async function admSubmitBiodata() {
     st.innerHTML='⚠ Failed to save: ' + await patchRes.text(); return;
   }
 
-  // Update local state
   Object.assign(_adm, payload);
 
   st.className='alert alert-success small'; st.style.display='block';
@@ -1030,44 +1009,39 @@ async function admSubmitBiodata() {
 }
 
 // ── DOWNLOAD ADMISSION LETTER ─────────────────────────────────
-// ── Main function ─────────────────────────────────────────────────────────
 async function admDownloadLetter() {
   if (!_adm) return;
- 
+
   Swal.fire({
     title: 'Generating Admission Letter...',
     html:  '<div class="spinner-border text-primary"></div>',
     allowOutsideClick: false,
     showConfirmButton:  false
   });
- 
-  // ── 1. Fetch all required data in parallel ────────────────────────────
+
   var [settingsRows, feeRows, logo] = await Promise.all([
     admFetch('pce_settings?select=key,value'),
     admFetch('admission_fees?academic_year=eq.' + encodeURIComponent(_adm.academic_year) + '&select=amount,payment_deadline&limit=1'),
     admLoadLogo()
   ]);
- 
-  // ── 2. Parse settings ────────────────────────────────────────────────
+
   var sMap = {};
   (settingsRows || []).forEach(function(r) { sMap[r.key] = r.value; });
- 
+
   var principalName  = sMap['principal_name']  || 'REV DR NICHOLAS APREH SIAW';
   var principalTitle = sMap['principal_title'] || 'PRINCIPAL';
-  var startDate      = sMap['start_date']      || '';   // e.g. "2023-01-30"
+  var startDate      = sMap['start_date']      || '';
   var sigUrl         = sMap['signature_url']   || null;
- 
-  // ── 3. Parse fee data ────────────────────────────────────────────────
+
   var feeAmount   = (feeRows && feeRows.length) ? Number(feeRows[0].amount) : null;
   var feeDeadline = (feeRows && feeRows.length && feeRows[0].payment_deadline)
     ? feeRows[0].payment_deadline : null;
- 
-  var feeAmountFormatted  = feeAmount ? feeAmount.toFixed(2) : null;
-  var feeAmountWords      = feeAmount ? numberToWords(feeAmount) : null;
+
+  var feeAmountFormatted   = feeAmount ? feeAmount.toFixed(2) : null;
+  var feeAmountWords       = feeAmount ? numberToWords(feeAmount) : null;
   var feeDeadlineFormatted = feeDeadline ? formatDateLong(feeDeadline) : null;
   var startDateFormatted   = startDate   ? formatDateLong(startDate)   : null;
- 
-  // ── 4. Load signature image ──────────────────────────────────────────
+
   var sigData = null;
   if (sigUrl && sigUrl !== 'null') {
     try {
@@ -1083,62 +1057,48 @@ async function admDownloadLetter() {
       }
     } catch(e) { sigData = null; }
   }
- 
-  // ── 5. Initialise jsPDF ──────────────────────────────────────────────
+
   var { jsPDF } = window.jspdf;
   var doc   = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  var pageW = doc.internal.pageSize.getWidth();   // 210
-  var pageH = doc.internal.pageSize.getHeight();  // 297
-  var mL    = 20;   // left margin
-  var mR    = 20;   // right margin
-  var usableW = pageW - mL - mR;                  // 170
- 
-  // Today's date for top-right
+  var pageW = doc.internal.pageSize.getWidth();
+  var pageH = doc.internal.pageSize.getHeight();
+  var mL    = 20;
+  var mR    = 20;
+  var usableW = pageW - mL - mR;
+
   var todayFormatted = formatDateLong(new Date().toISOString().slice(0, 10));
- 
-  // ── 6. FAINT WATERMARK LOGO ──────────────────────────────────────────
+
+  // Watermark
   if (logo) {
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.05 }));
     doc.addImage(logo, 'PNG', (pageW - 100) / 2, (pageH - 100) / 2, 100, 100);
     doc.restoreGraphicsState();
   }
- 
-  // ─────────────────────────────────────────────────────────────────────
-  // ── 7. HEADER SECTION ────────────────────────────────────────────────
-  // Mirrors original: institution name centred at top, logo in centre,
-  // left-column address, right-column contact details, thick rule.
-  // ─────────────────────────────────────────────────────────────────────
+
   var y = 14;
- 
-  // Institution name — large bold centred
+
   doc.setFont('times', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(0, 0, 0);
   doc.text('PRESBYTERIAN COLLEGE OF EDUCATION', pageW / 2, y, { align: 'center' });
   y += 6;
- 
-  // Sub-name — smaller bold centred
+
   doc.setFontSize(10);
   doc.text('AKROPONG - AKUAPEM', pageW / 2, y, { align: 'center' });
   y += 5;
   doc.text('(FOUNDED 1848)', pageW / 2, y, { align: 'center' });
   y += 7;
- 
-  // ── Three-column mid-header ──────────────────────────────────────────
-  // LEFT: address + ref lines  |  CENTRE: logo  |  RIGHT: contact details
- 
+
   var colMidY = y;
-  var logoSize = 28;                         // logo square size in mm
-  var logoX    = (pageW - logoSize) / 2;     // centred
+  var logoSize = 28;
+  var logoX    = (pageW - logoSize) / 2;
   var logoY    = colMidY;
- 
-  // Draw logo in centre column
+
   if (logo) {
     doc.addImage(logo, 'PNG', logoX, logoY, logoSize, logoSize);
   }
- 
-  // LEFT COLUMN — address
+
   doc.setFont('times', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
@@ -1149,59 +1109,50 @@ async function admDownloadLetter() {
   doc.setFont('times', 'italic');
   doc.text('Ghana, West Africa', lx, ly);    ly += 8;
   doc.setFont('times', 'normal');
- 
-  // Our Ref & Your Ref lines — dotted
+
   doc.setFontSize(8.5);
   doc.text('Our Ref:', lx, ly);
-  // draw dotted line after "Our Ref:"
   var refLabelW = doc.getTextWidth('Our Ref:') + 1;
   _drawDotLine(doc, lx + refLabelW, ly, lx + 72, ly);
   ly += 5.5;
- 
+
   doc.text('Your Ref:', lx, ly);
   var yourRefLabelW = doc.getTextWidth('Your Ref:') + 1;
   _drawDotLine(doc, lx + yourRefLabelW, ly, lx + 72, ly);
- 
-  // RIGHT COLUMN — contact details
-  var rx = pageW - mR;   // right-align from here
+
+  var rx = pageW - mR;
   var ry = colMidY + 1;
   doc.setFont('times', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(0, 0, 0);
- 
-  // Email (blue underlined to match original)
+
   doc.setTextColor(0, 0, 200);
   doc.text('Email: info@pceakropong.edu.gh', rx, ry, { align: 'right' }); ry += 4.5;
   doc.text('Website: www.pceakropong.edu.gh', rx, ry, { align: 'right' }); ry += 4.5;
- 
-  // Tel in italic bold to match original styling
+
   doc.setTextColor(0, 0, 0);
   doc.setFont('times', 'italic');
   doc.text('Tel: +233 (0)553970432/(0)506851969', rx, ry, { align: 'right' }); ry += 4.5;
- 
-  // Bankers bold italic
+
   doc.setFont('times', 'bolditalic');
   doc.text('Bankers: GCB Bank, Akropong-Akuapem', rx, ry, { align: 'right' }); ry += 8;
- 
-  // Date — right aligned, underlined style matching original
+
+  // ── DATE — FIXED: measure both label and value widths, place adjacently ──
   doc.setFont('times', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
   var _dateLabelW = doc.getTextWidth('Date: ');
-var _dateValW   = doc.getTextWidth(todayFormatted);
-doc.text('Date: ', rx - _dateValW - _dateLabelW, ry);
-doc.text(todayFormatted, rx, ry, { align: 'right' });
-// Underline only the date value
-var dateLineY = ry + 0.8;
-doc.setDrawColor(0, 0, 0);
-doc.setLineWidth(0.3);
-doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
- 
-  // Advance y past the three-column header
+  var _dateValW   = doc.getTextWidth(todayFormatted);
+  doc.text('Date: ', rx - _dateValW - _dateLabelW, ry);
+  doc.text(todayFormatted, rx, ry, { align: 'right' });
+  // Underline only the date value portion
+  var dateLineY = ry + 0.8;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
+
   y = Math.max(ly, ry, logoY + logoSize) + 4;
- 
-  // ── THICK DOUBLE RULE ────────────────────────────────────────────────
-  // Original has a thick rule then a thin rule (double line effect)
+
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(1.8);
   doc.line(mL, y, pageW - mR, y);
@@ -1209,24 +1160,17 @@ doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
   doc.setLineWidth(0.4);
   doc.line(mL, y, pageW - mR, y);
   y += 1;
- 
-  // Thin horizontal separator (original has a second line lower)
+
   doc.setLineWidth(0.3);
   doc.line(mL, y + 0.8, pageW - mR, y + 0.8);
   y += 6;
- 
-  // ─────────────────────────────────────────────────────────────────────
-  // ── 8. SALUTATION ────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────────────
+
   doc.setFont('times', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   doc.text('Dear ' + String(_adm.full_name || '').toUpperCase(), mL, y);
   y += 9;
- 
-  // ─────────────────────────────────────────────────────────────────────
-  // ── 9. TITLE ─────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────────────
+
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
   doc.text(
@@ -1234,36 +1178,29 @@ doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
     pageW / 2, y, { align: 'center' }
   );
   y += 7;
- 
-  // ─────────────────────────────────────────────────────────────────────
-  // ── 10. BODY PARAGRAPHS — matching the original letter word for word ─
-  // ─────────────────────────────────────────────────────────────────────
+
   doc.setFont('times', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
- 
-  var lineH = 6.2;   // line height for body text
- 
-  // Helper — render a paragraph with mixed bold spans
-  // segments: array of { text, bold } objects rendered inline
+
+  var lineH = 6.2;
+
   function renderParagraph(segments, startY, indent) {
     indent = indent || 0;
     var x   = mL + indent;
     var maxW = usableW - indent;
-    // Flatten all text so we can word-wrap as a block, then re-apply bold
-    // We use a token-based approach: split each segment into words, tag each word
     var tokens = [];
     segments.forEach(function(seg) {
       var words = seg.text.split(' ');
-      words.forEach(function(w, wi) {
+      words.forEach(function(w) {
         if (w !== '') tokens.push({ word: w, bold: seg.bold });
       });
     });
- 
+
     var lines  = [];
     var cur    = [];
     var curW   = 0;
- 
+
     tokens.forEach(function(tok) {
       doc.setFont('times', tok.bold ? 'bold' : 'normal');
       doc.setFontSize(11);
@@ -1278,7 +1215,7 @@ doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
       }
     });
     if (cur.length) lines.push(cur);
- 
+
     var yy = startY;
     lines.forEach(function(line) {
       var xx = x;
@@ -1293,33 +1230,29 @@ doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
     });
     return yy;
   }
- 
-  // ── Paragraph 1 ─────────────────────────────────────────────────────
+
   var p1 = 'We write to offer you admission to the Presbyterian College of Education (PCE), ' +
            'Akropong-Akuapem to pursue a 4- YEAR ' + (_adm.programme || 'BACHELOR OF EDUCATION') +
            ' programme' +
            (startDateFormatted ? ' beginning ' + startDateFormatted : '') +
            '. This admission is granted for the ' + (_adm.academic_year || '') +
            ' academic year only.';
- 
+
   y = renderParagraph([{ text: p1, bold: false }], y);
   y += 2;
- 
-  // ── Paragraph 2 ─────────────────────────────────────────────────────
+
   var p2 = 'The College requires that you are declared medically fit by an approved medical outfit. ' +
            'It would be arranged for you to be medically examined. You are therefore required to bring ' +
            'your health insurance card.';
   y = renderParagraph([{ text: p2, bold: false }], y);
   y += 2;
- 
-  // ── Paragraph 3 ─────────────────────────────────────────────────────
+
   var p3 = 'You will be on probation for the full duration of the programme and may be withdrawn ' +
            'at any time for unsatisfactory academic work or conduct. You will also be required to ' +
            'adhere to all College rules and regulations.';
   y = renderParagraph([{ text: p3, bold: false }], y);
   y += 2;
- 
-  // ── Paragraph 4 — fee paragraph with bold spans ──────────────────────
+
   if (feeAmount && feeAmountWords && feeAmountFormatted) {
     var p4segs = [
       { text: 'You will pay a non-refundable fee of ', bold: false },
@@ -1331,8 +1264,7 @@ doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
     y = renderParagraph(p4segs, y);
     y += 2;
   }
- 
-  // ── Paragraph 5 — deadline ───────────────────────────────────────────
+
   if (feeDeadlineFormatted) {
     var p5segs = [
       { text: 'The deadline for payment of admission fee is ', bold: false },
@@ -1344,66 +1276,52 @@ doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
     y = renderParagraph(p5segs, y);
     y += 2;
   }
- 
-  // ── Paragraph 6 ─────────────────────────────────────────────────────
+
   var p6 = 'Please note that any false declaration discovered later regarding your qualification ' +
            'and admission will lead to an instant Dismissal from the College.';
   y = renderParagraph([{ text: p6, bold: false }], y);
   y += 2;
- 
-  // ── Paragraph 7 ─────────────────────────────────────────────────────
+
   var p7 = 'Please accept our congratulations.';
   y = renderParagraph([{ text: p7, bold: false }], y);
   y += 10;
- 
-  // ── Closing ──────────────────────────────────────────────────────────
+
   doc.setFont('times', 'normal');
   doc.setFontSize(11);
   doc.text('Accept our congratulations.', mL, y);
   y += 14;
- 
-  // ─────────────────────────────────────────────────────────────────────
-  // ── 11. SIGNATURE BLOCK ───────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────────────
+
   if (sigData) {
-    // Draw actual signature image
     doc.addImage(sigData, 'JPEG', mL, y, 50, 18);
     y += 20;
   } else {
-    // Leave blank signature space matching original
     y += 16;
   }
- 
-  // Principal name — bold, matching original "REV DR NICHOLAS APREH SIAW"
+
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   doc.text(principalName.toUpperCase(), mL, y);
   y += 5.5;
- 
-  // Title in brackets — "(PRINCIPAL)"
+
   doc.text('(' + principalTitle.toUpperCase() + ')', mL, y);
- 
-  // ─────────────────────────────────────────────────────────────────────
-  // ── 12. SAVE ─────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────────────
+
   Swal.close();
   var filename = 'AdmissionLetter_' +
     String(_adm.application_ref || 'PCE').replace(/\//g, '-') + '.pdf';
   doc.save(filename);
 }
- 
-// ── Internal helper: draw a dotted line ──────────────────────────────────
+
+// ── Internal helper: draw a dotted line ───────────────────────
 function _drawDotLine(doc, x1, y, x2, lineY) {
-  var savedColor = doc.getDrawColor ? doc.getDrawColor() : '#000000';
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
-  // jsPDF dash pattern: setLineDash([dash, gap])
   if (doc.setLineDash) doc.setLineDash([0.5, 1.5], 0);
   doc.line(x1, lineY, x2, lineY);
-  if (doc.setLineDash) doc.setLineDash([], 0);  // reset to solid
+  if (doc.setLineDash) doc.setLineDash([], 0);
 }
-// ── PRINT BIODATA FORM ────────────────────────────────────────
+
+// ── PRINT BIODATA FORM ─────────────────────────────────────────────────────
 async function admPrintBiodata() {
   if (!_adm) return;
   Swal.fire({ title:'Generating Biodata Form...', html:'<div class="spinner-border text-primary"></div>', allowOutsideClick:false, showConfirmButton:false });
@@ -1424,226 +1342,308 @@ async function admPrintBiodata() {
   }
 
   var { jsPDF } = window.jspdf;
-  var doc    = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-  var pageW  = doc.internal.pageSize.getWidth();
-  var pageH  = doc.internal.pageSize.getHeight();
-  var mL = 12, mR = 12;
-  var usableW = pageW - mL - mR;
-  var y = 12;
+  var doc   = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  var pageW = doc.internal.pageSize.getWidth();   // 210mm
+  var pageH = doc.internal.pageSize.getHeight();  // 297mm
+  var mL    = 12, mR = 12;
+  var usableW = pageW - mL - mR;                  // 186mm
+  var y     = 12;
 
-  // ── HEADER ────────────────────────────────────────────────
+  // ── Column layout constants ───────────────────────────────────────────
+  // Two equal columns with a 4mm gutter between them
+  var colGap  = 4;
+  var colW    = (usableW - colGap) / 2;   // ~91mm each
+  var col2X   = mL + colW + colGap;        // x start of right column
+  var rH      = 7;                         // row height for data cells
+
+  // ── Page-break helper ─────────────────────────────────────────────────
+  // Adds a new page and resets y when remaining space is insufficient.
+  // Also draws the page footer on the completed page before turning.
+  function checkPageBreak(neededMm) {
+    if (y + neededMm > pageH - 18) {
+      // Footer on current page
+      _bioPDFFooter(doc, mL, mR, pageW, pageH, _adm.application_ref);
+      doc.addPage();
+      y = 16;
+    }
+  }
+
+  // ── WATERMARK ─────────────────────────────────────────────────────────
   if (logo) {
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.05 }));
-    doc.addImage(logo, 'PNG', (pageW-80)/2, 70, 80, 80);
+    doc.addImage(logo, 'PNG', (pageW - 80) / 2, 70, 80, 80);
     doc.restoreGraphicsState();
+  }
+
+  // ── HEADER ────────────────────────────────────────────────────────────
+  if (logo) {
     doc.addImage(logo, 'PNG', mL, y, 20, 20);
   }
-
   doc.setFont('times','bold'); doc.setFontSize(13); doc.setTextColor(10,36,99);
-  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', pageW/2, y+7, { align:'center' });
+  doc.text('PRESBYTERIAN COLLEGE OF EDUCATION, AKROPONG-AKUAPEM', pageW / 2, y + 7, { align:'center' });
   doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(80,80,80);
-  doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh', pageW/2, y+13, { align:'center' });
+  doc.text('P.O. Box 27, Akropong-Akuapem  |  Tel: +233 (0) 256 977 765  |  www.pce.edu.gh', pageW / 2, y + 13, { align:'center' });
 
   doc.setDrawColor(10,36,99); doc.setLineWidth(0.8);
-  doc.line(mL, y+17, pageW-mR, y+17);
+  doc.line(mL, y + 17, pageW - mR, y + 17);
   doc.setLineWidth(0.2);
-  doc.line(mL, y+19, pageW-mR, y+19);
+  doc.line(mL, y + 19, pageW - mR, y + 19);
   y += 24;
 
-  // ── FORM TITLE ────────────────────────────────────────────
+  // ── FORM TITLE BAR ────────────────────────────────────────────────────
   doc.setFillColor(10,36,99);
-  doc.rect(mL, y, usableW, 8, 'F');
-  doc.setFont('times','bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
-  doc.text('STUDENT BIODATA FORM', pageW/2, y+5.5, { align:'center' });
-  y += 12;
+  doc.rect(mL, y, usableW, 9, 'F');
+  doc.setFont('times','bold'); doc.setFontSize(12); doc.setTextColor(255,255,255);
+  doc.text('STUDENT BIODATA FORM', pageW / 2, y + 6, { align:'center' });
+  y += 13;
 
-  // ── PHOTO + BASIC INFO ────────────────────────────────────
+  // ── PHOTO + ADMISSION SUMMARY ─────────────────────────────────────────
   var photoW = 33, photoH = 40;
   var photoX = pageW - mR - photoW;
+  var infoW  = photoX - mL - 6;   // width available for the left info block
 
   // Photo box
-  doc.setDrawColor(10,36,99); doc.setLineWidth(0.4);
+  doc.setDrawColor(10,36,99); doc.setLineWidth(0.5);
   doc.rect(photoX, y, photoW, photoH);
   if (photoData) {
-    doc.addImage(photoData, 'JPEG', photoX+0.5, y+0.5, photoW-1, photoH-1);
+    doc.addImage(photoData, 'JPEG', photoX + 0.5, y + 0.5, photoW - 1, photoH - 1);
   } else {
     doc.setFillColor(240,245,255);
-    doc.rect(photoX+0.5, y+0.5, photoW-1, photoH-1, 'F');
+    doc.rect(photoX + 0.5, y + 0.5, photoW - 1, photoH - 1, 'F');
     doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
-    doc.text('Passport', photoX+photoW/2, y+18, { align:'center' });
-    doc.text('Photo', photoX+photoW/2, y+23, { align:'center' });
+    doc.text('Passport', photoX + photoW / 2, y + 18, { align:'center' });
+    doc.text('Photo',    photoX + photoW / 2, y + 23, { align:'center' });
   }
   doc.setFont('times','italic'); doc.setFontSize(7); doc.setTextColor(100,100,100);
-  doc.text('Passport Photo', photoX+photoW/2, y+photoH+4, { align:'center' });
+  doc.text('Passport Photo', photoX + photoW / 2, y + photoH + 4, { align:'center' });
 
-  // Basic info on left
-  var infoW = photoX - mL - 6;
-
+  // Left summary rows — label bold blue + value normal black, same 8.5pt font
+  // Width is measured BEFORE changing the font so values are always accurate.
   function topRow(label, value, rowY) {
     doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(10,36,99);
+    var lblW = doc.getTextWidth(label);   // measured at bold 8.5pt — correct
     doc.text(label, mL, rowY);
-    doc.setFont('times','normal'); doc.setTextColor(0,0,0);
-    var maxW = infoW - doc.getTextWidth(label) - 3;
-    var val  = String(value||'—').toUpperCase();
-    while (doc.getTextWidth(val) > maxW && val.length > 1) val = val.slice(0,-1);
-    if (val !== String(value||'—').toUpperCase()) val = val.slice(0,-1) + '…';
-    doc.text(val, mL + doc.getTextWidth(label) + 2, rowY);
-    doc.setDrawColor(210,220,235); doc.setLineWidth(0.15);
-    doc.line(mL, rowY+1.8, mL+infoW, rowY+1.8);
-  }
-
-  var rowH = 6.8;
-  topRow('Full Name:',       _adm.full_name||'',       y+6);
-  topRow('Application Ref:', _adm.application_ref||'', y+6+rowH);
-  topRow('Programme:',       _adm.programme||'',       y+6+rowH*2);
-  topRow('Specialization:',  _adm.specialization||'',  y+6+rowH*3);
-  topRow('Academic Year:',   _adm.academic_year||'',   y+6+rowH*4);
-
-  y += photoH + 8;
-
-  // ── SECTION HELPER ────────────────────────────────────────
-  function sectionHeader(title, yPos) {
-    doc.setFillColor(10,36,99);
-    doc.rect(mL, yPos, usableW, 6, 'F');
-    doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
-    doc.text(('  ' + title).toUpperCase(), mL+2, yPos+4.3);
-    doc.setTextColor(0,0,0);
-    return yPos + 8;
-  }
-
-  function dataCell(label, value, x, yPos, cellW) {
-    var lbl = String(label);
-    var val = String(value||'—');
-    doc.setFont('times','bold'); doc.setFontSize(8); doc.setTextColor(60,80,120);
-    doc.text(lbl, x+1, yPos);
     doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
-    var maxW = cellW - doc.getTextWidth(lbl) - 5;
-    while (doc.getTextWidth(val) > maxW && val.length > 1) val = val.slice(0,-1);
-    if (val !== String(value||'—')) val = val.slice(0,-1) + '…';
-    doc.text(val, x + doc.getTextWidth(lbl) + 3, yPos);
-    doc.setDrawColor(215,225,240); doc.setLineWidth(0.15);
-    doc.line(x, yPos+2, x+cellW, yPos+2);
+    var maxW = infoW - lblW - 3;
+    var val  = String(value || '—').toUpperCase();
+    while (doc.getTextWidth(val) > maxW && val.length > 1) val = val.slice(0, -1);
+    if (String(value || '—').toUpperCase().length > val.length) val = val.slice(0, -2) + '...';
+    doc.text(val, mL + lblW + 2, rowY);
+    doc.setDrawColor(210,220,235); doc.setLineWidth(0.15);
+    doc.line(mL, rowY + 2, mL + infoW, rowY + 2);
   }
 
-  var half = usableW / 2 - 2;
-  var rH   = 6.5;
+  var rowH  = 7;
+  topRow('Full Name:',       _adm.full_name      || '', y + 6);
+  topRow('Application Ref:', _adm.application_ref || '', y + 6 + rowH);
+  topRow('Programme:',       _adm.programme       || '', y + 6 + rowH * 2);
+  topRow('Specialization:',  _adm.specialization  || '', y + 6 + rowH * 3);
+  topRow('Academic Year:',   _adm.academic_year   || '', y + 6 + rowH * 4);
 
-  // ── PERSONAL INFORMATION ──────────────────────────────────
-  y = sectionHeader('Personal Information', y);
-  dataCell('Date of Birth:', _adm.date_of_birth ? new Date(_adm.date_of_birth).toLocaleDateString('en-GB') : '—', mL, y, half);
-  dataCell('Gender:', _adm.gender||'', mL+half+4, y, half); y+=rH;
-  dataCell('Nationality:', _adm.nationality||'Ghanaian', mL, y, half);
-  dataCell('Religion:', _adm.religion||'', mL+half+4, y, half); y+=rH;
-  dataCell('Hometown:', _adm.hometown||'', mL, y, half);
-  dataCell('Region:', _adm.region||'', mL+half+4, y, half); y+=rH;
-  dataCell('Marital Status:', _adm.marital_status||'', mL, y, half);
-  dataCell('Ghana Card No:', _adm.ghana_card_no||'', mL+half+4, y, half); y+=rH;
-  dataCell('Email Address:', _adm.email||'', mL, y, usableW); y+=rH;
-  dataCell('Phone:', _adm.phone||'', mL, y, half);
-  dataCell('Alt Phone:', _adm.phone_alt||'', mL+half+4, y, half); y+=rH;
-  dataCell('Residential Address:', _adm.residential_addr||'', mL, y, usableW); y+=rH;
-  dataCell('Postal Address:', _adm.postal_addr||'', mL, y, usableW); y+=rH+3;
+  y += photoH + 10;   // clear photo block + 10mm breathing room
 
-  // ── ACADEMIC BACKGROUND ───────────────────────────────────
-  y = sectionHeader('Academic Background', y);
-  dataCell('Previous School:', _adm.prev_school||'', mL, y, usableW); y+=rH;
-  dataCell('WASSCE Index Number:', _adm.wassce_index||'', mL, y, half);
-  dataCell('WASSCE Year:', _adm.wassce_year||'', mL+half+4, y, half); y+=rH;
-  dataCell('Best Six Aggregate:', String(_adm.wassce_aggregate||'—'), mL, y, usableW); y+=rH+3;
+  // ── Section header helper ─────────────────────────────────────────────
+  // Returns the y position of the first content row (header bottom + 3mm gap).
+  function sectionHeader(title) {
+    checkPageBreak(14);
+    doc.setFillColor(10,36,99);
+    doc.rect(mL, y, usableW, 7, 'F');
+    doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+    doc.text(title.toUpperCase(), mL + 3, y + 5);
+    doc.setTextColor(0,0,0);
+    y += 10;   // 7mm bar + 3mm gap before first row
+  }
 
-  // ── WASSCE RESULTS ────────────────────────────────────────
+  // ── Data cell helper ──────────────────────────────────────────────────
+  // FIX: label width is measured at bold 8.5pt (same size as value) so
+  // the value's x position is always accurate, and the underline aligns.
+  function dataCell(label, value, x, cellW) {
+    var lbl = String(label);
+    var val = String(value || '—');
+    // Label
+    doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(60,80,120);
+    var lblW = doc.getTextWidth(lbl);   // measured at bold 8.5pt — correct
+    doc.text(lbl, x + 1, y);
+    // Value
+    doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
+    var valX = x + lblW + 3;
+    var maxW = (x + cellW - 2) - valX;
+    while (doc.getTextWidth(val) > maxW && val.length > 1) val = val.slice(0, -1);
+    if (String(value || '—').length > val.length) val = val.slice(0, -2) + '...';
+    doc.text(val, valX, y);
+    // Underline at consistent depth below text baseline
+    doc.setDrawColor(215,225,240); doc.setLineWidth(0.2);
+    doc.line(x, y + 2.5, x + cellW, y + 2.5);
+  }
+
+  // Draws a two-cell row then advances y by rH
+  function dataRow(label1, value1, label2, value2) {
+    checkPageBreak(rH + 2);
+    dataCell(label1, value1, mL, colW);
+    dataCell(label2, value2, col2X, colW);
+    y += rH;
+  }
+
+  // Draws a full-width single-cell row then advances y by rH
+  function dataRowFull(label, value) {
+    checkPageBreak(rH + 2);
+    dataCell(label, value, mL, usableW);
+    y += rH;
+  }
+
+  // ── PERSONAL INFORMATION ──────────────────────────────────────────────
+  sectionHeader('Personal Information');
+  dataRow('Date of Birth:',  _adm.date_of_birth ? new Date(_adm.date_of_birth).toLocaleDateString('en-GB') : '—',
+          'Gender:',         _adm.gender || '');
+  dataRow('Nationality:',    _adm.nationality || 'Ghanaian',
+          'Religion:',       _adm.religion || '');
+  dataRow('Hometown:',       _adm.hometown || '',
+          'Region:',         _adm.region || '');
+  dataRow('Marital Status:', _adm.marital_status || '',
+          'Ghana Card No:',  _adm.ghana_card_no || '');
+  dataRowFull('Email Address:', _adm.email || '');
+  dataRow('Phone Number:',   _adm.phone || '',
+          'Alt. Phone:',     _adm.phone_alt || '');
+  dataRowFull('Residential Address:', _adm.residential_addr || '');
+  dataRowFull('Postal Address:',      _adm.postal_addr || '');
+  y += 4;   // section bottom gap
+
+  // ── ACADEMIC BACKGROUND ───────────────────────────────────────────────
+  sectionHeader('Academic Background');
+  dataRowFull('Previous School Attended:', _adm.prev_school || '');
+  dataRow('WASSCE Index Number:', _adm.wassce_index || '',
+          'WASSCE Year:',         String(_adm.wassce_year || ''));
+  dataRowFull('Best Six Aggregate:', String(_adm.wassce_aggregate || '—'));
+  y += 4;
+
+  // ── WASSCE SUBJECT RESULTS ────────────────────────────────────────────
   if (_adm.wassce_results && _adm.wassce_results.length) {
-    y = sectionHeader('WASSCE Subject Results', y);
-
-    // Table header
-    doc.setFillColor(230,238,255);
-    doc.rect(mL, y-1, usableW, 5.5, 'F');
-    doc.setFont('times','bold'); doc.setFontSize(8); doc.setTextColor(10,36,99);
-    var qW = usableW/4;
-    doc.text('Subject', mL+2, y+3);
-    doc.text('Grade', mL+qW-2, y+3, { align:'right' });
-    doc.text('Subject', mL+qW+2, y+3);
-    doc.text('Grade', mL+qW*2-2, y+3, { align:'right' });
-    doc.text('Subject', mL+qW*2+2, y+3);
-    doc.text('Grade', mL+qW*3-2, y+3, { align:'right' });
-    doc.text('Subject', mL+qW*3+2, y+3);
-    doc.text('Grade', mL+usableW-2, y+3, { align:'right' });
-    y += 6;
-
     var results = _adm.wassce_results;
-    // Display 2 per row (subject + grade pairs)
+    // Estimate rows needed: header(10) + tableHeader(7) + rows + gap
+    checkPageBreak(17 + Math.ceil(results.length / 2) * rH + 6);
+
+    sectionHeader('WASSCE Subject Results');
+
+    // ── Table column layout: two equal pairs ─────────────────────────
+    // Left pair:  subject from mL, grade right-aligned at mL+colW
+    // Right pair: subject from col2X, grade right-aligned at mL+usableW
+    // This matches the content loop exactly.
+    var tblHdrH = 6.5;
+    doc.setFillColor(225,234,255);
+    doc.rect(mL, y, usableW, tblHdrH, 'F');
+    doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(10,36,99);
+    // Left column headers
+    doc.text('Subject',         mL + 2,         y + 4.5);
+    doc.text('Grade',           mL + colW - 2,  y + 4.5, { align:'right' });
+    // Right column headers
+    doc.text('Subject',         col2X + 2,      y + 4.5);
+    doc.text('Grade',           mL + usableW,   y + 4.5, { align:'right' });
+    // Column divider in header
+    doc.setDrawColor(10,36,99); doc.setLineWidth(0.2);
+    doc.line(col2X - 2, y, col2X - 2, y + tblHdrH);
+    y += tblHdrH;
+
+    // Content rows — 2 subjects per row
     for (var i = 0; i < results.length; i += 2) {
-      var r1 = results[i], r2 = results[i+1];
-      doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
+      checkPageBreak(rH + 2);
+      var r1  = results[i];
+      var r2  = results[i + 1] || null;
+      var tY  = y + rH - 2;   // text baseline within row
 
-      // Left pair
-      doc.text(String(i+1)+'. '+r1.subject, mL+1, y+rH-2);
-      doc.setFont('times','bold'); doc.setTextColor(10,36,99);
-      doc.text(r1.grade, mL+qW*2-3, y+rH-2, { align:'right' });
-
-      // Right pair
-      if (r2) {
-        doc.setFont('times','normal'); doc.setTextColor(0,0,0);
-        doc.text(String(i+2)+'. '+r2.subject, mL+qW*2+1, y+rH-2);
-        doc.setFont('times','bold'); doc.setTextColor(10,36,99);
-        doc.text(r2.grade, mL+usableW-3, y+rH-2, { align:'right' });
+      // Alternate row shading
+      if ((i / 2) % 2 === 1) {
+        doc.setFillColor(247,250,255);
+        doc.rect(mL, y, usableW, rH, 'F');
       }
 
+      // Left subject + grade
+      doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
+      doc.text(String(i + 1) + '. ' + r1.subject, mL + 2, tY);
+      doc.setFont('times','bold'); doc.setTextColor(10,36,99);
+      doc.text(r1.grade, mL + colW - 2, tY, { align:'right' });
+
+      // Right subject + grade
+      if (r2) {
+        doc.setFont('times','normal'); doc.setTextColor(0,0,0);
+        doc.text(String(i + 2) + '. ' + r2.subject, col2X + 2, tY);
+        doc.setFont('times','bold'); doc.setTextColor(10,36,99);
+        doc.text(r2.grade, mL + usableW, tY, { align:'right' });
+      }
+
+      // Row divider
       doc.setDrawColor(215,225,240); doc.setLineWidth(0.15);
-      doc.line(mL, y+rH, mL+usableW, y+rH);
+      doc.line(mL, y + rH, mL + usableW, y + rH);
+      // Column divider
+      doc.line(col2X - 2, y, col2X - 2, y + rH);
+
       doc.setTextColor(0,0,0);
       y += rH;
     }
-    y += 4;
+    y += 5;   // gap after WASSCE table
   }
 
-  // ── NEXT OF KIN ───────────────────────────────────────────
-  y = sectionHeader('Next of Kin Information', y);
-  dataCell('Full Name:', _adm.nok_name||'', mL, y, half);
-  dataCell('Relationship:', _adm.nok_relation||'', mL+half+4, y, half); y+=rH;
-  dataCell('Phone Number:', _adm.nok_phone||'', mL, y, half);
-  dataCell('Address:', _adm.nok_address||'', mL+half+4, y, half); y+=rH+5;
+  // ── NEXT OF KIN ───────────────────────────────────────────────────────
+  sectionHeader('Next of Kin Information');
+  dataRow('Full Name:',    _adm.nok_name     || '',
+          'Relationship:', _adm.nok_relation  || '');
+  dataRow('Phone Number:', _adm.nok_phone    || '',
+          'Address:',      _adm.nok_address  || '');
+  y += 6;
 
-  // ── DECLARATION ───────────────────────────────────────────
-  var declaration = 'I hereby declare that the information provided in this form is true, accurate and complete to the best of my knowledge. I understand that any false information may lead to the withdrawal of my admission.';
-  doc.setFont('times','italic'); doc.setFontSize(8.5); doc.setTextColor(60,60,60);
+  // ── DECLARATION ───────────────────────────────────────────────────────
+  var declaration = 'I hereby declare that the information provided in this form is true, accurate and ' +
+                    'complete to the best of my knowledge. I understand that any false information may ' +
+                    'lead to the withdrawal of my admission.';
   var dLines = doc.splitTextToSize(declaration, usableW);
+  checkPageBreak(dLines.length * 5.5 + 10);
+  doc.setFont('times','italic'); doc.setFontSize(8.5); doc.setTextColor(60,60,60);
   doc.text(dLines, mL, y);
-  y += dLines.length * 5 + 8;
+  y += dLines.length * 5.5 + 10;
 
-  // ── SIGNATURE ROW ─────────────────────────────────────────
+  // ── SIGNATURE ROW ─────────────────────────────────────────────────────
+  checkPageBreak(30);
   doc.setDrawColor(0,0,0); doc.setLineWidth(0.3);
-  var sigLineW = 58;
-  doc.line(mL, y+14, mL+sigLineW, y+14);
-  doc.line(pageW-mR-sigLineW, y+14, pageW-mR, y+14);
+  var sigLineW = 62;
+  doc.line(mL,                  y + 14, mL + sigLineW,          y + 14);
+  doc.line(pageW - mR - sigLineW, y + 14, pageW - mR,            y + 14);
   doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
-  doc.text("STUDENT'S SIGNATURE & DATE", mL, y+19);
-  doc.text("OFFICIAL STAMP & DATE", pageW-mR-sigLineW, y+19);
-  y += 26;
+  doc.text("STUDENT'S SIGNATURE & DATE",    mL,                   y + 19);
+  doc.text("OFFICIAL STAMP & DATE",         pageW - mR - sigLineW, y + 19);
+  y += 28;
 
-  // ── OFFICIAL USE BOX ──────────────────────────────────────
+  // ── OFFICIAL USE BOX ──────────────────────────────────────────────────
+  checkPageBreak(24);
   doc.setDrawColor(10,36,99); doc.setLineWidth(0.4);
-  doc.rect(mL, y, usableW, 18);
+  doc.rect(mL, y, usableW, 20);
   doc.setFillColor(10,36,99);
-  doc.rect(mL, y, usableW, 6, 'F');
-  doc.setFont('times','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
-  doc.text('FOR OFFICIAL USE ONLY', mL+3, y+4.3);
+  doc.rect(mL, y, usableW, 7, 'F');
+  doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+  doc.text('FOR OFFICIAL USE ONLY', mL + 3, y + 5);
   doc.setFont('times','normal'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
-  doc.text('Received by: ________________________________', mL+3, y+11);
-  doc.text('Date: ________________   Signature: ___________________________', mL+3, y+16);
+  doc.text('Received by: _________________________________',                         mL + 3, y + 13);
+  doc.text('Date: ________________   Signature: ____________________________',       mL + 3, y + 19);
 
-  // ── FOOTER ────────────────────────────────────────────────
-  doc.setDrawColor(10,36,99); doc.setLineWidth(0.4);
-  doc.line(mL, pageH-12, pageW-mR, pageH-12);
-  doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(100,100,100);
-  doc.text('Presbyterian College of Education, Akropong-Akuapem  |  Generated: ' + new Date().toLocaleDateString('en-GB'), pageW/2, pageH-7, { align:'center' });
-  doc.text('Application Ref: ' + (_adm.application_ref||''), pageW/2, pageH-3, { align:'center' });
+  // ── FOOTER (last page) ────────────────────────────────────────────────
+  _bioPDFFooter(doc, mL, mR, pageW, pageH, _adm.application_ref);
 
   Swal.close();
-  doc.save('Biodata_' + (_adm.application_ref||'PCE').replace(/\//g,'-') + '.pdf');
+  doc.save('Biodata_' + (_adm.application_ref || 'PCE').replace(/\//g, '-') + '.pdf');
 }
-// ── Logo loader ───────────────────────────────────────────────
+
+// Shared footer renderer (used on every page)
+function _bioPDFFooter(doc, mL, mR, pageW, pageH, appRef) {
+  doc.setDrawColor(10,36,99); doc.setLineWidth(0.4);
+  doc.line(mL, pageH - 12, pageW - mR, pageH - 12);
+  doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(100,100,100);
+  doc.text(
+    'Presbyterian College of Education, Akropong-Akuapem  |  Generated: ' + new Date().toLocaleDateString('en-GB'),
+    pageW / 2, pageH - 7, { align:'center' }
+  );
+  doc.text('Application Ref: ' + (appRef || ''), pageW / 2, pageH - 3, { align:'center' });
+}
+
+// ── Logo loader ────────────────────────────────────────────────
 async function admLoadLogo() {
   try {
     var r = await fetch('https://images.weserv.nl/?url=pce.edu.gh/newimg/logo.png&n=-1');
@@ -1651,14 +1651,14 @@ async function admLoadLogo() {
     var b = await r.blob();
     return await new Promise(function(resolve){
       var rd = new FileReader();
-      rd.onload = function(){ resolve(rd.result); };
+      rd.onload  = function(){ resolve(rd.result); };
       rd.onerror = function(){ resolve(null); };
       rd.readAsDataURL(b);
     });
   } catch(e){ return null; }
 }
 
-  // ── Number to Words ───────────────────────────────────────────
+// ── Number to Words ────────────────────────────────────────────
 function numberToWords(amount) {
   var ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
   var tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
@@ -1684,7 +1684,7 @@ function numberToWords(amount) {
   return words;
 }
 
-// ── Format date as "6th January, 2023" ───────────────────────
+// ── Format date as "6th January, 2023" ────────────────────────
 function formatDateLong(dateStr) {
   var d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
