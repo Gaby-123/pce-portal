@@ -1187,14 +1187,15 @@ async function admDownloadLetter() {
   doc.setFont('times', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text('Date: ', rx - doc.getTextWidth(todayFormatted) - 2, ry);
-  doc.setFont('times', 'normal');
-  doc.text(todayFormatted, rx, ry, { align: 'right' });
-  // Underline the date
-  var dateLineY = ry + 0.8;
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.3);
-  doc.line(rx - doc.getTextWidth(todayFormatted), dateLineY, rx, dateLineY);
+  var _dateLabelW = doc.getTextWidth('Date: ');
+var _dateValW   = doc.getTextWidth(todayFormatted);
+doc.text('Date: ', rx - _dateValW - _dateLabelW, ry);
+doc.text(todayFormatted, rx, ry, { align: 'right' });
+// Underline only the date value
+var dateLineY = ry + 0.8;
+doc.setDrawColor(0, 0, 0);
+doc.setLineWidth(0.3);
+doc.line(rx - _dateValW, dateLineY, rx, dateLineY);
  
   // Advance y past the three-column header
   y = Math.max(ly, ry, logoY + logoSize) + 4;
