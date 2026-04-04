@@ -86,7 +86,7 @@
   let SUPABASE_URL = '';
 let SUPABASE_KEY = '';
 let db           = null;
-let _supabaseClient = null;
+
 
 async function loadConfig() {
   try {
@@ -97,8 +97,8 @@ async function loadConfig() {
     SUPABASE_KEY = conf.supabaseKey;
     // Create ONE client and reuse it for both db and _supabaseClient
     // This eliminates the "Multiple GoTrueClient instances" warning
-    db              = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    _supabaseClient = db;
+    db  = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
   } catch (e) {
     console.error('Config load failed:', e);
     document.body.innerHTML =
@@ -121,7 +121,7 @@ async function loadConfig() {
         method: opts.method || 'GET',
         headers: {
           'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json', 'Prefer': opts.prefer || '',
+          'Content-Type': 'application/json', ...(opts.prefer ? { 'Prefer': opts.prefer } : {}),
           ...(opts.headers || {})
         },
         body: opts.body ? JSON.stringify(opts.body) : undefined
@@ -244,13 +244,16 @@ async function loadConfig() {
       content.innerHTML = html;
 
       // innerHTML does NOT execute scripts — we must re-run them manually
-      content.querySelectorAll('script').forEach(old => {
+      // Remove any previously injected role scripts first
+document.querySelectorAll('script[data-role-script]').forEach(s => s.remove());
+
+content.querySelectorAll('script').forEach(old => {
         const s = document.createElement('script');
         Array.from(old.attributes).forEach(a => s.setAttribute(a.name, a.value));
         s.textContent = old.textContent;
         s.dataset.roleScript = 'true';
-document.body.appendChild(s);
-old.remove();
+        document.body.appendChild(s);
+        old.remove();
       });
 
       // Also move any <style> tags inside the fragment to <head>
@@ -279,9 +282,9 @@ old.remove();
     try { session = JSON.parse(raw); } catch(e) { showAccessDenied(); return; }
    if (!session.email || !session.role || !session.token) { showAccessDenied(); return; }
 
-// Verify token against database
 const tokenCheck = await sbFetch('sessions?session_token=eq.' + encodeURIComponent(session.token) + '&select=email,role&limit=1');
 if (!tokenCheck || tokenCheck.length === 0) { showAccessDenied(); return; }
+
 
     userSession.email = session.email;
     userSession.role  = session.role;
