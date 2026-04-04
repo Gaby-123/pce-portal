@@ -800,7 +800,9 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
     list.innerHTML = html;
 
     // Attach edit/delete via delegation
-    btn.addEventListener('click', async function() {
+    // Attach edit/delete via delegation
+    list.querySelectorAll('[data-edit-email]').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
         var email = this.getAttribute('data-edit-email');
         var role  = this.getAttribute('data-edit-role');
         var dept  = this.getAttribute('data-edit-dept');
@@ -821,6 +823,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
         document.getElementById('admUEmail').focus();
         window.scrollTo(0, 0);
       });
+    });
     list.querySelectorAll('[data-del-email]').forEach(function(btn) {
       btn.addEventListener('click', function() {
         admDeleteUser(this.getAttribute('data-del-email'));
