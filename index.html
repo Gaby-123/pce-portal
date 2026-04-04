@@ -284,7 +284,7 @@
 let SUPABASE_URL = '';
 let SUPABASE_KEY = '';
 let db           = null;
-let _sc          = null;
+
 
   
 async function loadConfig() {
@@ -296,7 +296,7 @@ async function loadConfig() {
     SUPABASE_KEY = conf.supabaseKey;
     // ONE client only
     db  = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    _sc = db;
+    
   } catch (e) {
     console.error('Config load failed:', e);
     document.body.innerHTML =
