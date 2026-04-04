@@ -164,6 +164,62 @@ async function loadConfig() {
   });
 }
 
+  function pceApplyPermissions(permissionsJson) {
+    var allowed;
+    try {
+      allowed = typeof permissionsJson === 'string'
+        ? JSON.parse(permissionsJson)
+        : permissionsJson;
+    } catch(e) {
+      // Malformed permissions — fail open (show everything)
+      console.warn('PCE: Could not parse permissions, showing all sections.');
+      return;
+    }
+
+    if (!Array.isArray(allowed) || allowed.length === 0) return;
+
+    var allowedSet = new Set(allowed);
+
+    // ── Registry sidebar ──────────────────────────────────────
+    var regMenu = document.getElementById('regSidebarMenu');
+    if (regMenu) {
+      regMenu.querySelectorAll('[data-section]').forEach(function(item) {
+        var sectionId = item.getAttribute('data-section');
+        if (!allowedSet.has(sectionId)) {
+          item.style.display = 'none';
+        }
+      });
+
+      // Auto-navigate to the first permitted section
+      var firstAllowed = allowed.find(function(id) {
+        return document.getElementById(id);
+      });
+      if (firstAllowed && typeof regShowSection === 'function') {
+        regShowSection(firstAllowed);
+      }
+    }
+
+    // ── Finance sidebar ───────────────────────────────────────
+    var finMenu = document.getElementById('finSidebarMenu');
+    if (finMenu) {
+      finMenu.querySelectorAll('[data-section]').forEach(function(item) {
+        var sectionId = item.getAttribute('data-section');
+        if (!allowedSet.has(sectionId)) {
+          item.style.display = 'none';
+        }
+      });
+
+      // Auto-navigate to the first permitted section
+      var firstFinAllowed = allowed.find(function(id) {
+        return document.getElementById(id);
+      });
+      if (firstFinAllowed && typeof finShowSection === 'function') {
+        finShowSection(firstFinAllowed);
+      }
+    }
+  }
+
+
   function showAccessDenied() {
     document.getElementById('loadingScreen').style.display = 'none';
     document.getElementById('accessDenied').style.display  = 'flex';
@@ -239,7 +295,14 @@ async function loadConfig() {
     }
 
     await loadRoleUI(session.role);
+    if (session.role !== 'ADMIN' && session.permissions) {
+      pceApplyPermissions(session.permissions);
+    }
+
   });
+
+
+  
 </script>
 </body>
 </html>
