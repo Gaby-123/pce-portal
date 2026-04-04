@@ -778,7 +778,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
       html += '<div class="adm-user-row">'
             +   '<div>'
             +     '<div class="adm-user-email">' + u.email + '</div>'
-            +     +     '<div class="adm-user-meta">'
+            +     '<div class="adm-user-meta">'
             +       (u.department ? '<i class="bi bi-building me-1"></i>' + u.department + ' &nbsp;' : '')
             +       (isFirst ? '<span style="color:#fbbf24;"><i class="bi bi-exclamation-circle me-1"></i>First login pending</span>' : '')
             +       (hasLimitedPerms ? ' &nbsp;<span style="color:#818cf8;font-size:0.7rem;"><i class="bi bi-shield-lock me-1"></i>Limited access</span>' : '')
