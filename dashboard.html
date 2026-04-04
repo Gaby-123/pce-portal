@@ -145,7 +145,7 @@ async function loadConfig() {
         try {
           const session = JSON.parse(raw);
           if (session.token) {
-            await fetch(SUPABASE_URL + '/rest/v1/sessions?session_token=eq.' + encodeURIComponent(session.token), {
+            await fetch(SUPABASE_URL + '/rest/v1/sessions?token=eq.' + encodeURIComponent(session.token), {
               method: 'DELETE',
               headers: {
                 'apikey': SUPABASE_KEY,
@@ -282,7 +282,7 @@ content.querySelectorAll('script').forEach(old => {
     try { session = JSON.parse(raw); } catch(e) { showAccessDenied(); return; }
    if (!session.email || !session.role || !session.token) { showAccessDenied(); return; }
 
-const tokenCheck = await sbFetch('sessions?session_token=eq.' + encodeURIComponent(session.token) + '&select=email,role&limit=1');
+const tokenCheck = await sbFetch('sessions?token=eq.' + encodeURIComponent(session.token) + '&select=email,role&limit=1');
 if (!tokenCheck || tokenCheck.length === 0) { showAccessDenied(); return; }
 
 
