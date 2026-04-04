@@ -486,7 +486,7 @@ async function loadConfig() {
       email:        user.email,
       role:         String(user.role).toUpperCase(),
       isFirstLogin: user.is_first_login === true || String(user.is_first_login).toUpperCase() === 'TRUE',
-      token:        sessionToken
+      token:        sessionToken,
       permissions:  user.permissions || null
     };
     sessionStorage.setItem('pce_session', JSON.stringify(session));
