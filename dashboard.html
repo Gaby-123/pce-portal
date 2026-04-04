@@ -248,8 +248,9 @@ async function loadConfig() {
         const s = document.createElement('script');
         Array.from(old.attributes).forEach(a => s.setAttribute(a.name, a.value));
         s.textContent = old.textContent;
-        document.body.appendChild(s);
-        old.remove();
+        s.dataset.roleScript = 'true';
+document.body.appendChild(s);
+old.remove();
       });
 
       // Also move any <style> tags inside the fragment to <head>
@@ -276,7 +277,11 @@ async function loadConfig() {
   if (!raw) { showAccessDenied(); return; }
     let session;
     try { session = JSON.parse(raw); } catch(e) { showAccessDenied(); return; }
-    if (!session.email || !session.role) { showAccessDenied(); return; }
+   if (!session.email || !session.role || !session.token) { showAccessDenied(); return; }
+
+// Verify token against database
+const tokenCheck = await sbFetch('sessions?session_token=eq.' + encodeURIComponent(session.token) + '&select=email,role&limit=1');
+if (!tokenCheck || tokenCheck.length === 0) { showAccessDenied(); return; }
 
     userSession.email = session.email;
     userSession.role  = session.role;
@@ -295,10 +300,11 @@ async function loadConfig() {
     }
 
     await loadRoleUI(session.role);
-    if (session.role !== 'ADMIN' && session.permissions) {
-      pceApplyPermissions(session.permissions);
-    }
-
+if (session.role !== 'ADMIN' && session.permissions) {
+  setTimeout(function() {
+    pceApplyPermissions(session.permissions);
+  }, 300);
+}
   });
 
 
