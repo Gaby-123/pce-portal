@@ -360,11 +360,21 @@
                      style="font-size:0.78rem;color:#94a3b8;">Reset Password</label>
             </div>
           </div>
+
+          <!-- ── PERMISSIONS ROW (full width, shown only for REGISTRY/FINANCE) ── -->
+          <div class="col-12" id="admPermissionsRow" style="display:none;">
+            <label class="adm-label">Portal Permissions <span style="color:#64748b;font-weight:400;text-transform:none;letter-spacing:0;">(select all that apply — user sees only these sections)</span></label>
+            <div id="admPermissionsBox" style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;margin-top:4px;">
+              <!-- Populated dynamically based on selected role -->
+            </div>
+          </div>
+
           <div class="col-md-1 d-flex align-items-end">
             <button class="adm-btn primary w-100" id="admSaveUserBtn" style="padding:10px;">
               Save
             </button>
           </div>
+
         </div>
         <div class="adm-status" id="admUserSaveStatus"></div>
       </div>
@@ -745,7 +755,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
     var list = document.getElementById('admUserList');
     list.innerHTML = '<div class="text-center py-4" style="color:#475569;"><div class="spinner-border spinner-border-sm me-2 text-secondary"></div>Loading users…</div>';
     try {
-      admAllUsers = await admFetch('users?select=email,role,is_first_login,department&order=email');
+      admAllUsers = await admFetch('users?select=email,role,is_first_login,department,permissions&order=email');
       admRenderUsers(admAllUsers);
     } catch(e) {
       list.innerHTML = '<div style="color:#f87171;font-size:0.85rem;padding:12px;">Failed to load: ' + e.message + '</div>';
@@ -764,18 +774,20 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
     users.forEach(function(u) {
       var roleCls = 'role-' + (u.role || 'STUDENT');
       var isFirst = u.is_first_login === true || String(u.is_first_login).toUpperCase() === 'TRUE';
+      var hasLimitedPerms = u.permissions && u.permissions !== 'null';
       html += '<div class="adm-user-row">'
             +   '<div>'
             +     '<div class="adm-user-email">' + u.email + '</div>'
-            +     '<div class="adm-user-meta">'
+            +     +     '<div class="adm-user-meta">'
             +       (u.department ? '<i class="bi bi-building me-1"></i>' + u.department + ' &nbsp;' : '')
             +       (isFirst ? '<span style="color:#fbbf24;"><i class="bi bi-exclamation-circle me-1"></i>First login pending</span>' : '')
+            +       (hasLimitedPerms ? ' &nbsp;<span style="color:#818cf8;font-size:0.7rem;"><i class="bi bi-shield-lock me-1"></i>Limited access</span>' : '')
             +     '</div>'
             +   '</div>'
             +   '<div class="d-flex align-items-center gap-2">'
             +     '<span class="adm-role-badge ' + roleCls + '">' + (u.role || '—') + '</span>'
             +     '<button class="adm-btn ghost" style="padding:4px 10px;font-size:0.72rem;"'
-            +             ' data-edit-email="' + u.email + '" data-edit-role="' + u.role + '" data-edit-dept="' + (u.department||'') + '">'
+            +             ' data-edit-email="' + u.email + '" data-edit-role="' + (u.role||'') + '" data-edit-dept="' + (u.department||'') + '">'
             +       '<i class="bi bi-pencil"></i>'
             +     '</button>'
             +     '<button class="adm-btn danger" style="padding:4px 10px;font-size:0.72rem;"'
@@ -788,16 +800,27 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
     list.innerHTML = html;
 
     // Attach edit/delete via delegation
-    list.querySelectorAll('[data-edit-email]').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        document.getElementById('admUEmail').value = this.getAttribute('data-edit-email');
-        document.getElementById('admURole').value  = this.getAttribute('data-edit-role');
-        document.getElementById('admUDept').value  = this.getAttribute('data-edit-dept');
+    btn.addEventListener('click', async function() {
+        var email = this.getAttribute('data-edit-email');
+        var role  = this.getAttribute('data-edit-role');
+        var dept  = this.getAttribute('data-edit-dept');
+
+        document.getElementById('admUEmail').value = email;
+        document.getElementById('admURole').value  = role;
+        document.getElementById('admUDept').value  = dept;
+
+        // Load existing permissions for this user
+        try {
+          var userRows = await admFetch('users?email=eq.' + encodeURIComponent(email) + '&select=permissions&limit=1');
+          var perms    = userRows && userRows.length ? userRows[0].permissions : null;
+          admLoadPermissionsIntoBox(role, perms);
+        } catch(e) {
+          admRenderPermissionsBox(role);
+        }
+
         document.getElementById('admUEmail').focus();
-        // Switch to users tab (already there)
         window.scrollTo(0, 0);
       });
-    });
     list.querySelectorAll('[data-del-email]').forEach(function(btn) {
       btn.addEventListener('click', function() {
         admDeleteUser(this.getAttribute('data-del-email'));
@@ -834,7 +857,14 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
       var existing = await admFetch('users?email=eq.' + encodeURIComponent(email) + '&select=email&limit=1');
       var found    = existing && existing.length > 0;
 
-      var payload = { email, role, department: dept };
+      var permissions = admGetSelectedPermissions();
+      var payload = {
+        email:       email,
+        role:        role,
+        department:  dept,
+        permissions: permissions    // null means full access (no restrictions)
+      };
+
       if (reset || !found) {
         // SHA-256 of default password 'PCE@1848'
         var buf    = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('PCE@1848'));
@@ -956,6 +986,155 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
   function admHideStatus(el) {
     el.style.display = 'none';
   }
+
+  // ── PERMISSION DEFINITIONS ────────────────────────────────────
+  var PCE_REGISTRY_SECTIONS = [
+    { id: 'reg-dashboard',      label: 'Dashboard',          icon: 'bi-speedometer2' },
+    { id: 'reg-bulk-upload',    label: 'Bulk Upload',         icon: 'bi-cloud-upload' },
+    { id: 'reg-manual-entry',   label: 'Manual Entry',        icon: 'bi-person-plus' },
+    { id: 'reg-student-search', label: 'Search Students',     icon: 'bi-search' },
+    { id: 'reg-reports',        label: 'Reports & Export',    icon: 'bi-file-earmark-bar-graph' },
+    { id: 'reg-admissions',     label: 'Admissions',          icon: 'bi-mortarboard' },
+    { id: 'reg-maintenance',    label: 'System Maintenance',  icon: 'bi-gear' }
+  ];
+
+  var PCE_FINANCE_SECTIONS = [
+    { id: 'year-setup',         label: 'Academic Year Setup', icon: 'bi-calendar-check' },
+    { id: 'fee-setup',          label: 'Fee Structure Setup', icon: 'bi-calculator' },
+    { id: 'clearance',          label: 'Clearance Management',icon: 'bi-check-circle' },
+    { id: 'payment-tracking',   label: 'Payment Tracking',    icon: 'bi-receipt' },
+    { id: 'student-lookup',     label: 'Student Lookup',      icon: 'bi-search' },
+    { id: 'debt-upload',        label: 'Pre-System Debt',     icon: 'bi-exclamation-triangle' },
+    { id: 'payment-approvals',  label: 'Payment Approvals',   icon: 'bi-patch-check' },
+    { id: 'admission-payments', label: 'Admission Payments',  icon: 'bi-mortarboard' },
+    { id: 'admission-fees',     label: 'Admission Fees',      icon: 'bi-cash-coin' },
+    { id: 'reports',            label: 'Reports & Export',    icon: 'bi-file-earmark-bar-graph' }
+  ];
+
+  // ── PERMISSION TEMPLATES ──────────────────────────────────────
+  var PCE_TEMPLATES = {
+    REGISTRY: [
+      { name: 'Full Registry',         ids: ['reg-dashboard','reg-bulk-upload','reg-manual-entry','reg-student-search','reg-reports','reg-admissions','reg-maintenance'] },
+      { name: 'Admissions Officer',    ids: ['reg-dashboard','reg-admissions'] },
+      { name: 'Data Entry Officer',    ids: ['reg-dashboard','reg-bulk-upload','reg-manual-entry','reg-student-search'] },
+      { name: 'Reports Only',          ids: ['reg-dashboard','reg-reports'] },
+      { name: 'Maintenance Officer',   ids: ['reg-dashboard','reg-maintenance'] }
+    ],
+    FINANCE: [
+      { name: 'Full Finance',          ids: ['year-setup','fee-setup','clearance','payment-tracking','student-lookup','debt-upload','payment-approvals','admission-payments','admission-fees','reports'] },
+      { name: 'Payment Officer',       ids: ['payment-approvals','admission-payments'] },
+      { name: 'Fee Manager',           ids: ['year-setup','fee-setup','admission-fees'] },
+      { name: 'Finance Lookup',        ids: ['student-lookup','clearance','reports'] },
+      { name: 'Accounts Officer',      ids: ['payment-tracking','payment-approvals','reports'] }
+    ]
+  };
+
+  // ── Show/hide permissions box based on selected role ──────────
+  document.getElementById('admURole').addEventListener('change', function() {
+    admRenderPermissionsBox(this.value);
+  });
+
+  function admRenderPermissionsBox(role) {
+    var row  = document.getElementById('admPermissionsRow');
+    var box  = document.getElementById('admPermissionsBox');
+    var role = String(role).toUpperCase();
+
+    if (role !== 'REGISTRY' && role !== 'FINANCE') {
+      row.style.display = 'none';
+      box.innerHTML     = '';
+      return;
+    }
+
+    row.style.display = 'block';
+
+    var sections  = role === 'REGISTRY' ? PCE_REGISTRY_SECTIONS : PCE_FINANCE_SECTIONS;
+    var templates = PCE_TEMPLATES[role] || [];
+
+    // Template quick-select buttons
+    var templateHtml = '<div style="margin-bottom:10px;">'
+      + '<span style="font-size:0.72rem;color:#64748b;display:block;margin-bottom:6px;">Quick Templates:</span>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+
+    templates.forEach(function(tpl) {
+      templateHtml += '<button type="button" class="adm-btn ghost pce-tpl-btn" '
+        + 'style="padding:4px 10px;font-size:0.72rem;" '
+        + 'data-tpl-ids="' + tpl.ids.join(',') + '">'
+        + tpl.name
+        + '</button>';
+    });
+
+    // "All" and "None" helpers
+    templateHtml += '<button type="button" id="admPermSelectAll" '
+      + 'class="adm-btn ghost" style="padding:4px 10px;font-size:0.72rem;">'
+      + 'All</button>';
+    templateHtml += '<button type="button" id="admPermSelectNone" '
+      + 'class="adm-btn ghost" style="padding:4px 10px;font-size:0.72rem;">'
+      + 'None</button>';
+
+    templateHtml += '</div></div>';
+
+    // Checkboxes for each section
+    var checkHtml = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">';
+    sections.forEach(function(sec) {
+      checkHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;'
+        + 'padding:7px 10px;background:#1e293b;border-radius:6px;border:1px solid #334155;">'
+        + '<input type="checkbox" class="pce-perm-cb" value="' + sec.id + '" '
+        + 'style="accent-color:#3b82f6;width:14px;height:14px;cursor:pointer;">'
+        + '<span style="font-size:0.8rem;color:#cbd5e1;">'
+        + '<i class="bi ' + sec.icon + ' me-1" style="color:#64748b;"></i>'
+        + sec.label
+        + '</span>'
+        + '</label>';
+    });
+    checkHtml += '</div>';
+
+    box.innerHTML = templateHtml + checkHtml;
+
+    // Wire template buttons
+    box.querySelectorAll('.pce-tpl-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var ids = this.getAttribute('data-tpl-ids').split(',');
+        box.querySelectorAll('.pce-perm-cb').forEach(function(cb) {
+          cb.checked = ids.includes(cb.value);
+        });
+        // Highlight active template button
+        box.querySelectorAll('.pce-tpl-btn').forEach(function(b) {
+          b.style.borderColor = '';
+          b.style.color = '';
+        });
+        btn.style.borderColor = '#3b82f6';
+        btn.style.color       = '#93c5fd';
+      });
+    });
+
+    document.getElementById('admPermSelectAll').addEventListener('click', function() {
+      box.querySelectorAll('.pce-perm-cb').forEach(function(cb) { cb.checked = true; });
+    });
+    document.getElementById('admPermSelectNone').addEventListener('click', function() {
+      box.querySelectorAll('.pce-perm-cb').forEach(function(cb) { cb.checked = false; });
+    });
+  }
+
+  // ── Helper: read checked permissions from the box ─────────────
+  function admGetSelectedPermissions() {
+    var checked = [];
+    document.querySelectorAll('.pce-perm-cb:checked').forEach(function(cb) {
+      checked.push(cb.value);
+    });
+    return checked.length ? JSON.stringify(checked) : null;
+  }
+
+  // ── Helper: load permissions into the box when editing a user ─
+  function admLoadPermissionsIntoBox(role, permissionsJson) {
+    admRenderPermissionsBox(role);
+    if (!permissionsJson) return;
+    var ids;
+    try { ids = JSON.parse(permissionsJson); } catch(e) { return; }
+    document.querySelectorAll('.pce-perm-cb').forEach(function(cb) {
+      cb.checked = ids.includes(cb.value);
+    });
+  }
+
 
 })();
 </script>
