@@ -293,9 +293,15 @@ if (tokenCheck[0].expires_at && new Date(tokenCheck[0].expires_at) < new Date())
     userSession.role  = session.role;
     document.getElementById('userRoleDisplay').innerText = session.role;
 
-    try {
-      const rows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(session.email) + '&select=name&limit=1');
-      const name = (rows && rows.length > 0 && rows[0].name) ? rows[0].name : session.email.split('@')[0];
+   try {
+      let name = session.email.split('@')[0];
+      if (session.role === 'STUDENT') {
+        const rows = await sbFetch('student_bio?email=eq.' + encodeURIComponent(session.email) + '&select=name&limit=1');
+        if (rows && rows.length > 0 && rows[0].name) name = rows[0].name;
+      } else {
+        const rows = await sbFetch('users?email=eq.' + encodeURIComponent(session.email) + '&select=name&limit=1');
+        if (rows && rows.length > 0 && rows[0].name) name = rows[0].name;
+      }
       userSession.name = name;
       document.getElementById('userNameDisplay').innerText = name;
       document.getElementById('userInitials').innerText    = name.charAt(0).toUpperCase();
