@@ -282,8 +282,11 @@ content.querySelectorAll('script').forEach(old => {
     try { session = JSON.parse(raw); } catch(e) { showAccessDenied(); return; }
    if (!session.email || !session.role || !session.token) { showAccessDenied(); return; }
 
-const tokenCheck = await sbFetch('sessions?token=eq.' + encodeURIComponent(session.token) + '&select=email,role&limit=1');
+const tokenCheck = await sbFetch('sessions?token=eq.' + encodeURIComponent(session.token) + '&select=email,role,expires_at&limit=1');
 if (!tokenCheck || tokenCheck.length === 0) { showAccessDenied(); return; }
+if (tokenCheck[0].expires_at && new Date(tokenCheck[0].expires_at) < new Date()) {
+  showAccessDenied(); return;
+}
 
 
     userSession.email = session.email;
