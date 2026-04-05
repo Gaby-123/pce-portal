@@ -670,7 +670,7 @@ function admLoadPaymentScreen() {
   } else if (s === 'PAYMENT_VERIFIED') {
     document.getElementById('pay-verified-view').style.display = 'block';
     document.getElementById('pay-upload-view').style.display   = 'none';
-  } else if (s === 'PAYMENT_PENDING' && _adm.payment_rejection_reason) {
+  } else if (s === 'ADMITTED' && _adm.payment_rejection_reason) {
     document.getElementById('pay-rejected-view').style.display = 'block';
     document.getElementById('payRejectionReason').innerText = _adm.payment_rejection_reason;
   }
