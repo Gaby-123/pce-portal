@@ -348,10 +348,14 @@
               <option value="ADMIN">ADMIN</option>
             </select>
           </div>
-          <div class="col-md-3">
-            <label class="adm-label">Department (HOD only)</label>
-            <input type="text" id="admUDept" class="adm-input" placeholder="e.g. Science">
-          </div>
+          <div class="col-md-2">
+  <label class="adm-label">Full Name</label>
+  <input type="text" id="admUName" class="adm-input" placeholder="e.g. Mrs. Asante">
+</div>
+<div class="col-md-2">
+  <label class="adm-label">Department (HOD only)</label>
+  <input type="text" id="admUDept" class="adm-input" placeholder="e.g. Science">
+</div>
           <div class="col-md-2 d-flex align-items-end">
             <div class="form-check" style="margin-bottom:2px;">
               <input class="form-check-input" type="checkbox" id="admUReset"
@@ -755,7 +759,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
     var list = document.getElementById('admUserList');
     list.innerHTML = '<div class="text-center py-4" style="color:#475569;"><div class="spinner-border spinner-border-sm me-2 text-secondary"></div>Loading users…</div>';
     try {
-      admAllUsers = await admFetch('users?select=email,role,is_first_login,department,permissions&order=email');
+      admAllUsers = await admFetch('users?select=email,name,role,is_first_login,department,permissions&order=email');
       admRenderUsers(admAllUsers);
     } catch(e) {
       list.innerHTML = '<div style="color:#f87171;font-size:0.85rem;padding:12px;">Failed to load: ' + e.message + '</div>';
@@ -787,7 +791,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
             +   '<div class="d-flex align-items-center gap-2">'
             +     '<span class="adm-role-badge ' + roleCls + '">' + (u.role || '—') + '</span>'
             +     '<button class="adm-btn ghost" style="padding:4px 10px;font-size:0.72rem;"'
-            +             ' data-edit-email="' + u.email + '" data-edit-role="' + (u.role||'') + '" data-edit-dept="' + (u.department||'') + '">'
+            +             ' data-edit-email="' + u.email + '" data-edit-role="' + (u.role||'') + '" data-edit-dept="' + (u.department||'') + '" data-edit-name="' + (u.name||'') + '">'
             +       '<i class="bi bi-pencil"></i>'
             +     '</button>'
             +     '<button class="adm-btn danger" style="padding:4px 10px;font-size:0.72rem;"'
@@ -810,6 +814,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
         document.getElementById('admUEmail').value = email;
         document.getElementById('admURole').value  = role;
         document.getElementById('admUDept').value  = dept;
+        document.getElementById('admUName').value  = this.getAttribute('data-edit-name') || '';
 
         // Load existing permissions for this user
         try {
@@ -861,12 +866,13 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
       var found    = existing && existing.length > 0;
 
       var permissions = admGetSelectedPermissions();
-      var payload = {
-        email:       email,
-        role:        role,
-        department:  dept,
-        permissions: permissions    // null means full access (no restrictions)
-      };
+     var payload = {
+  email:       email,
+  name:        document.getElementById('admUName').value.trim(),
+  role:        role,
+  department:  dept,
+  permissions: permissions
+};
 
       if (reset || !found) {
         // SHA-256 of default password 'PCE@1848'
@@ -883,6 +889,7 @@ document.getElementById('admLockBtn').addEventListener('click', admLock);
 
       admShowStatus(status, 'success', '✅ ' + (found ? 'Updated' : 'Created') + ': ' + email);
       document.getElementById('admUEmail').value = '';
+      document.getElementById('admUName').value  = '';
       document.getElementById('admUDept').value  = '';
       document.getElementById('admUReset').checked = false;
       admLoadUsers();
